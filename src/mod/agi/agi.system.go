@@ -20,6 +20,9 @@ import (
 // It generates a UUIDv4 execution ID, sets it as EXECUTION_ID on the VM, and
 // returns it so callers can include it in external log messages.
 func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptScope string) string {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.injectStandardLibs: scriptFile=%.120q scriptScope=%.120q", scriptFile, scriptScope)
+	}
 	//Define system core modules and definations
 	sysdb := g.Option.UserHandler.GetDatabase()
 

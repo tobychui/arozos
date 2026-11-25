@@ -1,5 +1,7 @@
 package cnn
 
+import "imuslab.com/arozos/mod/info/logger"
+
 // ClassificationItem is one ranked label in a classification response.
 type ClassificationItem struct {
 	Label string  `json:"label"`
@@ -12,6 +14,9 @@ type ClassificationResult = envelope[ClassificationItem]
 
 // Classify runs image classification (e.g. mobilenet-v2, yolo11n-cls).
 func (c *Client) Classify(image []byte, mimeType string, opt RequestOptions) (*ClassificationResult, *Job, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("aiservers/cnn", "Client.Classify: len(image)=%d", len(image))
+	}
 	return doImageCall[ClassificationItem](c, "/v1/images/classifications", newImageRequest(image, mimeType, opt))
 }
 
@@ -28,6 +33,9 @@ type DetectionResult = envelope[DetectionItem]
 
 // Detect runs object detection (e.g. yolo11n, nanodet-plus-m).
 func (c *Client) Detect(image []byte, mimeType string, opt RequestOptions) (*DetectionResult, *Job, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("aiservers/cnn", "Client.Detect: len(image)=%d", len(image))
+	}
 	return doImageCall[DetectionItem](c, "/v1/images/detections", newImageRequest(image, mimeType, opt))
 }
 
@@ -54,6 +62,9 @@ type SegmentationResult = envelope[SegmentationItem]
 
 // Segment runs instance segmentation (yolo11n-seg).
 func (c *Client) Segment(image []byte, mimeType string, opt RequestOptions) (*SegmentationResult, *Job, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("aiservers/cnn", "Client.Segment: len(image)=%d", len(image))
+	}
 	return doImageCall[SegmentationItem](c, "/v1/images/segmentations", newImageRequest(image, mimeType, opt))
 }
 
@@ -76,6 +87,9 @@ type PoseResult = envelope[PoseItem]
 
 // Pose runs pose estimation (yolo11n-pose).
 func (c *Client) Pose(image []byte, mimeType string, opt RequestOptions) (*PoseResult, *Job, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("aiservers/cnn", "Client.Pose: len(image)=%d", len(image))
+	}
 	return doImageCall[PoseItem](c, "/v1/images/poses", newImageRequest(image, mimeType, opt))
 }
 
@@ -94,5 +108,8 @@ type OrientedResult = envelope[OrientedItem]
 // Oriented runs oriented (rotated box) detection (yolo11n-obb). Intended for
 // aerial/top-down imagery.
 func (c *Client) Oriented(image []byte, mimeType string, opt RequestOptions) (*OrientedResult, *Job, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("aiservers/cnn", "Client.Oriented: len(image)=%d", len(image))
+	}
 	return doImageCall[OrientedItem](c, "/v1/images/oriented", newImageRequest(image, mimeType, opt))
 }

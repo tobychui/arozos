@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -32,6 +33,7 @@ import (
 */
 
 func AIModelSettingInit() {
+	logger.Debug("Core", "AIModelSettingInit")
 	//Register the settings tab in the "AI Integration" group.
 	registerSetting(settingModule{
 		Name:         "AI Model",

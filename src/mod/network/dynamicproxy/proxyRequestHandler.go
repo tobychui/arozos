@@ -9,6 +9,7 @@ import (
 )
 
 func (router *Router) getTargetProxyEndpointFromRequestURI(requestURI string) *ProxyEndpoint {
+	logger.Debug("network/dynamicproxy", "Router.getTargetProxyEndpointFromRequestURI")
 	var targetProxyEndpoint *ProxyEndpoint = nil
 	router.ProxyEndpoints.Range(func(key, value interface{}) bool {
 		rootname := key.(string)
@@ -23,6 +24,9 @@ func (router *Router) getTargetProxyEndpointFromRequestURI(requestURI string) *P
 }
 
 func (router *Router) getSubdomainProxyEndpointFromHostname(hostname string) *SubdomainEndpoint {
+	if logger.IsDebug() {
+		logger.Debugf("network/dynamicproxy", "Router.getSubdomainProxyEndpointFromHostname: hostname=%.120q", hostname)
+	}
 	var targetSubdomainEndpoint *SubdomainEndpoint = nil
 	ep, ok := router.SubdomainEndpoint.Load(hostname)
 	if ok {
@@ -33,6 +37,7 @@ func (router *Router) getSubdomainProxyEndpointFromHostname(hostname string) *Su
 }
 
 func (router *Router) rewriteURL(rooturl string, requestURL string) string {
+	logger.Debug("network/dynamicproxy", "Router.rewriteURL")
 	if len(requestURL) > len(rooturl) {
 		return requestURL[len(rooturl):]
 	}
@@ -40,6 +45,9 @@ func (router *Router) rewriteURL(rooturl string, requestURL string) string {
 }
 
 func (h *ProxyHandler) subdomainRequest(w http.ResponseWriter, r *http.Request, target *SubdomainEndpoint) {
+	if logger.IsDebug() {
+		logger.Debugf("network/dynamicproxy", "ProxyHandler.subdomainRequest: r=%s", logger.RequestSummary(r))
+	}
 	r.Header.Set("X-Forwarded-Host", r.Host)
 	requestURL := r.URL.String()
 	if r.Header["Upgrade"] != nil && r.Header["Upgrade"][0] == "websocket" {
@@ -72,6 +80,9 @@ func (h *ProxyHandler) subdomainRequest(w http.ResponseWriter, r *http.Request, 
 }
 
 func (h *ProxyHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *ProxyEndpoint) {
+	if logger.IsDebug() {
+		logger.Debugf("network/dynamicproxy", "ProxyHandler.proxyRequest: r=%s", logger.RequestSummary(r))
+	}
 	rewriteURL := h.Parent.rewriteURL(target.Root, r.RequestURI)
 	r.URL, _ = url.Parse(rewriteURL)
 	r.Header.Set("X-Forwarded-Host", r.Host)

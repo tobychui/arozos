@@ -73,6 +73,9 @@ type outbox struct {
 }
 
 func newOutbox(manager *Manager, spoolDir string) *outbox {
+	if logger.IsDebug() {
+		logger.Debugf("email", "newOutbox: spoolDir=%.120q", spoolDir)
+	}
 	box := &outbox{manager: manager, spoolDir: spoolDir}
 	//Items interrupted mid-delivery by a restart are retried
 	items, err := box.all()
@@ -88,14 +91,19 @@ func newOutbox(manager *Manager, spoolDir string) *outbox {
 }
 
 func (o *outbox) spoolPath(id string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("email", "outbox.spoolPath: id=%.120q", id)
+	}
 	return filepath.Join(o.spoolDir, id+".eml")
 }
 
 func (o *outbox) save(item *OutboxItem) error {
+	logger.DebugTrace("email", "outbox.save")
 	return o.manager.store.db.Write(tableOutbox, ownerKey(item.Owner, item.ID), item)
 }
 
 func (o *outbox) all() ([]*OutboxItem, error) {
+	logger.Debug("email", "outbox.all")
 	entries, err := o.manager.store.db.ListTable(tableOutbox)
 	if err != nil {
 		return nil, err
@@ -115,6 +123,9 @@ func (o *outbox) all() ([]*OutboxItem, error) {
 }
 
 func (o *outbox) get(owner string, id string) (*OutboxItem, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "outbox.get: owner=%.120q id=%.120q", owner, id)
+	}
 	key := ownerKey(owner, id)
 	if !o.manager.store.db.KeyExists(tableOutbox, key) {
 		return nil, errors.New("this message is no longer in the outbox")
@@ -130,11 +141,15 @@ func (o *outbox) get(owner string, id string) (*OutboxItem, error) {
 }
 
 func (o *outbox) remove(item *OutboxItem) {
+	logger.Debug("email", "outbox.remove")
 	o.manager.store.db.Delete(tableOutbox, ownerKey(item.Owner, item.ID))
 	os.Remove(o.spoolPath(item.ID))
 }
 
 func (o *outbox) enqueue(p Principal, account *Account, built *builtMessage, post postSend, sendAt time.Time, subject string, to []string) (*OutboxItem, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "outbox.enqueue: len(to)=%d", len(to))
+	}
 	item := &OutboxItem{
 		ID:         randomID(10),
 		Owner:      p.Username,
@@ -163,6 +178,7 @@ func (o *outbox) enqueue(p Principal, account *Account, built *builtMessage, pos
 
 // processDue delivers every item whose time has come.
 func (o *outbox) processDue(ctx context.Context) {
+	logger.Debug("email", "outbox.processDue")
 	o.mutex.Lock()
 	if o.busy {
 		o.mutex.Unlock()
@@ -190,6 +206,7 @@ func (o *outbox) processDue(ctx context.Context) {
 }
 
 func (o *outbox) deliver(ctx context.Context, item *OutboxItem) {
+	logger.Debug("email", "outbox.deliver")
 	m := o.manager
 	p := Principal{Username: item.Owner, Admin: item.Admin}
 
@@ -247,6 +264,9 @@ func (o *outbox) deliver(ctx context.Context, item *OutboxItem) {
 
 // dropAccount removes the queued mail of a deleted account.
 func (o *outbox) dropAccount(owner string, accountID string) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "outbox.dropAccount: owner=%.120q accountID=%.120q", owner, accountID)
+	}
 	items, err := o.all()
 	if err != nil {
 		return
@@ -260,6 +280,7 @@ func (o *outbox) dropAccount(owner string, accountID string) {
 
 // Outbox lists a user's queued and failed messages.
 func (m *Manager) Outbox(p Principal) ([]OutboxView, error) {
+	logger.Debug("email", "Manager.Outbox")
 	items, err := m.outbox.all()
 	if err != nil {
 		return nil, err
@@ -281,6 +302,9 @@ func (m *Manager) Outbox(p Principal) ([]OutboxView, error) {
 // OutboxCancel stops a queued message. toDrafts saves it to the Drafts folder
 // so a scheduled message can be edited.
 func (m *Manager) OutboxCancel(ctx context.Context, p Principal, id string, toDrafts bool) (*DraftResult, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.OutboxCancel: id=%.120q toDrafts=%t", id, toDrafts)
+	}
 	m.outbox.mutex.Lock()
 	item, err := m.outbox.get(p.Username, id)
 	if err != nil {
@@ -325,6 +349,9 @@ func (m *Manager) OutboxCancel(ctx context.Context, p Principal, id string, toDr
 
 // OutboxSendNow delivers a queued or failed message at the next tick.
 func (m *Manager) OutboxSendNow(p Principal, id string) error {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.OutboxSendNow: id=%.120q", id)
+	}
 	m.outbox.mutex.Lock()
 	defer m.outbox.mutex.Unlock()
 	item, err := m.outbox.get(p.Username, id)

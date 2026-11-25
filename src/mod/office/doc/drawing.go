@@ -20,6 +20,7 @@ package doc
 import (
 	"encoding/binary"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/officeart"
 	"imuslab.com/arozos/mod/office/metafile"
 )
@@ -36,6 +37,7 @@ type picture struct {
 // usable turns a picture into one a .docx reader shows (TIFF and DIB
 // become PNG; PICT has no reader at all)
 func usable(b *officeart.Blip) ([]byte, string, bool) {
+	logger.DebugTrace("office/doc", "usable")
 	if b == nil || len(b.Data) == 0 {
 		return nil, "", false
 	}
@@ -53,6 +55,7 @@ func usable(b *officeart.Blip) ([]byte, string, bool) {
 }
 
 func cropOf(props officeart.Props) [4]float64 {
+	logger.DebugTrace("office/doc", "cropOf")
 	return [4]float64{
 		props.Fixed(officeart.PropCropFromLeft, 0), props.Fixed(officeart.PropCropFromTop, 0),
 		props.Fixed(officeart.PropCropFromRight, 0), props.Fixed(officeart.PropCropFromBottom, 0),
@@ -61,6 +64,9 @@ func cropOf(props officeart.Props) [4]float64 {
 
 // inlinePicture reads the picture of a 0x01 character
 func (d *docFile) inlinePicture(loc int) *picture {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "docFile.inlinePicture: loc=%d", loc)
+	}
 	le := binary.LittleEndian
 	b := d.data
 	// against the bytes left: loc+n can overflow a 32-bit int
@@ -178,6 +184,7 @@ type drawings struct {
 }
 
 func (d *docFile) readDrawings() {
+	logger.DebugTrace("office/doc", "docFile.readDrawings")
 	dr := &drawings{shapes: map[int32]*officeart.Shape{}, mom: map[int]fspa{}, hdr: map[int]fspa{}}
 	d.draw = dr
 	readFspa := func(b []byte, base int, into map[int]fspa) {
@@ -231,6 +238,7 @@ func (d *docFile) readDrawings() {
 
 // shapePicture is the picture a shape shows, if any
 func (d *docFile) shapePicture(sh *officeart.Shape) *picture {
+	logger.DebugTrace("office/doc", "docFile.shapePicture")
 	pib, ok := sh.Props.Get(officeart.PropPib)
 	if !ok {
 		if v, ok2 := sh.Props.Get(officeart.PropFillBlip); ok2 && sh.Type != 202 {
@@ -249,6 +257,9 @@ func (d *docFile) shapePicture(sh *officeart.Shape) *picture {
 
 // floating returns the object anchored at cp (nil when none)
 func (d *docFile) floating(cp int) *floatObj {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "docFile.floating: cp=%d", cp)
+	}
 	if d.draw == nil {
 		return nil
 	}

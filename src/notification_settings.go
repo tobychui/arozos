@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	notification "imuslab.com/arozos/mod/notification"
 	"imuslab.com/arozos/mod/notification/agents/webhookn"
 	prout "imuslab.com/arozos/mod/prouter"
@@ -34,6 +35,7 @@ import (
 */
 
 func NotificationSettingInit() {
+	logger.Debug("Core", "NotificationSettingInit")
 	//Register the settings tab. It is visible to all users; the admin-only
 	//sections are hidden client side and enforced server side.
 	registerSetting(settingModule{
@@ -85,6 +87,9 @@ type notificationAgentInfo struct {
 }
 
 func handleNotificationAgentList(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleNotificationAgentList: r=%s", logger.RequestSummary(r))
+	}
 	if notificationQueue == nil {
 		utils.SendErrorResponse(w, "Notification system not ready")
 		return
@@ -118,6 +123,9 @@ func handleNotificationAgentList(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleNotificationPreference(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleNotificationPreference: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -183,6 +191,9 @@ func handleNotificationPreference(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDesktopNotificationList(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleDesktopNotificationList: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -198,6 +209,9 @@ func handleDesktopNotificationList(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleNotificationTest(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleNotificationTest: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -240,6 +254,9 @@ type telegramConfigView struct {
 }
 
 func handleTelegramConfig(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleTelegramConfig: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method == http.MethodGet {
 		view := telegramConfigView{
 			BotTokenSet: telegramNotificationAgent != nil && telegramNotificationAgent.IsConfigured(),
@@ -291,6 +308,9 @@ type smtpConfigFile struct {
 }
 
 func handleSMTPConfig(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleSMTPConfig: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method == http.MethodGet {
 		conf := readSMTPConfig()
 		view := smtpConfigView{
@@ -346,6 +366,7 @@ func handleSMTPConfig(w http.ResponseWriter, r *http.Request) {
 
 // parsePriority accepts either a numeric or textual priority.
 func parsePriority(raw string) int {
+	logger.Debug("Core", "parsePriority")
 	raw = strings.TrimSpace(raw)
 	if n, err := strconv.Atoi(raw); err == nil {
 		return notification.NormalizePriority(n)
@@ -354,6 +375,7 @@ func parsePriority(raw string) int {
 }
 
 func readSMTPConfig() smtpConfigFile {
+	logger.Debug("Core", "readSMTPConfig")
 	conf := smtpConfigFile{}
 	data, err := os.ReadFile(smtpnConfigPath)
 	if err != nil {
@@ -365,6 +387,7 @@ func readSMTPConfig() smtpConfigFile {
 
 // smtpConfigured reports whether the SMTP agent has enough config to send mail.
 func smtpConfigured() bool {
+	logger.Debug("Core", "smtpConfigured")
 	conf := readSMTPConfig()
 	return conf.SMTPSender != "" && conf.SMTPDomain != "" && conf.SMTPPort != 0
 }

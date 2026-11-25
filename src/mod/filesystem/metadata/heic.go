@@ -10,6 +10,7 @@ import (
 
 	"github.com/gen2brain/h265/heic"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -36,12 +37,18 @@ const heicThumbnailSize = 480
 
 // IsHEICImageFile checks if the given file path is a HEIC / HEIF image
 func IsHEICImageFile(filePath string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "IsHEICImageFile: filePath=%.120q", filePath)
+	}
 	ext := strings.ToLower(filepath.Ext(filePath))
 	return utils.StringInArray(HeicImageFormats, ext)
 }
 
 // readHEIC reads a HEIC file of any file system, refusing oversized ones
 func readHEIC(fsh *filesystem.FileSystemHandler, file string) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "readHEIC: file=%.120q", file)
+	}
 	fshAbs := fsh.FileSystemAbstraction
 	if !fshAbs.FileExists(file) {
 		return nil, errors.New("source not exists")
@@ -55,6 +62,7 @@ func readHEIC(fsh *filesystem.FileSystemHandler, file string) ([]byte, error) {
 // decodeHEIC decodes the primary picture upright: the rotation (irot),
 // mirror (imir) and clean aperture (clap) of the file are applied.
 func decodeHEIC(data []byte) (image.Image, error) {
+	logger.DebugTrace("filesystem/metadata", "decodeHEIC")
 	return heic.Decode(bytes.NewReader(data), heic.Options{AutoRotate: true})
 }
 
@@ -62,6 +70,7 @@ func decodeHEIC(data []byte) (image.Image, error) {
 // thumbnail is used when it is large enough (it saves decoding a 12 MP
 // grid), else the full picture.
 func decodeHEICPreview(data []byte) (image.Image, error) {
+	logger.Debug("filesystem/metadata", "decodeHEICPreview")
 	if cfg, err := heic.DecodeThumbnailConfig(bytes.NewReader(data)); err == nil &&
 		min(cfg.Width, cfg.Height) >= heicThumbnailSize {
 		if img, err := heic.DecodeThumbnail(bytes.NewReader(data), heic.Options{AutoRotate: true}); err == nil {
@@ -73,6 +82,9 @@ func decodeHEICPreview(data []byte) (image.Image, error) {
 
 // Generate thumbnail for HEIC images
 func generateThumbnailForHEIC(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "generateThumbnailForHEIC: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
+	}
 	data, err := readHEIC(fsh, file)
 	if err != nil {
 		return "", err
@@ -95,6 +107,9 @@ func generateThumbnailForHEIC(fsh *filesystem.FileSystemHandler, cacheFolder str
 // RenderHEICImage decodes a HEIC photo and returns it as a full size JPEG
 // for browsers that cannot show HEIC
 func RenderHEICImage(fsh *filesystem.FileSystemHandler, file string) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "RenderHEICImage: file=%.120q", file)
+	}
 	data, err := readHEIC(fsh, file)
 	if err != nil {
 		return nil, err
@@ -109,6 +124,7 @@ func RenderHEICImage(fsh *filesystem.FileSystemHandler, file string) ([]byte, er
 // encodeHEICAsJPEG writes a decoded picture as a JPEG; transparent areas
 // (HEIC may carry alpha) turn white
 func encodeHEICAsJPEG(img image.Image) ([]byte, error) {
+	logger.Debug("filesystem/metadata", "encodeHEICAsJPEG")
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, flattenOnWhite(img), &jpeg.Options{Quality: 92}); err != nil {
 		return nil, err

@@ -27,6 +27,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // credentialTable is the system database table holding encrypted credentials.
@@ -64,6 +66,7 @@ type CredentialStore struct {
 
 // newCredentialStore prepares the table and loads (or creates) the AES key.
 func newCredentialStore(database CredentialDatabase, keyStorePath string) (*CredentialStore, error) {
+	logger.Debug("git", "newCredentialStore")
 	if database == nil {
 		return nil, errors.New("credential store requires a database")
 	}
@@ -89,6 +92,9 @@ func newCredentialStore(database CredentialDatabase, keyStorePath string) (*Cred
 // Save stores (or replaces) the credential for one user and host. An empty
 // token is rejected — the caller should call Remove instead.
 func (c *CredentialStore) Save(username string, host string, remoteUser string, token string) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "CredentialStore.Save: username=%.120q host=%.120q remoteUser=%.120q", username, host, remoteUser)
+	}
 	username = strings.TrimSpace(username)
 	host = normaliseHost(host)
 
@@ -120,6 +126,9 @@ func (c *CredentialStore) Save(username string, host string, remoteUser string, 
 // Get returns the stored credential for a user and host. The second return
 // value is false when nothing is stored.
 func (c *CredentialStore) Get(username string, host string) (*Credential, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "CredentialStore.Get: username=%.120q host=%.120q", username, host)
+	}
 	username = strings.TrimSpace(username)
 	host = normaliseHost(host)
 	if username == "" || host == "" {
@@ -155,6 +164,9 @@ func (c *CredentialStore) Get(username string, host string) (*Credential, bool) 
 
 // List returns the hosts a user has credentials for, without any secrets.
 func (c *CredentialStore) List(username string) []Credential {
+	if logger.IsDebug() {
+		logger.Debugf("git", "CredentialStore.List: username=%.120q", username)
+	}
 	username = strings.TrimSpace(username)
 	results := []Credential{}
 	if username == "" {
@@ -194,6 +206,9 @@ func (c *CredentialStore) List(username string) []Credential {
 // Remove deletes a stored credential. Deleting a credential that is not there
 // is not an error.
 func (c *CredentialStore) Remove(username string, host string) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "CredentialStore.Remove: username=%.120q host=%.120q", username, host)
+	}
 	username = strings.TrimSpace(username)
 	host = normaliseHost(host)
 	if username == "" || host == "" {
@@ -213,11 +228,17 @@ func (c *CredentialStore) Remove(username string, host string) error {
 // ResolveForRemote looks up the credential matching a remote URL, which is what
 // every transport call needs before it can build an auth method.
 func (c *CredentialStore) ResolveForRemote(username string, remoteURL string) (*Credential, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("git", "CredentialStore.ResolveForRemote: username=%.120q", username)
+	}
 	return c.Get(username, RemoteHost(remoteURL))
 }
 
 // credentialKey namespaces a record by its owning ArozOS account.
 func credentialKey(username string, host string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("git", "credentialKey: username=%.120q host=%.120q", username, host)
+	}
 	return username + "/" + host
 }
 
@@ -225,6 +246,9 @@ func credentialKey(username string, host string) string {
 // returns the lower-cased host, so "https://github.com/a/b.git" and "GitHub.com"
 // address the same record.
 func normaliseHost(host string) string {
+	if logger.IsDebug() {
+		logger.Debugf("git", "normaliseHost: host=%.120q", host)
+	}
 	host = strings.TrimSpace(host)
 	if host == "" {
 		return ""
@@ -242,6 +266,7 @@ func normaliseHost(host string) string {
 // loadOrCreateKey reads the AES key from disk, generating a fresh 32-byte key
 // on first run.
 func loadOrCreateKey(keyStorePath string) ([]byte, error) {
+	logger.Debug("git", "loadOrCreateKey")
 	if err := os.MkdirAll(keyStorePath, 0700); err != nil {
 		return nil, err
 	}
@@ -271,6 +296,7 @@ func loadOrCreateKey(keyStorePath string) ([]byte, error) {
 
 // encryptSecret seals plaintext with AES-GCM, returning base64(nonce||ciphertext).
 func encryptSecret(key []byte, plaintext string) (string, error) {
+	logger.Debug("git", "encryptSecret")
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", err
@@ -292,6 +318,9 @@ func encryptSecret(key []byte, plaintext string) (string, error) {
 
 // decryptSecret reverses encryptSecret.
 func decryptSecret(key []byte, encoded string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "decryptSecret: encoded=%.120q", encoded)
+	}
 	raw, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
 		return "", err

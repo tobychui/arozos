@@ -72,6 +72,9 @@ If you find any bugs in these code, just remember they are legacy
 code and rewriting the whole thing will save you a lot more time.
 */
 func HandleView(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskmg", "HandleView: r=%s", logger.RequestSummary(r))
+	}
 	if runtime.GOOS == "darwin" {
 		handleViewDarwin(w, r)
 		return
@@ -196,6 +199,9 @@ Manual translated from mountTool.php
 Require GET parameter: dev / format / mnt
 */
 func HandleMount(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSystemHandler) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskmg", "HandleMount: r=%s len(fsHandlers)=%d", logger.RequestSummary(r), len(fsHandlers))
+	}
 	if runtime.GOOS == "darwin" {
 		handleMountDarwin(w, r)
 		return
@@ -273,6 +279,9 @@ Format Tool
 Manual translation from AOB's formatTool.php
 */
 func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSystemHandler) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskmg", "HandleFormat: r=%s len(fsHandlers)=%d", logger.RequestSummary(r), len(fsHandlers))
+	}
 	dev, err := utils.PostPara(r, "dev")
 	if err != nil {
 		utils.SendErrorResponse(w, "dev not defined")
@@ -365,6 +374,9 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 }
 
 func Mount(devID string, mountpt string, mountingTool string, fsHandlers []*fs.FileSystemHandler) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskmg", "Mount: devID=%.120q mountpt=%.120q mountingTool=%.120q len(fsHandlers)=%d", devID, mountpt, mountingTool, len(fsHandlers))
+	}
 	//Loop each fsHandler. If exists one that fits and Closed, reopen it
 	for _, fsh := range fsHandlers {
 		if strings.Contains(filepath.ToSlash(fsh.Path), filepath.ToSlash(mountpt)) {
@@ -384,6 +396,9 @@ func Mount(devID string, mountpt string, mountingTool string, fsHandlers []*fs.F
 
 // Unmount a given mountpoint
 func Unmount(mountpt string, fsHandlers []*fs.FileSystemHandler) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskmg", "Unmount: mountpt=%.120q len(fsHandlers)=%d", mountpt, len(fsHandlers))
+	}
 	//Unmount the fsHandlers that related to this mountpt
 	for _, fsh := range fsHandlers {
 		if strings.Contains(filepath.ToSlash(fsh.Path), filepath.ToSlash(mountpt)) {
@@ -399,6 +414,9 @@ func Unmount(mountpt string, fsHandlers []*fs.FileSystemHandler) (string, error)
 
 // Return a list of mountable directory
 func HandleListMountPoints(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskmg", "HandleListMountPoints: r=%s", logger.RequestSummary(r))
+	}
 	mp, _ := filepath.Glob("/media/*")
 	js, _ := json.Marshal(mp)
 	utils.SendJSONResponse(w, string(js))
@@ -406,6 +424,9 @@ func HandleListMountPoints(w http.ResponseWriter, r *http.Request) {
 
 // Check if the device is mounted
 func checkDeviceMounted(devname string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskmg", "checkDeviceMounted: devname=%.120q", devname)
+	}
 	cmd := exec.Command("bash", "-c", "lsblk -f -b --json | grep "+devname)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -428,6 +449,9 @@ func checkDeviceMounted(devname string) (bool, error) {
 }
 
 func getDeviceMountPoint(devname string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskmg", "getDeviceMountPoint: devname=%.120q", devname)
+	}
 	cmd := exec.Command("bash", "-c", "lsblk -f -b --json | grep "+devname)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -450,6 +474,9 @@ func getDeviceMountPoint(devname string) (string, error) {
 
 // Check device valid, only usable in linux
 func checkDeviceValid(devname string) (bool, string) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskmg", "checkDeviceValid: devname=%.120q", devname)
+	}
 	//Check if the device name is valid
 	match, _ := regexp.MatchString("sd[a-z][1-9]", devname)
 	if !match {
@@ -467,6 +494,9 @@ func checkDeviceValid(devname string) (bool, string) {
 }
 
 func HandlePlatform(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskmg", "HandlePlatform: r=%s", logger.RequestSummary(r))
+	}
 	js, _ := json.Marshal(runtime.GOOS)
 	utils.SendJSONResponse(w, string(js))
 }
@@ -517,6 +547,9 @@ type BlockDeviceInfo struct {
 }
 
 func HandleListDevicesWithInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskmg", "HandleListDevicesWithInfo: r=%s", logger.RequestSummary(r))
+	}
 	if runtime.GOOS != "linux" {
 		utils.SendErrorResponse(w, "This function is Linux only")
 		return

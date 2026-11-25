@@ -6,6 +6,8 @@ import (
 	"image"
 	"image/jpeg"
 	"math"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -41,6 +43,7 @@ type imageParams struct {
 }
 
 func (d *Document) imageParams(dict Dict, res Dict) (imageParams, error) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.imageParams")
 	get := func(long, short Name) Object {
 		if v, ok := dict[long]; ok {
 			return v
@@ -73,6 +76,9 @@ func (d *Document) imageParams(dict Dict, res Dict) (imageParams, error) {
 
 // loadImage decodes an image, reduced towards maxW x maxH device pixels
 func (d *Document) loadImage(s *Stream, res Dict, maxW, maxH int) (*pdfImage, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.loadImage: maxW=%d maxH=%d", maxW, maxH)
+	}
 	p, err := d.imageParams(s.Dict, res)
 	if err != nil {
 		return nil, err
@@ -129,6 +135,9 @@ func (d *Document) loadImage(s *Stream, res Dict, maxW, maxH int) (*pdfImage, er
 }
 
 func reduceFactor(size, target int) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "reduceFactor: size=%d target=%d", size, target)
+	}
 	if target <= 0 {
 		return 1
 	}
@@ -142,6 +151,9 @@ func reduceFactor(size, target int) int {
 // applyAlphaImage multiplies alpha by a soft mask (grey levels) or a
 // stencil mask (1 = masked out)
 func (d *Document) applyAlphaImage(img *pdfImage, s *Stream, soft bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.applyAlphaImage: soft=%t", soft)
+	}
 	p, err := d.imageParams(s.Dict, nil)
 	if err != nil {
 		return
@@ -199,6 +211,9 @@ type reducer struct {
 }
 
 func newReducer(w, h, fx, fy int) *reducer {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "newReducer: w=%d h=%d fx=%d fy=%d", w, h, fx, fy)
+	}
 	r := &reducer{w: w, h: h, fx: fx, fy: fy}
 	r.ow = (w + fx - 1) / fx
 	r.oh = (h + fy - 1) / fy
@@ -208,6 +223,9 @@ func newReducer(w, h, fx, fy int) *reducer {
 }
 
 func (r *reducer) addRow(row []uint8) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "reducer.addRow: len(row)=%d", len(row))
+	}
 	if r.fx == 1 && r.fy == 1 {
 		copy(r.out.pix[r.oy*r.ow*4:], row)
 		r.oy++
@@ -228,6 +246,7 @@ func (r *reducer) addRow(row []uint8) {
 }
 
 func (r *reducer) flush() {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "reducer.flush")
 	if r.rows == 0 || r.oy >= r.oh {
 		return
 	}
@@ -248,6 +267,7 @@ func (r *reducer) flush() {
 }
 
 func (r *reducer) finish() *pdfImage {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "reducer.finish")
 	if r.fx != 1 || r.fy != 1 {
 		r.flush()
 	}
@@ -256,6 +276,9 @@ func (r *reducer) finish() *pdfImage {
 
 // decodeSamples converts raw image samples
 func decodeSamples(data []byte, p imageParams, fx, fy int) (*pdfImage, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "decodeSamples: fx=%d fy=%d", fx, fy)
+	}
 	ncomp := 1
 	if !p.mask {
 		ncomp = p.cs.nComps()
@@ -420,6 +443,9 @@ func decodeSamples(data []byte, p imageParams, fx, fy int) (*pdfImage, error) {
 }
 
 func to8(v float64) uint8 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "to8: v=%g", v)
+	}
 	if v <= 0 || math.IsNaN(v) {
 		return 0
 	}
@@ -430,6 +456,9 @@ func to8(v float64) uint8 {
 }
 
 func (d *Document) decodeJPEG(data []byte, p imageParams, fx, fy int) (*pdfImage, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.decodeJPEG: fx=%d fy=%d", fx, fy)
+	}
 	cfg, err := jpeg.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
@@ -520,6 +549,7 @@ func (d *Document) decodeJPEG(data []byte, p imageParams, fx, fy int) (*pdfImage
 // adobeTransform reads the colour transform of a JPEG's Adobe APP14
 // segment, or -1 when it has none
 func adobeTransform(data []byte) int {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "adobeTransform")
 	head := data
 	if len(head) > 1<<16 {
 		head = head[:1<<16]

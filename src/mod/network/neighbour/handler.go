@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network/mdns"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -22,6 +23,9 @@ type ScanResults struct {
 
 // Handle HTTP request for scanning and return the result
 func (d *Discoverer) HandleScanningRequest(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("network/neighbour", "Discoverer.HandleScanningRequest: r=%s", logger.RequestSummary(r))
+	}
 	result := new(ScanResults)
 
 	hosts := d.GetNearbyHosts()
@@ -43,6 +47,9 @@ func (d *Discoverer) HandleScanningRequest(w http.ResponseWriter, r *http.Reques
 
 // Get networkHosts that are offline
 func (d *Discoverer) HandleScanRecord(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("network/neighbour", "Discoverer.HandleScanRecord: r=%s", logger.RequestSummary(r))
+	}
 	offlineNodes, err := d.GetOfflineHosts()
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -60,6 +67,9 @@ func (d *Discoverer) HandleScanRecord(w http.ResponseWriter, r *http.Request) {
 
 // Send wake on land to target
 func (d *Discoverer) HandleWakeOnLan(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("network/neighbour", "Discoverer.HandleWakeOnLan: r=%s", logger.RequestSummary(r))
+	}
 	mac, err := utils.GetPara(r, "mac")
 	if err != nil {
 		utils.SendErrorResponse(w, "Invalid mac address")

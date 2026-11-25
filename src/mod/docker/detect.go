@@ -22,10 +22,13 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // detectDockerCLI checks whether the docker client binary is resolvable on PATH.
 func detectDockerCLI() error {
+	logger.Debug("docker", "detectDockerCLI")
 	if _, err := exec.LookPath("docker"); err != nil {
 		return errors.New("docker CLI not found in system PATH")
 	}
@@ -38,6 +41,7 @@ func detectDockerCLI() error {
 // "installed but not usable" case we must catch. Returns the server version on
 // success.
 func detectDockerEngine() (string, error) {
+	logger.Debug("docker", "detectDockerEngine")
 	out, err := runDocker("info", "--format", "{{json .ServerVersion}}")
 	if err != nil {
 		return "", fmt.Errorf("docker daemon not reachable: %s", err.Error())
@@ -55,6 +59,7 @@ func detectDockerEngine() (string, error) {
 // when the plugin is not installed. `docker compose version --short` prints just
 // the version number (e.g. "2.20.2").
 func detectComposePlugin() (string, error) {
+	logger.Debug("docker", "detectComposePlugin")
 	out, err := runDocker("compose", "version", "--short")
 	if err != nil {
 		return "", errors.New("docker compose v2 plugin not available")

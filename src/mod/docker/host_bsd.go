@@ -2,12 +2,14 @@
 
 package docker
 
+import "imuslab.com/arozos/mod/info/logger"
 import "syscall"
 
 // hostStorageUsage reports used/total bytes of the filesystem holding the
 // current working directory. syscall.Statfs is available on both macOS and
 // FreeBSD with the same Statfs_t block-count fields.
 func hostStorageUsage() (int64, int64, bool) {
+	logger.Debug("docker", "hostStorageUsage")
 	var st syscall.Statfs_t
 	if err := syscall.Statfs(".", &st); err != nil {
 		return 0, 0, false
@@ -24,5 +26,6 @@ func hostStorageUsage() (int64, int64, bool) {
 // hostLoadAvg is not wired up on macOS (getloadavg needs cgo) or FreeBSD (no
 // /proc/loadavg); report unavailable so the UI hides the value.
 func hostLoadAvg() (float64, float64, float64, bool) {
+	logger.DebugTrace("docker", "hostLoadAvg")
 	return 0, 0, 0, false
 }

@@ -28,6 +28,7 @@ import (
 	"regexp"
 
 	"github.com/gorilla/websocket"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -53,6 +54,9 @@ type consoleControlMsg struct {
 // HandleExecConsole upgrades to a websocket and bridges it to an interactive
 // shell inside the container given by ?id=, using ?shell= (default "sh").
 func (d *DockerManager) HandleExecConsole(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleExecConsole: r=%s", logger.RequestSummary(r))
+	}
 	ref, err := utils.GetPara(r, "id")
 	if err != nil {
 		http.Error(w, "missing container id", http.StatusBadRequest)

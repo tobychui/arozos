@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/info/logger"
+	arozlog "imuslab.com/arozos/mod/info/logger"
 	modules "imuslab.com/arozos/mod/modules"
 	"imuslab.com/arozos/mod/network/reverseproxy"
 	"imuslab.com/arozos/mod/network/websocketproxy"
@@ -52,6 +53,9 @@ type SubServiceRouter struct {
 }
 
 func NewSubServiceRouter(ReservePaths []string, basePort int, userHandler *user.UserHandler, moduleHandler *modules.ModuleHandler, parentPort int) *SubServiceRouter {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "NewSubServiceRouter: len(ReservePaths)=%d basePort=%d parentPort=%d", len(ReservePaths), basePort, parentPort)
+	}
 	//Create a service logger
 	thisLogger, _ := logger.NewLogger("subserv", "system/logs/subservice", true)
 
@@ -69,6 +73,7 @@ func NewSubServiceRouter(ReservePaths []string, basePort int, userHandler *user.
 
 // Load and start all the subservices inside this rootpath
 func (sr *SubServiceRouter) LoadSubservicesFromRootPath(rootpath string) {
+	arozlog.Debug("subservice", "SubServiceRouter.LoadSubservicesFromRootPath")
 	scanningPath := filepath.ToSlash(filepath.Clean(rootpath)) + "/*"
 
 	subservices, _ := filepath.Glob(scanningPath)
@@ -86,6 +91,9 @@ func (sr *SubServiceRouter) LoadSubservicesFromRootPath(rootpath string) {
 }
 
 func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "SubServiceRouter.Launch: servicePath=%.120q startupMode=%t", servicePath, startupMode)
+	}
 	//Get the executable name from its path
 	servicePath = filepath.ToSlash(servicePath)
 	binaryname := filepath.Base(servicePath)
@@ -321,6 +329,9 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 }
 
 func (sr *SubServiceRouter) HandleListing(w http.ResponseWriter, r *http.Request) {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "SubServiceRouter.HandleListing: r=%s", arozlog.RequestSummary(r))
+	}
 	//List all subservice running in the background
 	type visableInfo struct {
 		Port       int
@@ -376,6 +387,9 @@ func (sr *SubServiceRouter) HandleListing(w http.ResponseWriter, r *http.Request
 
 // Kill the subservice that is currently running
 func (sr *SubServiceRouter) HandleKillSubService(w http.ResponseWriter, r *http.Request) {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "SubServiceRouter.HandleKillSubService: r=%s", arozlog.RequestSummary(r))
+	}
 	userinfo, _ := sr.userHandler.GetUserInfoFromRequest(w, r)
 	//Require admin permission
 	if !userinfo.IsAdmin() {
@@ -397,6 +411,9 @@ func (sr *SubServiceRouter) HandleKillSubService(w http.ResponseWriter, r *http.
 }
 
 func (sr *SubServiceRouter) HandleStartSubService(w http.ResponseWriter, r *http.Request) {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "SubServiceRouter.HandleStartSubService: r=%s", arozlog.RequestSummary(r))
+	}
 	userinfo, _ := sr.userHandler.GetUserInfoFromRequest(w, r)
 
 	//Require admin permission
@@ -418,12 +435,16 @@ func (sr *SubServiceRouter) HandleStartSubService(w http.ResponseWriter, r *http
 
 // Check if the user has permission to access such proxy module
 func (sr *SubServiceRouter) CheckUserPermissionOnSubservice(ss *SubService, u *user.User) bool {
+	arozlog.Debug("subservice", "SubServiceRouter.CheckUserPermissionOnSubservice")
 	moduleName := ss.Info.Name
 	return u.GetModuleAccessPermission(moduleName)
 }
 
 // Check if the target is reverse proxy. If yes, return the proxy handler and the rewritten url in string
 func (sr *SubServiceRouter) CheckIfReverseProxyPath(r *http.Request) (bool, *reverseproxy.ReverseProxy, string, *SubService) {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "SubServiceRouter.CheckIfReverseProxyPath: r=%s", arozlog.RequestSummary(r))
+	}
 	requestURL := r.URL.Path
 
 	for _, subservice := range sr.RunningSubService {
@@ -452,6 +473,7 @@ func (sr *SubServiceRouter) CheckIfReverseProxyPath(r *http.Request) (bool, *rev
 }
 
 func (sr *SubServiceRouter) Close() {
+	arozlog.Debug("subservice", "SubServiceRouter.Close")
 	//Handle shutdown of subprocesses. Kill all of them
 	for _, subservice := range sr.RunningSubService {
 		cmd := subservice.Process
@@ -471,6 +493,9 @@ func (sr *SubServiceRouter) Close() {
 }
 
 func (sr *SubServiceRouter) KillSubService(serviceDir string) error {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "SubServiceRouter.KillSubService: serviceDir=%.120q", serviceDir)
+	}
 	//Remove them from the system
 	ssi := -1
 	moduleName := ""
@@ -521,6 +546,9 @@ func (sr *SubServiceRouter) KillSubService(serviceDir string) error {
 }
 
 func (sr *SubServiceRouter) StartSubService(serviceDir string) error {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "SubServiceRouter.StartSubService: serviceDir=%.120q", serviceDir)
+	}
 	if fileExists("subservice/" + serviceDir) {
 		err := sr.Launch("subservice/"+serviceDir, false)
 		if err != nil {
@@ -544,6 +572,7 @@ func (sr *SubServiceRouter) StartSubService(serviceDir string) error {
 
 // Get a list of subservice roots in realpath
 func (sr *SubServiceRouter) GetSubserviceRoot() []string {
+	arozlog.Debug("subservice", "SubServiceRouter.GetSubserviceRoot")
 	subserviceRoots := []string{}
 	for _, subService := range sr.RunningSubService {
 		subserviceRoots = append(subserviceRoots, subService.Path)
@@ -554,6 +583,7 @@ func (sr *SubServiceRouter) GetSubserviceRoot() []string {
 
 // Scan and get the next avaible port for subservice from its basePort
 func (sr *SubServiceRouter) GetNextUsablePort() int {
+	arozlog.Debug("subservice", "SubServiceRouter.GetNextUsablePort")
 	basePort := sr.BasePort
 	for sr.CheckIfPortInUse(basePort) {
 		basePort++
@@ -562,6 +592,9 @@ func (sr *SubServiceRouter) GetNextUsablePort() int {
 }
 
 func (sr *SubServiceRouter) CheckIfPortInUse(port int) bool {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "SubServiceRouter.CheckIfPortInUse: port=%d", port)
+	}
 	for _, service := range sr.RunningSubService {
 		if service.Port == port {
 			return true
@@ -571,6 +604,9 @@ func (sr *SubServiceRouter) CheckIfPortInUse(port int) bool {
 }
 
 func (sr *SubServiceRouter) HandleRoutingRequest(w http.ResponseWriter, r *http.Request, proxy *reverseproxy.ReverseProxy, subserviceObject *SubService, rewriteURL string) {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "SubServiceRouter.HandleRoutingRequest: r=%s", arozlog.RequestSummary(r))
+	}
 	u, _ := sr.userHandler.GetUserInfoFromRequest(w, r)
 	if !sr.CheckUserPermissionOnSubservice(subserviceObject, u) {
 		//Permission denied
@@ -606,6 +642,7 @@ func (sr *SubServiceRouter) HandleRoutingRequest(w http.ResponseWriter, r *http.
 
 // Handle fail start over when the remote target is not responding
 func (sr *SubServiceRouter) RestartSubService(ss *SubService) {
+	arozlog.Debug("subservice", "SubServiceRouter.RestartSubService")
 	go func(ss *SubService) {
 		//Kill the original subservice
 		sr.KillSubService(ss.ServiceDir)

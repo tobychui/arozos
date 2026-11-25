@@ -3,6 +3,8 @@ package aroz
 import (
 	"path"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -20,6 +22,9 @@ import (
 
 // wantsTrash reports whether deleting p should move it to the trash bin.
 func (s *share) wantsTrash(p string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.wantsTrash: p=%.120q", p)
+	}
 	opt := s.v.opt
 	if opt == nil || opt.Trash == nil || opt.UseTrash == nil || !opt.UseTrash() {
 		return false
@@ -46,6 +51,9 @@ func (s *share) wantsTrash(p string) bool {
 
 // isScratchFile spots the helper files programs delete by themselves.
 func isScratchFile(name string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "isScratchFile: name=%.120q", name)
+	}
 	lower := strings.ToLower(name)
 	switch lower {
 	case ".ds_store", "thumbs.db", "desktop.ini", ".localized":

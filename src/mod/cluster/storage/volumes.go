@@ -28,6 +28,7 @@ const (
 
 // LocalVolumes lists this node's volumes that are not removed.
 func (s *Service) LocalVolumes() []metadata.Volume {
+	logger.Debug("cluster/storage", "Service.LocalVolumes")
 	out := []metadata.Volume{}
 	for _, v := range s.meta.Volumes() {
 		if v.NodeID == s.m.NodeID() && !v.Removed {
@@ -39,6 +40,7 @@ func (s *Service) LocalVolumes() []metadata.Volume {
 
 // volumeRoot returns the real directory of a local volume.
 func (s *Service) volumeRoot(vol *metadata.Volume) (string, error) {
+	logger.Debug("cluster/storage", "Service.volumeRoot")
 	if vol.NodeID != s.m.NodeID() {
 		return "", ErrNotLocalVolume
 	}
@@ -52,6 +54,9 @@ func (s *Service) volumeRoot(vol *metadata.Volume) (string, error) {
 
 // realPath maps a logical path onto a local volume, refusing escapes.
 func (s *Service) realPath(vol *metadata.Volume, logical string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.realPath: logical=%.120q", logical)
+	}
 	root, err := s.volumeRoot(vol)
 	if err != nil {
 		return "", err
@@ -65,6 +70,9 @@ func (s *Service) realPath(vol *metadata.Volume, logical string) (string, error)
 }
 
 func normalizeSubpath(p string) string {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "normalizeSubpath: p=%.120q", p)
+	}
 	p = strings.ReplaceAll(strings.TrimSpace(p), "\\", "/")
 	if !strings.HasPrefix(p, "/") {
 		p = "/" + p
@@ -78,6 +86,9 @@ func normalizeSubpath(p string) string {
 
 // AddVolume contributes a folder of a local drive to the cluster.
 func (s *Service) AddVolume(fshUUID string, subpath string, name string) (*metadata.Volume, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.AddVolume: fshUUID=%.120q subpath=%.120q name=%.120q", fshUUID, subpath, name)
+	}
 	if !s.m.InCluster() {
 		return nil, metadata.ErrNotInCluster
 	}
@@ -129,6 +140,9 @@ func (s *Service) AddVolume(fshUUID string, subpath string, name string) (*metad
 // RemoveVolume stops contributing a folder. Files stay on disk. It refuses
 // when the volume holds the only healthy copy of any file; evacuate first.
 func (s *Service) RemoveVolume(id string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.RemoveVolume: id=%.120q", id)
+	}
 	vol, ok := s.meta.Volume(id)
 	if !ok || vol.Removed {
 		return errors.New("volume not found")
@@ -150,6 +164,9 @@ func (s *Service) RemoveVolume(id string) error {
 // forgetVolumeLocations drops a retired volume from every record. The files
 // stay on disk; they are simply no longer reachable through the cluster.
 func (s *Service) forgetVolumeLocations(volumeID string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.forgetVolumeLocations: volumeID=%.120q", volumeID)
+	}
 	for _, rec := range s.meta.AllFiles() {
 		if _, has := rec.Location(volumeID); !has {
 			continue
@@ -168,6 +185,9 @@ func (s *Service) forgetVolumeLocations(volumeID string) {
 
 // SoleCopies counts files whose only healthy copy sits on the volume.
 func (s *Service) SoleCopies(volumeID string) int {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.SoleCopies: volumeID=%.120q", volumeID)
+	}
 	n := 0
 	for _, rec := range s.meta.AllFiles() {
 		if rec.Removed || rec.IsDir {
@@ -183,6 +203,9 @@ func (s *Service) SoleCopies(volumeID string) int {
 
 // SetVolumeReadOnly toggles placement on a local volume.
 func (s *Service) SetVolumeReadOnly(id string, ro bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.SetVolumeReadOnly: id=%.120q ro=%t", id, ro)
+	}
 	vol, ok := s.meta.Volume(id)
 	if !ok || vol.Removed {
 		return errors.New("volume not found")
@@ -196,6 +219,7 @@ func (s *Service) SetVolumeReadOnly(id string, ro bool) error {
 
 // refreshVolumes republishes free space when it moved by more than 1 %.
 func (s *Service) refreshVolumes() {
+	logger.Debug("cluster/storage", "Service.refreshVolumes")
 	auto := s.AutoReadOnly()
 	for _, v := range s.LocalVolumes() {
 		root, err := s.volumeRoot(&v)
@@ -248,6 +272,7 @@ type autoReadOnlySetting struct {
 // AutoReadOnly reports whether volumes that are nearly full are made read
 // only automatically. It is on unless an admin turned it off.
 func (s *Service) AutoReadOnly() bool {
+	logger.Debug("cluster/storage", "Service.AutoReadOnly")
 	st, ok := s.meta.Setting(AutoReadOnlyKey)
 	if !ok {
 		return true
@@ -262,6 +287,9 @@ func (s *Service) AutoReadOnly() bool {
 // SetAutoReadOnly turns the nearly-full guard on or off for every node. This
 // node applies it at once; the others at their next volume refresh.
 func (s *Service) SetAutoReadOnly(enabled bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.SetAutoReadOnly: enabled=%t", enabled)
+	}
 	js, err := json.Marshal(autoReadOnlySetting{Enabled: enabled})
 	if err != nil {
 		return err
@@ -279,6 +307,9 @@ func (s *Service) SetAutoReadOnly(enabled bool) error {
 // with it off, nothing is marked and anything the guard had marked is
 // released, while read-only set by an admin is never touched.
 func lowSpaceAction(free int64, total int64, wasFull bool, auto bool) (mark bool, clear bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "lowSpaceAction: free=%d total=%d wasFull=%t auto=%t", free, total, wasFull, auto)
+	}
 	if !auto {
 		return false, wasFull
 	}
@@ -290,6 +321,9 @@ func lowSpaceAction(free int64, total int64, wasFull bool, auto bool) (mark bool
 // thresholds differ so a volume hovering at the limit does not flap: it stops
 // below diskFullFraction and only starts again above diskRecoverFraction.
 func spaceState(free int64, total int64, wasFull bool) (full bool, recovered bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "spaceState: free=%d total=%d wasFull=%t", free, total, wasFull)
+	}
 	if total <= 0 {
 		return false, false
 	}
@@ -302,6 +336,9 @@ func spaceState(free int64, total int64, wasFull bool) (full bool, recovered boo
 
 // VolumeStats counts files held on a local volume (for the UI).
 func (s *Service) VolumeStats(id string) (files int, bytes int64) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.VolumeStats: id=%.120q", id)
+	}
 	for _, rec := range s.meta.AllFiles() {
 		if rec.Removed || rec.IsDir {
 			continue
@@ -315,6 +352,7 @@ func (s *Service) VolumeStats(id string) (files int, bytes int64) {
 }
 
 func modTimeOf(fi os.FileInfo) int64 {
+	logger.Debug("cluster/storage", "modTimeOf")
 	if fi == nil {
 		return time.Now().Unix()
 	}

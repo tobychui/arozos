@@ -7,11 +7,15 @@ import (
 	"os"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
 // Handle console command from the console module
 func consoleCommandHandler(input string) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "consoleCommandHandler: input=%.120q", input)
+	}
 	//chunk := strings.Split(input, " ");
 	chunk, err := parseCommandLine(input)
 	if err != nil {
@@ -213,6 +217,9 @@ func consoleCommandHandler(input string) string {
 
 // Check if the given line input match the requirement
 func matchSubfix(chunk []string, match []string, minlength int, usageExample string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "matchSubfix: len(chunk)=%d len(match)=%d minlength=%d usageExample=%.120q", len(chunk), len(match), minlength, usageExample)
+	}
 	matching := true
 	//Check if the chunk contains minmium length of the command request
 	if len(chunk) >= len(match) {
@@ -234,6 +241,9 @@ func matchSubfix(chunk []string, match []string, minlength int, usageExample str
 }
 
 func parseCommandLine(command string) ([]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "parseCommandLine: command=%.120q", command)
+	}
 	var args []string
 	state := "start"
 	current := ""

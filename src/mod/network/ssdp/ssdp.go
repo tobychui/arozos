@@ -39,6 +39,9 @@ type SSDPHost struct {
 }
 
 func NewSSDPHost(outboundIP string, port int, templateFile string, option SSDPOption) (*SSDPHost, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/ssdp", "NewSSDPHost: outboundIP=%.120q port=%d templateFile=%.120q", outboundIP, port, templateFile)
+	}
 	if runtime.GOOS == "linux" {
 		//In case there are more than 1 network interface connect to the same LAN, choose the first one by default
 		interfaceName, err := getFirstNetworkInterfaceName()
@@ -76,6 +79,7 @@ func NewSSDPHost(outboundIP string, port int, templateFile string, option SSDPOp
 }
 
 func (a *SSDPHost) Start() {
+	logger.Debug("network/ssdp", "SSDPHost.Start")
 	//Advertise ssdp
 	http.HandleFunc("/ssdp.xml", a.handleSSDP)
 	logger.PrintAndLog("Ssdp", "Starting SSDP Discovery Service: "+a.Option.URLBase, nil)
@@ -108,6 +112,7 @@ func (a *SSDPHost) Start() {
 // Close sends the SSDP byebye message and stops the advertiser. It waits for
 // the alive loop to exit and is safe to call more than once.
 func (a *SSDPHost) Close() {
+	logger.Debug("network/ssdp", "SSDPHost.Close")
 	if a == nil {
 		return
 	}
@@ -123,6 +128,9 @@ func (a *SSDPHost) Close() {
 
 // Serve the xml file with the given properties
 func (a *SSDPHost) handleSSDP(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("network/ssdp", "SSDPHost.handleSSDP: r=%s", logger.RequestSummary(r))
+	}
 	//Load the ssdp xml from file
 	template, err := utils.Templateload(a.SSDPTemplateFile, map[string]string{
 		"urlbase":   a.Option.URLBase,
@@ -144,6 +152,7 @@ func (a *SSDPHost) handleSSDP(w http.ResponseWriter, r *http.Request) {
 
 // Helper functions
 func getFirstNetworkInterfaceName() (string, error) {
+	logger.Debug("network/ssdp", "getFirstNetworkInterfaceName")
 	if runtime.GOOS == "linux" {
 		if pkg_exists("ip") {
 			//Use the fast method
@@ -172,6 +181,9 @@ func getFirstNetworkInterfaceName() (string, error) {
 }
 
 func pkg_exists(pkgname string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("network/ssdp", "pkg_exists: pkgname=%.120q", pkgname)
+	}
 	cmd := exec.Command("which", pkgname)
 	out, _ := cmd.CombinedOutput()
 

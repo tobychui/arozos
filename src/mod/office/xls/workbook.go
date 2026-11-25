@@ -17,6 +17,7 @@ import (
 	"math"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/codepage"
 )
 
@@ -124,6 +125,9 @@ var defaultPalette = [56]uint32{
 }
 
 func newBook(biff8 bool) *book {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "newBook: biff8=%t", biff8)
+	}
 	b := &book{biff8: biff8, formats: map[int]string{}, cp: codepage.For(1252), xfExts: map[int]*xfExt{}, defXF: -1}
 	b.palette[0], b.palette[1], b.palette[2], b.palette[3] = 0x000000, 0xFFFFFF, 0xFF0000, 0x00FF00
 	b.palette[4], b.palette[5], b.palette[6], b.palette[7] = 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF
@@ -134,6 +138,9 @@ func newBook(biff8 bool) *book {
 // color resolves a palette index; auto reports the "automatic" colours
 // (system window text / background), for which def is returned
 func (b *book) color(idx uint16, def uint32) (uint32, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.color: idx=%d def=%d", idx, def)
+	}
 	if int(idx) < len(b.palette) {
 		return b.palette[idx], false
 	}
@@ -141,6 +148,7 @@ func (b *book) color(idx uint16, def uint32) (uint32, bool) {
 }
 
 func (b *book) maxRows() int {
+	logger.DebugTrace("office/xls", "book.maxRows")
 	if b.biff8 {
 		return 65536
 	}
@@ -149,6 +157,7 @@ func (b *book) maxRows() int {
 
 // parseGlobals reads the globals substream, which starts at records[0]
 func (b *book) parseGlobals() error {
+	logger.DebugTrace("office/xls", "book.parseGlobals")
 	le := binary.LittleEndian
 	for i, r := range b.records {
 		if i > 0 && r.typ == rtEOF {
@@ -253,6 +262,7 @@ func (b *book) parseGlobals() error {
 }
 
 func (b *book) parseFont(rd *reader) {
+	logger.DebugTrace("office/xls", "book.parseFont")
 	f := &font{}
 	f.height = int(rd.u16())
 	g := rd.u16()
@@ -279,6 +289,9 @@ func (b *book) parseFont(rd *reader) {
 
 // parseXF8 decodes a BIFF8 XF record
 func parseXF8(d []byte) *xf {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "parseXF8: len(d)=%d", len(d))
+	}
 	if len(d) < 20 {
 		d = append(append([]byte(nil), d...), make([]byte, 20-len(d))...)
 	}
@@ -309,6 +322,9 @@ func parseXF8(d []byte) *xf {
 
 // parseXF5 decodes a BIFF5 XF record
 func parseXF5(d []byte) *xf {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "parseXF5: len(d)=%d", len(d))
+	}
 	if len(d) < 16 {
 		d = append(append([]byte(nil), d...), make([]byte, 16-len(d))...)
 	}
@@ -343,6 +359,9 @@ var officeTheme = [12]uint32{
 // parseXFExt reads an XFEXT record: per-XF colours as RGB or theme
 // colours with a tint
 func (b *book) parseXFExt(d []byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.parseXFExt: len(d)=%d", len(d))
+	}
 	le := binary.LittleEndian
 	if len(d) < 20 {
 		return
@@ -402,6 +421,9 @@ func (b *book) parseXFExt(d []byte) {
 // applyTint lightens (tint > 0) or darkens a colour the way Excel applies
 // a theme colour's tint: on the HSL luminance
 func applyTint(c uint32, tint float64) uint32 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "applyTint: c=%d tint=%g", c, tint)
+	}
 	r, g, bl := float64(c>>16&0xFF)/255, float64(c>>8&0xFF)/255, float64(c&0xFF)/255
 	mx, mn := math.Max(r, math.Max(g, bl)), math.Min(r, math.Min(g, bl))
 	l := (mx + mn) / 2
@@ -463,6 +485,7 @@ func applyTint(c uint32, tint float64) uint32 {
 }
 
 func (b *book) parseExternName(rd *reader) {
+	logger.DebugTrace("office/xls", "book.parseExternName")
 	if !b.biff8 {
 		rd.u16()
 		rd.u32()
@@ -492,6 +515,7 @@ var builtinNames = []string{
 }
 
 func (b *book) parseName(rd *reader) {
+	logger.DebugTrace("office/xls", "book.parseName")
 	n := &definedName{}
 	g := rd.u16()
 	n.hidden = g&0x01 != 0
@@ -522,6 +546,9 @@ func (b *book) parseName(rd *reader) {
 
 // nameText is the text of a defined name a formula refers to (1-based)
 func (b *book) nameText(idx int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.nameText: idx=%d", idx)
+	}
 	if idx < 1 || idx > len(b.names) {
 		return "#NAME?"
 	}
@@ -532,6 +559,9 @@ func (b *book) nameText(idx int) string {
 // add-in, or one of the functions newer Excel versions store as
 // "_xlfn.NAME")
 func (b *book) externNameText(ixti, idx int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.externNameText: ixti=%d idx=%d", ixti, idx)
+	}
 	if ixti < 0 || ixti >= len(b.xtis) {
 		return "#NAME?"
 	}
@@ -547,6 +577,9 @@ func (b *book) externNameText(ixti, idx int) string {
 }
 
 func (b *book) externNameText5(ixals, idx int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.externNameText5: ixals=%d idx=%d", ixals, idx)
+	}
 	if ixals < 0 {
 		ixals = -ixals
 	}
@@ -563,6 +596,9 @@ func (b *book) externNameText5(ixals, idx int) string {
 
 // sheetPrefix renders the sheet part of a 3D reference
 func (b *book) sheetPrefix(ixti int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.sheetPrefix: ixti=%d", ixti)
+	}
 	if ixti < 0 || ixti >= len(b.xtis) {
 		return "#REF!"
 	}
@@ -574,6 +610,9 @@ func (b *book) sheetPrefix(ixti int) string {
 }
 
 func (b *book) sheetRangePrefix(first, last int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.sheetRangePrefix: first=%d last=%d", first, last)
+	}
 	if first < 0 || first >= len(b.sheets) || last < first || last >= len(b.sheets) {
 		return "#REF!"
 	}

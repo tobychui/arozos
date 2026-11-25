@@ -51,6 +51,9 @@ type WindowClientInfo struct {
 
 // NewServer create a new WebDAV server object required by arozos
 func NewServer(hostname string, prefix string, tmpdir string, tlsMode bool, userHandler *user.UserHandler) *Server {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "NewServer: hostname=%.120q prefix=%.120q tmpdir=%.120q tlsMode=%t", hostname, prefix, tmpdir, tlsMode)
+	}
 	//Generate a default handler
 	os.MkdirAll(filepath.Join(tmpdir, "webdav"), 0777)
 
@@ -72,6 +75,9 @@ func NewServer(hostname string, prefix string, tmpdir string, tlsMode bool, user
 }
 
 func (s *Server) HandleClearAllPending(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "Server.HandleClearAllPending: r=%s", logger.RequestSummary(r))
+	}
 	//Clear all pending client requests
 	keys := []string{}
 	s.windowsClientNotLoggedIn.Range(func(key, value interface{}) bool {
@@ -89,6 +95,9 @@ func (s *Server) HandleClearAllPending(w http.ResponseWriter, r *http.Request) {
 
 // Handle allow and remove permission of a windows WebDAV Client
 func (s *Server) HandlePermissionEdit(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "Server.HandlePermissionEdit: r=%s", logger.RequestSummary(r))
+	}
 	opr, err := utils.PostPara(r, "opr")
 	if err != nil {
 		sendErrorResponse(w, "Invalid operations")
@@ -148,6 +157,9 @@ func (s *Server) HandlePermissionEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleConnectionList(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "Server.HandleConnectionList: r=%s", logger.RequestSummary(r))
+	}
 	target, _ := utils.GetPara(r, "target")
 	results := []*WindowClientInfo{}
 	if target == "" {
@@ -194,6 +206,9 @@ func (s *Server) HandleConnectionList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "Server.HandleRequest: r=%s", logger.RequestSummary(r))
+	}
 	//Check if this is enabled
 	if !s.Enabled {
 		http.NotFound(w, r)
@@ -282,6 +297,9 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 // username must be supplied and agree, mirroring how X-Access-Token and
 // X-Aroz-User are required together on the wire.
 func autoLoginTokenMatchesUsername(authAgent *auth.AuthAgent, accessToken string, claimedUsername string) (bool, string) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "autoLoginTokenMatchesUsername: claimedUsername=%.120q", claimedUsername)
+	}
 	if accessToken == "" || claimedUsername == "" {
 		return false, ""
 	}
@@ -302,6 +320,9 @@ success connection in order to store the cookie. If nothing is served,
 File Explorer will not cache the cookie in its cache
 */
 func (s *Server) serveReadOnlyWebDav(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "Server.serveReadOnlyWebDav: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method == "PUT" || r.Method == "POST" || r.Method == "MKCOL" ||
 		r.Method == "DELETE" || r.Method == "COPY" || r.Method == "MOVE" {
 		//Not allowed
@@ -318,6 +339,9 @@ func (s *Server) serveReadOnlyWebDav(w http.ResponseWriter, r *http.Request) {
 // header, which fails with 412 against a fresh lock system and leaves a 0
 // byte file behind.
 func (s *Server) getLockSystem(username string) webdav.LockSystem {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "Server.getLockSystem: username=%.120q", username)
+	}
 	ls, _ := s.filesystems.LoadOrStore(username, webdav.NewMemLS())
 	return ls.(webdav.LockSystem)
 }
@@ -325,6 +349,9 @@ func (s *Server) getLockSystem(username string) webdav.LockSystem {
 // getRootFs builds the WebDAV handler of a user, with the virtual root
 // listing every given storage (see RootFsWebDAVAdapter).
 func (s *Server) getRootFs(fshs []*filesystem.FileSystemHandler, username string, canWrite WriteChecker) *webdav.Handler {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "Server.getRootFs: len(fshs)=%d username=%.120q", len(fshs), username)
+	}
 	rootfs := NewRootFsWebDAVAdapter(fshs, username, canWrite)
 	fs := &webdav.Handler{
 		Prefix:     s.prefix,

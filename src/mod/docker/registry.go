@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -41,6 +42,7 @@ type dockerConfig struct {
 // dockerConfigPath returns the path to the docker CLI config for the user the
 // arozos process runs as. Honors DOCKER_CONFIG when set (docker's own override).
 func dockerConfigPath() (string, error) {
+	logger.Debug("docker", "dockerConfigPath")
 	if dc := os.Getenv("DOCKER_CONFIG"); dc != "" {
 		return filepath.Join(dc, "config.json"), nil
 	}
@@ -55,6 +57,9 @@ func dockerConfigPath() (string, error) {
 // docker config.json byte blob. Returns an empty slice (not an error) when no
 // auths are present. Pure function, unit-testable without a real config file.
 func parseRegistryConfig(configBytes []byte) ([]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "parseRegistryConfig: len(configBytes)=%d", len(configBytes))
+	}
 	var cfg dockerConfig
 	if err := json.Unmarshal(configBytes, &cfg); err != nil {
 		return nil, err
@@ -69,6 +74,7 @@ func parseRegistryConfig(configBytes []byte) ([]string, error) {
 // ListRegistries returns the configured registry endpoints. A missing config
 // file is not an error — it just means no registries are logged in.
 func (d *DockerManager) ListRegistries() ([]string, error) {
+	logger.Debug("docker", "DockerManager.ListRegistries")
 	path, err := dockerConfigPath()
 	if err != nil {
 		return []string{}, nil
@@ -83,6 +89,9 @@ func (d *DockerManager) ListRegistries() ([]string, error) {
 // Login authenticates against a registry. registry may be empty for Docker Hub.
 // The password is supplied via stdin and never placed in argv.
 func (d *DockerManager) Login(registry, username, password string) error {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.Login: registry=%.120q username=%.120q", registry, username)
+	}
 	if username == "" || password == "" {
 		return errors.New("username and password are required")
 	}
@@ -112,6 +121,9 @@ func (d *DockerManager) Login(registry, username, password string) error {
 
 // Logout drops stored credentials for a registry (empty = Docker Hub).
 func (d *DockerManager) Logout(registry string) error {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.Logout: registry=%.120q", registry)
+	}
 	args := []string{"logout"}
 	if registry != "" {
 		if !registryHostRegex.MatchString(registry) {
@@ -133,6 +145,9 @@ type SearchResult struct {
 
 // Search queries Docker Hub for images matching term.
 func (d *DockerManager) Search(term string) ([]SearchResult, error) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.Search: term=%.120q", term)
+	}
 	if !searchTermRegex.MatchString(term) {
 		return nil, errors.New("invalid search term")
 	}
@@ -145,6 +160,9 @@ func (d *DockerManager) Search(term string) ([]SearchResult, error) {
 
 // parseSearchResults parses the line-delimited JSON of `docker search`.
 func parseSearchResults(out []byte) ([]SearchResult, error) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "parseSearchResults: len(out)=%d", len(out))
+	}
 	results := []SearchResult{}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		line = strings.TrimSpace(line)
@@ -164,6 +182,9 @@ func parseSearchResults(out []byte) ([]SearchResult, error) {
 
 // HandleRegistryList serves the configured registry endpoints as JSON.
 func (d *DockerManager) HandleRegistryList(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleRegistryList: r=%s", logger.RequestSummary(r))
+	}
 	registries, err := d.ListRegistries()
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -176,6 +197,9 @@ func (d *DockerManager) HandleRegistryList(w http.ResponseWriter, r *http.Reques
 // HandleRegistryLogin authenticates against a registry (POST: registry,
 // username, password). The password is read from the body and never logged.
 func (d *DockerManager) HandleRegistryLogin(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleRegistryLogin: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
@@ -192,6 +216,9 @@ func (d *DockerManager) HandleRegistryLogin(w http.ResponseWriter, r *http.Reque
 
 // HandleRegistryLogout drops stored credentials for a registry (POST: registry).
 func (d *DockerManager) HandleRegistryLogout(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleRegistryLogout: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
@@ -206,6 +233,9 @@ func (d *DockerManager) HandleRegistryLogout(w http.ResponseWriter, r *http.Requ
 
 // HandleRegistrySearch searches Docker Hub (GET: term).
 func (d *DockerManager) HandleRegistrySearch(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleRegistrySearch: r=%s", logger.RequestSummary(r))
+	}
 	term, err := utils.GetPara(r, "term")
 	if err != nil {
 		utils.SendErrorResponse(w, "missing search term")

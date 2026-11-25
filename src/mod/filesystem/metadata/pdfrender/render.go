@@ -7,6 +7,8 @@ import (
 	"image"
 	"math"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -71,6 +73,7 @@ type gstate struct {
 }
 
 func (g *gstate) clone() *gstate {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "gstate.clone")
 	c := *g
 	c.fill = append([]float64{}, g.fill...)
 	c.stroke = append([]float64{}, g.stroke...)
@@ -115,6 +118,9 @@ type renderShared struct {
 
 // Render draws page n (0 based)
 func (d *Document) Render(n int, opt Options) (img *image.RGBA, err error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.Render: n=%d", n)
+	}
 	pg, err := d.Page(n)
 	if err != nil {
 		return nil, err
@@ -186,6 +192,7 @@ func (d *Document) Render(n int, opt Options) (img *image.RGBA, err error) {
 }
 
 func newRenderer(d *Document, cv *canvas, base matrix, shared *renderShared, deadline time.Time) *renderer {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "newRenderer")
 	r := &renderer{
 		d:         d,
 		cv:        cv,
@@ -211,6 +218,7 @@ func newRenderer(d *Document, cv *canvas, base matrix, shared *renderShared, dea
 
 // pageContent concatenates the content streams of a page
 func (d *Document) pageContent(pg *Page) []byte {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.pageContent")
 	var out []byte
 	add := func(o Object) {
 		if s := d.stream(o); s != nil {
@@ -236,6 +244,7 @@ func (d *Document) pageContent(pg *Page) []byte {
 */
 
 func (d *Document) optionalContentOff() map[Ref]bool {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.optionalContentOff")
 	off := map[Ref]bool{}
 	cat := d.catalog()
 	ocp := d.dict(cat["OCProperties"])
@@ -269,6 +278,7 @@ func (d *Document) optionalContentOff() map[Ref]bool {
 // ocHidden reports whether an optional content group or membership dict
 // is switched off
 func (r *renderer) ocHidden(o Object) bool {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.ocHidden")
 	if len(r.shared.ocOff) == 0 {
 		return false
 	}
@@ -314,6 +324,7 @@ func (r *renderer) ocHidden(o Object) bool {
 */
 
 func (r *renderer) checkBudget() bool {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.checkBudget")
 	if r.stopped {
 		return false
 	}
@@ -331,6 +342,7 @@ func (r *renderer) checkBudget() bool {
 
 // run interprets a content stream with the given resources
 func (r *renderer) run(data []byte, res Dict) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.run")
 	prevRes := r.res
 	r.res = res
 	defer func() { r.res = prevRes }()
@@ -364,6 +376,9 @@ func (r *renderer) run(data []byte, res Dict) {
 }
 
 func numArg(ops []Object, i int) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "numArg: len(ops)=%d i=%d", len(ops), i)
+	}
 	if i < 0 || i >= len(ops) {
 		return 0
 	}
@@ -375,6 +390,9 @@ func numArg(ops []Object, i int) float64 {
 }
 
 func (r *renderer) numArgs(ops []Object) []float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.numArgs: len(ops)=%d", len(ops))
+	}
 	out := make([]float64, 0, len(ops))
 	for _, o := range ops {
 		if v, ok := toFloat(o); ok {
@@ -385,6 +403,9 @@ func (r *renderer) numArgs(ops []Object) []float64 {
 }
 
 func (r *renderer) exec(op string, ops []Object) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.exec: op=%.120q len(ops)=%d", op, len(ops))
+	}
 	gs := r.gs
 	switch op {
 	//Graphics state
@@ -668,6 +689,9 @@ func (r *renderer) exec(op string, ops []Object) {
 }
 
 func (r *renderer) pushMC(hide bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.pushMC: hide=%t", hide)
+	}
 	if len(r.mcHidden) > 1024 {
 		return
 	}
@@ -678,11 +702,15 @@ func (r *renderer) pushMC(hide bool) {
 }
 
 func (r *renderer) isHidden() bool {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.isHidden")
 	return r.hidden > 0
 }
 
 // colorOperands reads sc / scn operands; a trailing name selects a pattern
 func (r *renderer) colorOperands(ops []Object, cs colorSpace) ([]float64, Object) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.colorOperands: len(ops)=%d", len(ops))
+	}
 	var pat Object
 	if len(ops) > 0 {
 		if n, ok := ops[len(ops)-1].(Name); ok {
@@ -694,6 +722,9 @@ func (r *renderer) colorOperands(ops []Object, cs colorSpace) ([]float64, Object
 }
 
 func (r *renderer) updateColor(fill bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.updateColor: fill=%t", fill)
+	}
 	gs := r.gs
 	cs, comps := gs.strokeCS, gs.stroke
 	if fill {
@@ -713,6 +744,7 @@ func (r *renderer) updateColor(fill bool) {
 }
 
 func (r *renderer) setExtGState(eg Dict) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.setExtGState")
 	if eg == nil {
 		return
 	}
@@ -779,6 +811,7 @@ func (r *renderer) setExtGState(eg Dict) {
 }
 
 func (r *renderer) font(n Name) *pdfFont {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.font")
 	fonts := r.d.dict(r.res["Font"])
 	if fonts == nil {
 		return nil
@@ -787,6 +820,7 @@ func (r *renderer) font(n Name) *pdfFont {
 }
 
 func (r *renderer) fontFromObject(o Object) *pdfFont {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.fontFromObject")
 	key := ""
 	switch v := o.(type) {
 	case Ref:
@@ -811,6 +845,9 @@ func (r *renderer) fontFromObject(o Object) *pdfFont {
 // raster rasterizes within the render's time budget; running out stops
 // the render
 func (r *renderer) raster(polys []polyline, evenOdd bool, bounds image.Rectangle) *mask {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.raster: len(polys)=%d evenOdd=%t", len(polys), evenOdd)
+	}
 	if r.stopped {
 		return nil
 	}
@@ -822,6 +859,7 @@ func (r *renderer) raster(polys []polyline, evenOdd bool, bounds image.Rectangle
 }
 
 func (r *renderer) endPath() {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.endPath")
 	if r.clipOp != 0 {
 		polys := r.path.flatten(r.gs.ctm, 0.3)
 		cov := r.raster(polys, r.clipOp == 2, r.cv.bounds())
@@ -835,10 +873,14 @@ func (r *renderer) endPath() {
 }
 
 func (r *renderer) paintBounds() image.Rectangle {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.paintBounds")
 	return r.cv.bounds().Intersect(r.gs.clip.bounds())
 }
 
 func (r *renderer) fillPath(evenOdd bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.fillPath: evenOdd=%t", evenOdd)
+	}
 	if r.isHidden() || r.path.empty() || r.gs.fillNone {
 		return
 	}
@@ -850,6 +892,7 @@ func (r *renderer) fillPath(evenOdd bool) {
 // strokeWidth returns the stroke width in user space, widened so the line
 // is at least minLineDevice wide on the device
 func (r *renderer) strokeWidth(m matrix) float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.strokeWidth")
 	sc := m.scale()
 	if sc <= 0 {
 		return 0
@@ -862,6 +905,7 @@ func (r *renderer) strokeWidth(m matrix) float64 {
 }
 
 func (r *renderer) strokePath() {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.strokePath")
 	if r.isHidden() || r.path.empty() || r.gs.strokeNone {
 		return
 	}
@@ -870,6 +914,7 @@ func (r *renderer) strokePath() {
 
 // strokeShape strokes a path given in the space pm maps into user space
 func (r *renderer) strokeShape(p *path, pm matrix) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.strokeShape")
 	gs := r.gs
 	ctm := gs.ctm
 	sc := ctm.scale()
@@ -949,6 +994,9 @@ func (r *renderer) strokeShape(p *path, pm matrix) {
 
 // paintCoverage composites the current fill or stroke colour (or pattern)
 func (r *renderer) paintCoverage(cov *mask, fill bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.paintCoverage: fill=%t", fill)
+	}
 	if cov == nil {
 		return
 	}
@@ -985,11 +1033,15 @@ func (r *renderer) paintCoverage(cov *mask, fill bool) {
 */
 
 func (r *renderer) nextLine() {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.nextLine")
 	r.tlm = matrix{1, 0, 0, 1, 0, -r.gs.tl}.mul(r.tlm)
 	r.tm = r.tlm
 }
 
 func (r *renderer) textAdjust(n float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.textAdjust: n=%g", n)
+	}
 	gs := r.gs
 	if gs.font != nil && gs.font.vertical {
 		r.tm = matrix{1, 0, 0, 1, 0, -n / 1000 * gs.fs}.mul(r.tm)
@@ -999,6 +1051,9 @@ func (r *renderer) textAdjust(n float64) {
 }
 
 func (r *renderer) showText(s []byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.showText: len(s)=%d", len(s))
+	}
 	gs := r.gs
 	f := gs.font
 	if f == nil {
@@ -1038,6 +1093,7 @@ func (r *renderer) showText(s []byte) {
 }
 
 func (r *renderer) drawGlyph(g *glyphOutline, trm matrix) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.drawGlyph")
 	gs := r.gs
 	userM := g.m.mul(trm)     //Glyph units to user space
 	devM := userM.mul(gs.ctm) //Glyph units to device
@@ -1065,6 +1121,7 @@ func (r *renderer) drawGlyph(g *glyphOutline, trm matrix) {
 }
 
 func (r *renderer) drawType3Glyph(f *pdfFont, c charCode, trm matrix) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.drawType3Glyph")
 	name := f.names[c.code&0xff]
 	if name == "" || f.t3procs == nil || r.depth >= maxFormDepth {
 		return

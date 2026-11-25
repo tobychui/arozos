@@ -13,6 +13,8 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Slide coordinate space used by the Slides webapp: always 960 px wide,
@@ -27,6 +29,9 @@ const (
 // SlideSizeFor is the editor size of a slide whose source page is w x h
 // (in any one unit): 960 wide and as tall as the page's shape.
 func SlideSizeFor(w, h float64) (int, int) {
+	if logger.IsDebug() {
+		logger.Debugf("office/model", "SlideSizeFor: w=%g h=%g", w, h)
+	}
 	if !(w > 0) || !(h > 0) {
 		return SlidePxW, SlidePxH
 	}
@@ -39,6 +44,7 @@ func SlideSizeFor(w, h float64) (int, int) {
 
 // dims is the deck's slide size, the 16:9 default when it states none
 func (p *Presentation) Dims() (int, int) {
+	logger.DebugTrace("office/model", "Presentation.Dims")
 	if p != nil && len(p.Size) == 2 && p.Size[0] >= 100 && p.Size[1] >= 100 &&
 		p.Size[0] <= 4000 && p.Size[1] <= 4000 {
 		return p.Size[0], p.Size[1]
@@ -259,6 +265,7 @@ var ThemeText = map[string]string{
 
 // PresentationToJSON serializes a Presentation back to the Slides body JSON
 func PresentationToJSON(p *Presentation) (string, error) {
+	logger.Debug("office/model", "PresentationToJSON")
 	if p == nil {
 		return "", errors.New("nil presentation")
 	}
@@ -271,6 +278,9 @@ func PresentationToJSON(p *Presentation) (string, error) {
 
 // ParsePresentationJSON decodes the Slides body JSON into a Presentation
 func ParsePresentationJSON(jsonStr string) (*Presentation, error) {
+	if logger.IsDebug() {
+		logger.Debugf("office/model", "ParsePresentationJSON: jsonStr=%.120q", jsonStr)
+	}
 	p := Presentation{}
 	if err := json.Unmarshal([]byte(jsonStr), &p); err != nil {
 		return nil, errors.New("invalid presentation JSON: " + err.Error())

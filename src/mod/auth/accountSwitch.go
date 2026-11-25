@@ -51,6 +51,7 @@ type SwitchableAccountPoolManager struct {
 
 // Create a new switchable account pool manager
 func NewSwitchableAccountPoolManager(sysdb *database.Database, parent *AuthAgent, key []byte) *SwitchableAccountPoolManager {
+	logger.Debug("auth", "NewSwitchableAccountPoolManager")
 	//Create new database table
 	sysdb.NewTable("auth_acswitch")
 
@@ -76,6 +77,7 @@ func NewSwitchableAccountPoolManager(sysdb *database.Database, parent *AuthAgent
 
 // When called, this will clear the account switching pool in which all users session has expired
 func (m *SwitchableAccountPoolManager) RunNightlyCleanup() {
+	logger.Debug("auth", "SwitchableAccountPoolManager.RunNightlyCleanup")
 	pools, err := m.GetAllPools()
 	if err != nil {
 		logger.PrintAndLog("Auth", "[auth] Unable to load account switching pools. Cleaning skipped: "+err.Error(), nil)
@@ -89,6 +91,9 @@ func (m *SwitchableAccountPoolManager) RunNightlyCleanup() {
 
 // Handle switchable account listing for this browser
 func (m *SwitchableAccountPoolManager) HandleSwitchableAccountListing(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountPoolManager.HandleSwitchableAccountListing: r=%s", logger.RequestSummary(r))
+	}
 	//Get username and pool id
 	currentUsername, err := m.authAgent.GetUserName(w, r)
 	if err != nil {
@@ -142,6 +147,9 @@ func (m *SwitchableAccountPoolManager) HandleSwitchableAccountListing(w http.Res
 
 // Handle unauth account listing by cookie. You can use this without authRouter.
 func (m *SwitchableAccountPoolManager) GetUnauthedSwitchableAccountCreatorList(w http.ResponseWriter, r *http.Request) string {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountPoolManager.GetUnauthedSwitchableAccountCreatorList: r=%s", logger.RequestSummary(r))
+	}
 	resumeSessionOwnerName := ""
 	session, _ := m.SessionStore.Get(r, m.SessionName)
 	poolid, ok := session.Values["poolid"].(string)
@@ -164,6 +172,9 @@ func (m *SwitchableAccountPoolManager) GetUnauthedSwitchableAccountCreatorList(w
 
 // Handle logout of the current user, return the fallback user if any
 func (m *SwitchableAccountPoolManager) HandleLogoutforUser(w http.ResponseWriter, r *http.Request) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountPoolManager.HandleLogoutforUser: r=%s", logger.RequestSummary(r))
+	}
 	currentUsername, err := m.authAgent.GetUserName(w, r)
 	if err != nil {
 		return "", err
@@ -200,6 +211,9 @@ func (m *SwitchableAccountPoolManager) HandleLogoutforUser(w http.ResponseWriter
 
 // Logout all the accounts in the pool
 func (m *SwitchableAccountPoolManager) HandleLogoutAllAccounts(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountPoolManager.HandleLogoutAllAccounts: r=%s", logger.RequestSummary(r))
+	}
 	currentUsername, err := m.authAgent.GetUserName(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -236,6 +250,9 @@ func (m *SwitchableAccountPoolManager) HandleLogoutAllAccounts(w http.ResponseWr
 
 // Handle account switching
 func (m *SwitchableAccountPoolManager) HandleAccountSwitch(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountPoolManager.HandleAccountSwitch: r=%s", logger.RequestSummary(r))
+	}
 	previousUserName, err := m.authAgent.GetUserName(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -333,6 +350,7 @@ func (m *SwitchableAccountPoolManager) HandleAccountSwitch(w http.ResponseWriter
 }
 
 func (m *SwitchableAccountPoolManager) GetAllPools() ([]*SwitchableAccountsPool, error) {
+	logger.Debug("auth", "SwitchableAccountPoolManager.GetAllPools")
 	results := []*SwitchableAccountsPool{}
 	entries, err := m.Database.ListTable("auth_acswitch")
 	if err != nil {
@@ -357,6 +375,9 @@ func (m *SwitchableAccountPoolManager) GetAllPools() ([]*SwitchableAccountsPool,
 // if the user is logging in as a sub-account (i.e. not the creator of the switchable account pool),
 // the account pool id will be reset to prevent hacking from sub-account to master account
 func (m *SwitchableAccountPoolManager) MatchPoolCreatorOrResetPoolID(username string, w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountPoolManager.MatchPoolCreatorOrResetPoolID: username=%.120q r=%s", username, logger.RequestSummary(r))
+	}
 	session, _ := m.SessionStore.Get(r, m.SessionName)
 	poolid, ok := session.Values["poolid"].(string)
 	if !ok {
@@ -384,6 +405,9 @@ func (m *SwitchableAccountPoolManager) MatchPoolCreatorOrResetPoolID(username st
 
 // Get a switchable account pool by its id
 func (m *SwitchableAccountPoolManager) GetPoolByID(uuid string) (*SwitchableAccountsPool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountPoolManager.GetPoolByID: uuid=%.120q", uuid)
+	}
 	targetPool := SwitchableAccountsPool{}
 	err := m.authAgent.Database.Read("auth_acswitch", uuid, &targetPool)
 	if err != nil {
@@ -395,6 +419,9 @@ func (m *SwitchableAccountPoolManager) GetPoolByID(uuid string) (*SwitchableAcco
 
 // Remove user from all switch pool, which should be called when a user is logged out or removed
 func (p *SwitchableAccountPoolManager) RemoveUserFromAllSwitchableAccountPool(username string) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountPoolManager.RemoveUserFromAllSwitchableAccountPool: username=%.120q", username)
+	}
 	allAccountPool, err := p.GetAllPools()
 	if err != nil {
 		return err
@@ -409,6 +436,9 @@ func (p *SwitchableAccountPoolManager) RemoveUserFromAllSwitchableAccountPool(us
 }
 
 func (p *SwitchableAccountPoolManager) ExpireUserFromAllSwitchableAccountPool(username string) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountPoolManager.ExpireUserFromAllSwitchableAccountPool: username=%.120q", username)
+	}
 	allAccountPool, err := p.GetAllPools()
 	if err != nil {
 		return err
@@ -429,6 +459,9 @@ func (p *SwitchableAccountPoolManager) ExpireUserFromAllSwitchableAccountPool(us
 
 // Check if the requester can switch within target pool
 func (p *SwitchableAccountsPool) IsAccessibleByRequest(w http.ResponseWriter, r *http.Request) bool {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountsPool.IsAccessibleByRequest: r=%s", logger.RequestSummary(r))
+	}
 	username, err := p.parent.authAgent.GetUserName(w, r)
 	if err != nil {
 		return false
@@ -438,6 +471,9 @@ func (p *SwitchableAccountsPool) IsAccessibleByRequest(w http.ResponseWriter, r 
 
 // Check if a given username can switch within this pool
 func (p *SwitchableAccountsPool) IsAccessibleBy(username string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountsPool.IsAccessibleBy: username=%.120q", username)
+	}
 	for _, account := range p.Accounts {
 		if account.Username == username {
 			return true
@@ -447,6 +483,9 @@ func (p *SwitchableAccountsPool) IsAccessibleBy(username string) bool {
 }
 
 func (p *SwitchableAccountsPool) UserAlreadyInPool(username string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountsPool.UserAlreadyInPool: username=%.120q", username)
+	}
 	for _, acc := range p.Accounts {
 		if acc.Username == username {
 			return true
@@ -456,6 +495,9 @@ func (p *SwitchableAccountsPool) UserAlreadyInPool(username string) bool {
 }
 
 func (p *SwitchableAccountsPool) UpdateUserLastSwitchTime(username string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountsPool.UpdateUserLastSwitchTime: username=%.120q", username)
+	}
 	for _, acc := range p.Accounts {
 		if acc.Username == username {
 			acc.LastSwitch = time.Now().Unix()
@@ -465,6 +507,9 @@ func (p *SwitchableAccountsPool) UpdateUserLastSwitchTime(username string) bool 
 }
 
 func (p *SwitchableAccountsPool) GetLastSwitchTimeFromUsername(username string) int64 {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountsPool.GetLastSwitchTimeFromUsername: username=%.120q", username)
+	}
 	for _, acc := range p.Accounts {
 		if acc.Username == username {
 			return acc.LastSwitch
@@ -476,6 +521,9 @@ func (p *SwitchableAccountsPool) GetLastSwitchTimeFromUsername(username string) 
 // Everytime switching to a given user in a pool, call this update function to
 // update contents inside the pool
 func (p *SwitchableAccountsPool) UpdateUserPoolAccountInfo(username string) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountsPool.UpdateUserPoolAccountInfo: username=%.120q", username)
+	}
 	if !p.UserAlreadyInPool(username) {
 		p.Accounts = append(p.Accounts, &SwitchableAccount{
 			Username:   username,
@@ -488,6 +536,9 @@ func (p *SwitchableAccountsPool) UpdateUserPoolAccountInfo(username string) {
 
 // Expire the session of a user manually
 func (p *SwitchableAccountsPool) ExpireUser(username string) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountsPool.ExpireUser: username=%.120q", username)
+	}
 	for _, acc := range p.Accounts {
 		if acc.Username == username {
 			acc.LastSwitch = 0
@@ -498,6 +549,9 @@ func (p *SwitchableAccountsPool) ExpireUser(username string) {
 
 // Remove a user from the pool
 func (p *SwitchableAccountsPool) RemoveUser(username string) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "SwitchableAccountsPool.RemoveUser: username=%.120q", username)
+	}
 	newAccountList := []*SwitchableAccount{}
 	for _, acc := range p.Accounts {
 		if acc.Username != username {
@@ -511,6 +565,7 @@ func (p *SwitchableAccountsPool) RemoveUser(username string) {
 
 // Save changes of this pool to database
 func (p *SwitchableAccountsPool) DeletePoolIfAllUserSessionExpired() {
+	logger.Debug("auth", "SwitchableAccountsPool.DeletePoolIfAllUserSessionExpired")
 	allExpred := true
 	for _, acc := range p.Accounts {
 		if !p.IsAccountExpired(acc) {
@@ -526,20 +581,26 @@ func (p *SwitchableAccountsPool) DeletePoolIfAllUserSessionExpired() {
 
 // Save changes of this pool to database
 func (p *SwitchableAccountsPool) Save() {
+	logger.DebugTrace("auth", "SwitchableAccountsPool.Save")
 	p.parent.Database.Write("auth_acswitch", p.UUID, p)
 }
 
 // Delete this pool from database
 func (p *SwitchableAccountsPool) Delete() error {
+	logger.DebugTrace("auth", "SwitchableAccountsPool.Delete")
 	return p.parent.Database.Delete("auth_acswitch", p.UUID)
 }
 
 // Check if an account is expired
 func (p *SwitchableAccountsPool) IsAccountExpired(acc *SwitchableAccount) bool {
+	logger.DebugTrace("auth", "SwitchableAccountsPool.IsAccountExpired")
 	return time.Now().Unix() > acc.LastSwitch+p.parent.ExpireTime
 }
 
 func unsetPoolidFromSession(session *sessions.Session, w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "unsetPoolidFromSession: r=%s", logger.RequestSummary(r))
+	}
 	//Unset the session
 	session.Values["poolid"] = nil
 	session.Save(r, w)

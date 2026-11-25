@@ -5,6 +5,8 @@ import (
 	"math"
 	"sort"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -24,6 +26,7 @@ var identity = matrix{1, 0, 0, 1, 0, 0}
 
 // mul returns m followed by n
 func (m matrix) mul(n matrix) matrix {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "matrix.mul")
 	return matrix{
 		m[0]*n[0] + m[1]*n[2],
 		m[0]*n[1] + m[1]*n[3],
@@ -35,14 +38,21 @@ func (m matrix) mul(n matrix) matrix {
 }
 
 func (m matrix) apply(x, y float64) (float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "matrix.apply: x=%g y=%g", x, y)
+	}
 	return m[0]*x + m[2]*y + m[4], m[1]*x + m[3]*y + m[5]
 }
 
 func (m matrix) applyVec(x, y float64) (float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "matrix.applyVec: x=%g y=%g", x, y)
+	}
 	return m[0]*x + m[2]*y, m[1]*x + m[3]*y
 }
 
 func (m matrix) invert() (matrix, bool) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "matrix.invert")
 	det := m[0]*m[3] - m[1]*m[2]
 	if math.Abs(det) < 1e-12 || math.IsNaN(det) {
 		return identity, false
@@ -57,6 +67,7 @@ func (m matrix) invert() (matrix, bool) {
 
 // scale is the average length a unit vector gets under m
 func (m matrix) scale() float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "matrix.scale")
 	return math.Sqrt(math.Abs(m[0]*m[3] - m[1]*m[2]))
 }
 
@@ -78,11 +89,17 @@ type path struct {
 }
 
 func (p *path) moveTo(x, y float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "path.moveTo: x=%g y=%g", x, y)
+	}
 	p.ops = append(p.ops, opMove)
 	p.pts = append(p.pts, point{x, y})
 }
 
 func (p *path) lineTo(x, y float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "path.lineTo: x=%g y=%g", x, y)
+	}
 	if len(p.ops) == 0 {
 		p.moveTo(x, y)
 		return
@@ -92,6 +109,9 @@ func (p *path) lineTo(x, y float64) {
 }
 
 func (p *path) quadTo(x1, y1, x, y float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "path.quadTo: x1=%g y1=%g x=%g y=%g", x1, y1, x, y)
+	}
 	if len(p.ops) == 0 {
 		p.moveTo(x1, y1)
 	}
@@ -100,6 +120,9 @@ func (p *path) quadTo(x1, y1, x, y float64) {
 }
 
 func (p *path) cubicTo(x1, y1, x2, y2, x, y float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "path.cubicTo: x1=%g y1=%g x2=%g y2=%g x=%g y=%g", x1, y1, x2, y2, x, y)
+	}
 	if len(p.ops) == 0 {
 		p.moveTo(x1, y1)
 	}
@@ -108,16 +131,19 @@ func (p *path) cubicTo(x1, y1, x2, y2, x, y float64) {
 }
 
 func (p *path) close() {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "path.close")
 	if len(p.ops) > 0 && p.ops[len(p.ops)-1] != opClose {
 		p.ops = append(p.ops, opClose)
 	}
 }
 
 func (p *path) empty() bool {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "path.empty")
 	return len(p.ops) == 0
 }
 
 func (p *path) currentPoint() (point, bool) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "path.currentPoint")
 	if len(p.pts) == 0 {
 		return point{}, false
 	}
@@ -151,6 +177,9 @@ type polyline struct {
 // flatten turns the path into polylines in the space of m, with curves
 // split until they are within tol of the polyline
 func (p *path) flatten(m matrix, tol float64) []polyline {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "path.flatten: tol=%g", tol)
+	}
 	var out []polyline
 	var cur *polyline
 	pi := 0
@@ -222,6 +251,9 @@ func (p *path) flatten(m matrix, tol float64) []polyline {
 }
 
 func flattenCubic(dst []point, p0, p1, p2, p3 point, tol float64) []point {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "flattenCubic: len(dst)=%d tol=%g", len(dst), tol)
+	}
 	//Number of segments from the control polygon's deviation
 	dd := math.Max(
 		math.Hypot(p0.x-2*p1.x+p2.x, p0.y-2*p1.y+p2.y),
@@ -257,6 +289,9 @@ type mask struct {
 }
 
 func (m *mask) at(x, y int) uint8 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "mask.at: x=%d y=%d", x, y)
+	}
 	if m == nil {
 		return 255
 	}
@@ -271,6 +306,7 @@ func (m *mask) at(x, y int) uint8 {
 
 // intersectMasks multiplies two masks; nil stands for "no mask"
 func intersectMasks(a, b *mask) *mask {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "intersectMasks")
 	if a == nil {
 		return b
 	}
@@ -296,6 +332,7 @@ func intersectMasks(a, b *mask) *mask {
 }
 
 func (m *mask) bounds() image.Rectangle {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "mask.bounds")
 	if m == nil {
 		return image.Rect(-1<<20, -1<<20, 1<<20, 1<<20)
 	}
@@ -311,6 +348,9 @@ const subSamples = 5
 
 // rasterize builds the coverage of closed polygons within bounds
 func rasterize(polys []polyline, evenOdd bool, bounds image.Rectangle) *mask {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "rasterize: len(polys)=%d evenOdd=%t", len(polys), evenOdd)
+	}
 	m, _ := rasterizeUntil(polys, evenOdd, bounds, time.Time{})
 	return m
 }
@@ -320,6 +360,9 @@ func rasterize(polys []polyline, evenOdd bool, bounds image.Rectangle) *mask {
 // the render budget, so the deadline is checked as the work goes; aborted
 // reports that it ran out and the coverage is unusable.
 func rasterizeUntil(polys []polyline, evenOdd bool, bounds image.Rectangle, deadline time.Time) (m *mask, aborted bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "rasterizeUntil: len(polys)=%d evenOdd=%t", len(polys), evenOdd)
+	}
 	var edges []edge
 	minX, minY := math.Inf(1), math.Inf(1)
 	maxX, maxY := math.Inf(-1), math.Inf(-1)
@@ -506,6 +549,9 @@ type strokeStyle struct {
 }
 
 func polyArea(pts []point) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "polyArea: len(pts)=%d", len(pts))
+	}
 	a := 0.0
 	n := len(pts)
 	for i := 0; i < n; i++ {
@@ -516,6 +562,9 @@ func polyArea(pts []point) float64 {
 }
 
 func addPoly(dst []polyline, pts []point) []polyline {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "addPoly: len(dst)=%d len(pts)=%d", len(dst), len(pts))
+	}
 	if polyArea(pts) < 0 {
 		for i, j := 0, len(pts)-1; i < j; i, j = i+1, j-1 {
 			pts[i], pts[j] = pts[j], pts[i]
@@ -525,6 +574,9 @@ func addPoly(dst []polyline, pts []point) []polyline {
 }
 
 func circlePoly(c point, r float64, segs int) []point {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "circlePoly: r=%g segs=%d", r, segs)
+	}
 	pts := make([]point, segs)
 	for i := 0; i < segs; i++ {
 		a := 2 * math.Pi * float64(i) / float64(segs)
@@ -535,6 +587,9 @@ func circlePoly(c point, r float64, segs int) []point {
 
 // dashLines splits polylines by a dash pattern
 func dashLines(lines []polyline, dash []float64, phase float64) []polyline {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "dashLines: len(lines)=%d len(dash)=%d phase=%g", len(lines), len(dash), phase)
+	}
 	total := 0.0
 	for _, v := range dash {
 		if v < 0 {
@@ -611,6 +666,9 @@ func dashLines(lines []polyline, dash []float64, phase float64) []polyline {
 
 // strokePolys builds the outline polygons of stroked polylines
 func strokePolys(lines []polyline, st strokeStyle) []polyline {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "strokePolys: len(lines)=%d", len(lines))
+	}
 	hw := st.width / 2
 	if hw <= 0 {
 		return nil
@@ -770,6 +828,9 @@ type canvas struct {
 }
 
 func newCanvas(w, h int, opaqueWhite bool) *canvas {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "newCanvas: w=%d h=%d opaqueWhite=%t", w, h, opaqueWhite)
+	}
 	c := &canvas{w: w, h: h, pix: make([]float32, w*h*4)}
 	if opaqueWhite {
 		for i := range c.pix {
@@ -780,6 +841,7 @@ func newCanvas(w, h int, opaqueWhite bool) *canvas {
 }
 
 func (c *canvas) bounds() image.Rectangle {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "canvas.bounds")
 	return image.Rect(0, 0, c.w, c.h)
 }
 
@@ -793,6 +855,7 @@ type solidPaint struct {
 }
 
 func (s solidPaint) at(int, int) (float32, float32, float32, float32) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "solidPaint.at")
 	return s.r, s.g, s.b, 1
 }
 
@@ -807,6 +870,9 @@ const (
 )
 
 func blendChannel(mode int, cb, cs float32) float32 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "blendChannel: mode=%d cb=%g cs=%g", mode, cb, cs)
+	}
 	switch mode {
 	case blendMultiply:
 		return cb * cs
@@ -838,6 +904,9 @@ func blendChannel(mode int, cb, cs float32) float32 {
 
 // composite paints src through the coverage, clip and soft mask
 func (c *canvas) composite(cov *mask, clip *mask, soft *mask, src painter, alpha float32, blend int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "canvas.composite: alpha=%g blend=%d", alpha, blend)
+	}
 	if cov == nil || alpha <= 0 {
 		return
 	}
@@ -899,6 +968,7 @@ func (c *canvas) composite(cov *mask, clip *mask, soft *mask, src painter, alpha
 
 // toRGBA flattens the canvas onto white into an 8 bit image
 func (c *canvas) toRGBA() *image.RGBA {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "canvas.toRGBA")
 	img := image.NewRGBA(image.Rect(0, 0, c.w, c.h))
 	for i := 0; i < c.w*c.h; i++ {
 		a := c.pix[i*4+3]

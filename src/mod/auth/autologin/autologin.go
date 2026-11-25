@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"imuslab.com/arozos/mod/info/logger"
 	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -13,6 +14,7 @@ type AutoLoginHandler struct {
 }
 
 func NewAutoLoginHandler(uh *user.UserHandler) *AutoLoginHandler {
+	logger.DebugTrace("auth/autologin", "NewAutoLoginHandler")
 	return &AutoLoginHandler{
 		userHandler: uh,
 	}
@@ -20,6 +22,9 @@ func NewAutoLoginHandler(uh *user.UserHandler) *AutoLoginHandler {
 
 // List the token given the username
 func (a *AutoLoginHandler) HandleUserTokensListing(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/autologin", "AutoLoginHandler.HandleUserTokensListing: r=%s", logger.RequestSummary(r))
+	}
 	username, err := utils.GetPara(r, "username")
 	if err != nil {
 		utils.SendErrorResponse(w, "Invalid username")
@@ -42,6 +47,9 @@ func (a *AutoLoginHandler) HandleUserTokensListing(w http.ResponseWriter, r *htt
 
 // Handle User Token Creation, require username. Please use adminrouter to handle this function
 func (a *AutoLoginHandler) HandleUserTokenCreation(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/autologin", "AutoLoginHandler.HandleUserTokenCreation: r=%s", logger.RequestSummary(r))
+	}
 	username, err := utils.GetPara(r, "username")
 	if err != nil {
 		utils.SendErrorResponse(w, "Invalid username")
@@ -63,6 +71,9 @@ func (a *AutoLoginHandler) HandleUserTokenCreation(w http.ResponseWriter, r *htt
 
 // Remove the user token given the token
 func (a *AutoLoginHandler) HandleUserTokenRemoval(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/autologin", "AutoLoginHandler.HandleUserTokenRemoval: r=%s", logger.RequestSummary(r))
+	}
 	token, err := utils.GetPara(r, "token")
 	if err != nil {
 		utils.SendErrorResponse(w, "Invalid username")

@@ -9,6 +9,7 @@ import (
 	agi "imuslab.com/arozos/mod/agi"
 	"imuslab.com/arozos/mod/email"
 	"imuslab.com/arozos/mod/git"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/notification"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
@@ -20,6 +21,7 @@ var (
 )
 
 func AGIInit() {
+	logger.Debug("Core", "AGIInit")
 	//Create the version control backend used by the AGI git library and the
 	//GitApp WebApp. A failure here only disables git support, so the rest of
 	//the gateway still starts.

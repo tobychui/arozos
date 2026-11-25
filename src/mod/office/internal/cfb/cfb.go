@@ -20,6 +20,8 @@ import (
 	"sort"
 	"strings"
 	"unicode/utf16"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Signature is the first eight bytes of every compound file
@@ -76,6 +78,7 @@ type File struct {
 
 // IsCompound reports whether data starts with the compound file signature
 func IsCompound(data []byte) bool {
+	logger.Debug("office/internal/cfb", "IsCompound")
 	if len(data) < 512 {
 		return false
 	}
@@ -89,6 +92,7 @@ func IsCompound(data []byte) bool {
 
 // Open parses the header, FAT, mini FAT and directory of a compound file
 func Open(data []byte) (*File, error) {
+	logger.Debug("office/internal/cfb", "Open")
 	if !IsCompound(data) {
 		return nil, ErrNotCompound
 	}
@@ -261,6 +265,9 @@ func Open(data []byte) (*File, error) {
 // sector returns the bytes of a regular sector (sector 0 follows the
 // 512-byte header; a 4096-byte sector file pads the header to a sector)
 func (f *File) sector(n uint32) ([]byte, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/cfb", "File.sector: n=%d", n)
+	}
 	if n > maxRegSect {
 		return nil, false
 	}
@@ -281,6 +288,9 @@ func (f *File) sector(n uint32) ([]byte, bool) {
 // chain reads a chain of regular sectors, stopping at size bytes (size < 0
 // reads the whole chain)
 func (f *File) chain(start uint32, size int64) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/cfb", "File.chain: start=%d size=%d", start, size)
+	}
 	var out []byte
 	if size > 0 {
 		if size > int64(len(f.data)) {
@@ -316,6 +326,9 @@ func (f *File) chain(start uint32, size int64) ([]byte, error) {
 
 // miniChain reads a stream stored in the mini stream
 func (f *File) miniChain(start uint32, size int64) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/cfb", "File.miniChain: start=%d size=%d", start, size)
+	}
 	out := make([]byte, 0, size)
 	seen := 0
 	for s := start; s != endOfChain && int64(len(out)) < size; {
@@ -342,6 +355,7 @@ func (f *File) miniChain(start uint32, size int64) ([]byte, error) {
 
 // Entries lists every storage and stream, sorted by path
 func (f *File) Entries() []Entry {
+	logger.DebugTrace("office/internal/cfb", "File.Entries")
 	out := make([]Entry, len(f.entries))
 	for i, e := range f.entries {
 		out[i] = *e
@@ -351,12 +365,18 @@ func (f *File) Entries() []Entry {
 
 // Has reports whether a stream of that path exists
 func (f *File) Has(path string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/cfb", "File.Has: path=%.120q", path)
+	}
 	e, ok := f.byPath[strings.ToLower(path)]
 	return ok && e.IsStream
 }
 
 // Stream returns the content of the stream at path
 func (f *File) Stream(path string) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/cfb", "File.Stream: path=%.120q", path)
+	}
 	e, ok := f.byPath[strings.ToLower(path)]
 	if !ok || !e.IsStream {
 		return nil, errors.New("stream not found: " + path)

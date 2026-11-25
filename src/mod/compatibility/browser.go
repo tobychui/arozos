@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -16,6 +18,9 @@ Example Firefox userAgent header:
 Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.02021/11/23
 */
 func FirefoxBrowserVersionForBypassUploadMetaHeaderCheck(userAgent string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("compatibility", "FirefoxBrowserVersionForBypassUploadMetaHeaderCheck: userAgent=%.120q", userAgent)
+	}
 	if strings.Contains(userAgent, "Mozilla") && strings.Contains(userAgent, "Firefox/") {
 		userAgentSegment := strings.Split(userAgent, " ")
 		for _, u := range userAgentSegment {
@@ -44,6 +49,9 @@ func FirefoxBrowserVersionForBypassUploadMetaHeaderCheck(userAgent string) bool 
 
 // Handle browser compatibility issue regarding some special format type
 func BrowserCompatibilityOverrideContentType(userAgent string, filename string, contentType string) string {
+	if logger.IsDebug() {
+		logger.Debugf("compatibility", "BrowserCompatibilityOverrideContentType: userAgent=%.120q filename=%.120q", userAgent, filename)
+	}
 	if strings.Contains(userAgent, "Mozilla") && strings.Contains(userAgent, "Firefox/") {
 		//Firefox. Handle specal content-type serving
 		if filepath.Ext(filename) == ".ai" {

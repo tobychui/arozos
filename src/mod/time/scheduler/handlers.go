@@ -9,11 +9,15 @@ import (
 	"strings"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
 // List all the jobs related to the given user
 func (a *Scheduler) HandleListJobs(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("time/scheduler", "Scheduler.HandleListJobs: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -52,6 +56,9 @@ func (a *Scheduler) HandleListJobs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("time/scheduler", "Scheduler.HandleAddJob: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -164,6 +171,9 @@ func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Scheduler) HandleJobRemoval(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("time/scheduler", "Scheduler.HandleJobRemoval: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -211,6 +221,9 @@ func (a *Scheduler) HandleJobRemoval(w http.ResponseWriter, r *http.Request) {
 
 // HandleCheckPermission returns whether the current user has cron job creation permission
 func (a *Scheduler) HandleCheckPermission(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("time/scheduler", "Scheduler.HandleCheckPermission: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -235,6 +248,9 @@ func (a *Scheduler) HandleCheckPermission(w http.ResponseWriter, r *http.Request
 //	base      – base unix timestamp for interval alignment, default now
 //	desc      – optional description
 func (a *Scheduler) HandleAppRegisterJob(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("time/scheduler", "Scheduler.HandleAppRegisterJob: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -332,6 +348,9 @@ func (a *Scheduler) HandleAppRegisterJob(w http.ResponseWriter, r *http.Request)
 // HandleAppCheckJob checks whether a specific app job is registered for the current user
 // GET params: appname, taskname
 func (a *Scheduler) HandleAppCheckJob(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("time/scheduler", "Scheduler.HandleAppCheckJob: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -352,6 +371,9 @@ func (a *Scheduler) HandleAppCheckJob(w http.ResponseWriter, r *http.Request) {
 // HandleAppUnregisterJob removes a cron job registered by a specific app for the current user
 // POST params: appname, taskname
 func (a *Scheduler) HandleAppUnregisterJob(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("time/scheduler", "Scheduler.HandleAppUnregisterJob: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")

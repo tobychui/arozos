@@ -18,6 +18,8 @@ import (
 	"errors"
 	"io"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -51,6 +53,9 @@ type progressReporter struct {
 }
 
 func newProgressReporter(handler FileOperationProgressHandler, totalBytes int64) *progressReporter {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem", "newProgressReporter: totalBytes=%d", totalBytes)
+	}
 	return &progressReporter{
 		handler:    handler,
 		totalBytes: totalBytes,
@@ -65,6 +70,9 @@ Set force for the positions that must not be dropped, like the start and the end
 of a file. Everything else is subject to the fileOprProgressInterval rate limit.
 */
 func (p *progressReporter) report(bytesDone int64, force bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "progressReporter.report: bytesDone=%d force=%t", bytesDone, force)
+	}
 	if p == nil || p.handler == nil {
 		return nil
 	}
@@ -107,6 +115,9 @@ type progressReader struct {
 // baseDone is how much of the operation was already done when the stream began.
 // The reader is handed back untouched when there is nothing to report to.
 func newProgressReader(reader io.Reader, reporter *progressReporter, baseDone int64) io.Reader {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "newProgressReader: baseDone=%d", baseDone)
+	}
 	if reporter == nil || reporter.handler == nil {
 		return reader
 	}
@@ -118,6 +129,9 @@ func newProgressReader(reader io.Reader, reporter *progressReporter, baseDone in
 }
 
 func (p *progressReader) Read(buf []byte) (int, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem", "progressReader.Read: len(buf)=%d", len(buf))
+	}
 	n, err := p.reader.Read(buf)
 	if n > 0 {
 		p.streamed += int64(n)
@@ -133,6 +147,7 @@ func (p *progressReader) Read(buf []byte) (int, error) {
 // legacyProgressAdapter turns a byte level progress handler back into the
 // percentage based callback that the original FileCopy and FileMove take.
 func legacyProgressAdapter(progressUpdate func(int, string) int) FileOperationProgressHandler {
+	logger.Debug("filesystem", "legacyProgressAdapter")
 	if progressUpdate == nil {
 		return nil
 	}

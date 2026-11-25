@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -19,6 +20,7 @@ import (
 */
 
 func portForwardInit() {
+	logger.Debug("Core", "portForwardInit")
 
 	//Create database table if not exists
 	sysdb.NewTable("portforward")
@@ -63,6 +65,9 @@ func portForwardInit() {
 }
 
 func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "portforward_handleForward: r=%s", logger.RequestSummary(r))
+	}
 	opr, _ := utils.PostPara(r, "opr")
 	if opr == "" {
 		if UPNP == nil {

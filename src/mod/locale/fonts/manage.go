@@ -16,6 +16,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var unsafeName = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
@@ -56,6 +58,7 @@ type FamilyView struct {
 }
 
 func faceView(f *Face) FaceView {
+	logger.DebugTrace("locale/fonts", "faceView")
 	return FaceView{
 		ID: f.ID, Family: f.Info.Family, File: path.Base(f.ID), Style: f.Info.Style,
 		WeightMin: f.Info.WeightMin, WeightMax: f.Info.WeightMax,
@@ -67,6 +70,9 @@ func faceView(f *Face) FaceView {
 // Families describes every installed family; langs are the languages to
 // test support for
 func (l *Library) Families(langs []string) []FamilyView {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.Families: len(langs)=%d", len(langs))
+	}
 	l.mu.RLock()
 	fams := make([]*Family, 0, len(l.families))
 	for _, f := range l.families {
@@ -111,6 +117,9 @@ func (l *Library) Families(langs []string) []FamilyView {
 
 // dirName turns a family name into a folder name
 func dirName(family string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "dirName: family=%.120q", family)
+	}
 	name := strings.Trim(unsafeName.ReplaceAllString(strings.ReplaceAll(family, " ", "_"), ""), "._-")
 	if name == "" {
 		name = fmt.Sprintf("Font_%x", []byte(family))
@@ -124,6 +133,9 @@ func dirName(family string) string {
 // Install checks an uploaded font and adds it to the library. WOFF files
 // are unpacked to TTF / OTF so they can be sliced.
 func (l *Library) Install(filename string, data []byte) (FaceView, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.Install: filename=%.120q", filename)
+	}
 	if len(data) > MaxFontSize {
 		return FaceView{}, fmt.Errorf("the font is larger than %d MB", MaxFontSize>>20)
 	}
@@ -213,6 +225,9 @@ func (l *Library) Install(filename string, data []byte) (FaceView, error) {
 // Delete removes a family: its font files, its folder when nothing else
 // is left in it, and its generated slices
 func (l *Library) Delete(family string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.Delete: family=%.120q", family)
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	key := strings.ToLower(family)

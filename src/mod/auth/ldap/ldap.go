@@ -52,6 +52,9 @@ type syncorizeUserReturnInterface struct {
 
 // NewLdapHandler xxx
 func NewLdapHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, coreDb *db.Database, permissionHandler *permission.PermissionHandler, userHandler *user.UserHandler, nightlyManager *nightly.TaskManager, iconSystem string) *ldapHandler {
+	if logger.IsDebug() {
+		logger.Debugf("auth/ldap", "NewLdapHandler: iconSystem=%.120q", iconSystem)
+	}
 	//ldap handler init
 	logger.PrintAndLog("Ldap", "Starting LDAP client...", nil)
 	err := coreDb.NewTable("ldap")
@@ -85,6 +88,9 @@ func NewLdapHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, co
 
 // @para limit: -1 means unlimited
 func (ldap *ldapHandler) getAllUser(limit int) ([]UserAccount, int, error) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/ldap", "ldapHandler.getAllUser: limit=%d", limit)
+	}
 	//read the user account from ldap, if limit is -1 then it will read all USERS
 	var accounts []UserAccount
 	result, err := ldap.ldapreader.GetAllUser()
@@ -108,6 +114,7 @@ func (ldap *ldapHandler) getAllUser(limit int) ([]UserAccount, int, error) {
 }
 
 func (ldap *ldapHandler) convertGroup(ldapUser *ldap.Entry) UserAccount {
+	logger.Debug("auth/ldap", "ldapHandler.convertGroup")
 	//check the group belongs
 	var Group []string
 	var EquivGroup []string
@@ -140,6 +147,7 @@ func (ldap *ldapHandler) convertGroup(ldapUser *ldap.Entry) UserAccount {
 }
 
 func (ldap *ldapHandler) NightlySync() {
+	logger.Debug("auth/ldap", "ldapHandler.NightlySync")
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "true" {
 		err := ldap.SynchronizeUserFromLDAP()
@@ -150,6 +158,7 @@ func (ldap *ldapHandler) NightlySync() {
 }
 
 func (ldap *ldapHandler) SynchronizeUserFromLDAP() error {
+	logger.Debug("auth/ldap", "ldapHandler.SynchronizeUserFromLDAP")
 	//check if suer is admin before executing the command
 	//if user is admin then check if user will lost him/her's admin access
 	ldapUsersList, _, err := ldap.getAllUser(-1)

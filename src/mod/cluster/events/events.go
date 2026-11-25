@@ -91,6 +91,7 @@ type Bus struct {
 
 // New creates the bus and registers its node endpoint.
 func New(m *membership.Manager, runner HookRunner) (*Bus, error) {
+	logger.Debug("cluster/events", "New")
 	if m == nil {
 		return nil, errors.New("membership manager is required")
 	}
@@ -120,6 +121,7 @@ func New(m *membership.Manager, runner HookRunner) (*Bus, error) {
 
 // Close stops the background loops.
 func (b *Bus) Close() {
+	logger.Debug("cluster/events", "Bus.Close")
 	b.once.Do(func() { close(b.stop) })
 	b.wg.Wait()
 }
@@ -130,6 +132,7 @@ func (b *Bus) Close() {
 
 // Publish delivers an event locally and to every online peer.
 func (b *Bus) Publish(ev Event) {
+	logger.Debug("cluster/events", "Bus.Publish")
 	if ev.ID == "" {
 		ev.ID = uuid.NewV4().String()
 	}
@@ -152,6 +155,9 @@ func (b *Bus) Publish(ev Event) {
 
 // Subscribe registers a local listener for the given types ("*" = all).
 func (b *Bus) Subscribe(types []string, fn func(Event)) func() {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/events", "Bus.Subscribe: len(types)=%d", len(types))
+	}
 	s := &subscriber{id: uuid.NewV4().String(), types: map[string]bool{}, fn: fn}
 	for _, t := range types {
 		s.types[strings.ToLower(strings.TrimSpace(t))] = true
@@ -170,6 +176,9 @@ func (b *Bus) Subscribe(types []string, fn func(Event)) func() {
 }
 
 func matches(types map[string]bool, t string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/events", "matches: len(types)=%d t=%.120q", len(types), t)
+	}
 	if types["*"] {
 		return true
 	}
@@ -184,6 +193,9 @@ func matches(types map[string]bool, t string) bool {
 }
 
 func (b *Bus) remember(id string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/events", "Bus.remember: id=%.120q", id)
+	}
 	now := time.Now().Unix()
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -203,6 +215,7 @@ func (b *Bus) remember(id string) bool {
 }
 
 func (b *Bus) deliver(ev Event) {
+	logger.Debug("cluster/events", "Bus.deliver")
 	b.mu.RLock()
 	subs := make([]*subscriber, 0, len(b.subs))
 	for _, s := range b.subs {
@@ -229,6 +242,9 @@ func (b *Bus) deliver(ev Event) {
 }
 
 func typeSet(types []string) map[string]bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/events", "typeSet: len(types)=%d", len(types))
+	}
 	out := map[string]bool{}
 	for _, t := range types {
 		out[strings.ToLower(t)] = true
@@ -237,6 +253,7 @@ func typeSet(types []string) map[string]bool {
 }
 
 func (b *Bus) flushLoop() {
+	logger.Debug("cluster/events", "Bus.flushLoop")
 	defer b.wg.Done()
 	ticker := time.NewTicker(batchInterval)
 	defer ticker.Stop()
@@ -251,6 +268,7 @@ func (b *Bus) flushLoop() {
 }
 
 func (b *Bus) flush() {
+	logger.Debug("cluster/events", "Bus.flush")
 	b.batchMu.Lock()
 	batch := b.batch
 	b.batch = nil
@@ -276,6 +294,9 @@ func (b *Bus) flush() {
 }
 
 func (b *Bus) handlePublish(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/events", "Bus.handlePublish: r=%s", logger.RequestSummary(r))
+	}
 	var batch []Event
 	if err := json.Unmarshal(body, &batch); err != nil {
 		acn.WriteError(w, http.StatusBadRequest, "invalid batch")
@@ -294,6 +315,7 @@ func (b *Bus) handlePublish(w http.ResponseWriter, r *http.Request, sender *acn.
 
 // nodeWatch turns membership state changes into node.* events.
 func (b *Bus) nodeWatch() {
+	logger.Debug("cluster/events", "Bus.nodeWatch")
 	defer b.wg.Done()
 	prev := map[string]membership.NodeState{}
 	ticker := time.NewTicker(5 * time.Second)
@@ -338,6 +360,7 @@ func (b *Bus) nodeWatch() {
 // publishLocal delivers node events without fan-out: every node computes the
 // same state transitions itself.
 func (b *Bus) publishLocal(ev Event) {
+	logger.Debug("cluster/events", "Bus.publishLocal")
 	ev.ID = uuid.NewV4().String()
 	ev.Time = time.Now().Unix()
 	b.deliver(ev)
@@ -348,6 +371,7 @@ func (b *Bus) publishLocal(ev Event) {
 */
 
 func (b *Bus) loadHooks() {
+	logger.Debug("cluster/events", "Bus.loadHooks")
 	entries, err := b.m.DB().ListTable(tableHooks)
 	if err != nil {
 		return
@@ -362,6 +386,9 @@ func (b *Bus) loadHooks() {
 
 // AddHook registers a script for event types on behalf of owner.
 func (b *Bus) AddHook(owner string, types []string, script string) (*Hook, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/events", "Bus.AddHook: owner=%.120q len(types)=%d", owner, len(types))
+	}
 	if owner == "" || script == "" || len(types) == 0 {
 		return nil, errors.New("owner, script and at least one event type are required")
 	}
@@ -375,6 +402,9 @@ func (b *Bus) AddHook(owner string, types []string, script string) (*Hook, error
 
 // RemoveHook deletes a hook; owner "" removes regardless of owner.
 func (b *Bus) RemoveHook(id string, owner string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/events", "Bus.RemoveHook: id=%.120q owner=%.120q", id, owner)
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	h, ok := b.hooks[id]
@@ -388,6 +418,9 @@ func (b *Bus) RemoveHook(id string, owner string) error {
 
 // Hooks lists hooks, filtered by owner when non-empty.
 func (b *Bus) Hooks(owner string) []Hook {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/events", "Bus.Hooks: owner=%.120q", owner)
+	}
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	out := []Hook{}
@@ -400,6 +433,7 @@ func (b *Bus) Hooks(owner string) []Hook {
 }
 
 func (b *Bus) runHook(h Hook, ev Event) {
+	logger.Debug("cluster/events", "Bus.runHook")
 	if b.runner == nil {
 		return
 	}
@@ -428,6 +462,9 @@ func (b *Bus) runHook(h Hook, ev Event) {
 
 // HandleWebSocket streams events to a browser. Optional ?types=a,b filter.
 func (b *Bus) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/events", "Bus.HandleWebSocket: r=%s", logger.RequestSummary(r))
+	}
 	types := []string{}
 	if q, _ := utils.GetPara(r, "types"); q != "" {
 		types = strings.Split(q, ",")

@@ -25,6 +25,7 @@ const notificationSender = "File Share"
 // invitedNames returns the user or group names newly given access by a share
 // change. before is nil for a new share.
 func invitedNames(before *shareEntry.ShareOption, after *shareEntry.ShareOption) []string {
+	logger.Debug("share", "invitedNames")
 	if after.Permission != shareEntry.PermissionUsers && after.Permission != shareEntry.PermissionGroups {
 		return []string{}
 	}
@@ -48,6 +49,9 @@ func invitedNames(before *shareEntry.ShareOption, after *shareEntry.ShareOption)
 // resolveInvitees expands invited users / groups into the usernames to notify,
 // without duplicates and without the person who shared the file.
 func (s *Manager) resolveInvitees(so *shareEntry.ShareOption, names []string, sharedBy string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.resolveInvitees: len(names)=%d sharedBy=%.120q", len(names), sharedBy)
+	}
 	seen := map[string]bool{so.Owner: true, sharedBy: true}
 	receivers := []string{}
 	add := func(username string) {
@@ -75,6 +79,9 @@ func (s *Manager) resolveInvitees(so *shareEntry.ShareOption, names []string, sh
 
 // buildInviteNotification builds the notice sent to invited users
 func buildInviteNotification(so *shareEntry.ShareOption, sharedBy string, receivers []string) *notification.NotificationPayload {
+	if logger.IsDebug() {
+		logger.Debugf("share", "buildInviteNotification: sharedBy=%.120q len(receivers)=%d", sharedBy, len(receivers))
+	}
 	filename := arozfs.Base(so.FileVirtualPath)
 	kind := "file"
 	if so.IsFolder {
@@ -115,6 +122,9 @@ func buildInviteNotification(so *shareEntry.ShareOption, sharedBy string, receiv
 // now have access. before is nil for a new share. Failures are only logged:
 // the share itself has already been saved.
 func (s *Manager) notifyInvitees(before *shareEntry.ShareOption, after *shareEntry.ShareOption, sharedBy string) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.notifyInvitees: sharedBy=%.120q", sharedBy)
+	}
 	if s.options.NotificationSender == nil || after == nil || after.IsExpired(time.Now()) {
 		return
 	}

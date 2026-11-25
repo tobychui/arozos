@@ -33,6 +33,7 @@ import (
 	"strings"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/htmlutil"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 	"imuslab.com/arozos/mod/office/model"
@@ -59,6 +60,7 @@ var bareRefRe = regexp.MustCompile(`^\$?[A-Za-z]{1,3}\$?[0-9]+$`)
 type cfRect struct{ c1, r1, c2, r2 int }
 
 func (r cfRect) ref() string {
+	logger.DebugTrace("office/xlsx", "cfRect.ref")
 	if r.c1 == r.c2 && r.r1 == r.r2 {
 		return model.CellRef(r.c1, r.r1)
 	}
@@ -68,6 +70,9 @@ func (r cfRect) ref() string {
 // cellsToRects covers a set of cells with rectangles: runs along each row,
 // then equal runs on consecutive rows merged downwards
 func cellsToRects(cells [][2]int) []cfRect {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "cellsToRects: len(cells)=%d", len(cells))
+	}
 	byRow := map[int][]int{}
 	for _, c := range cells {
 		byRow[c[1]] = append(byRow[c[1]], c[0])
@@ -114,12 +119,18 @@ func cellsToRects(cells [][2]int) []cfRect {
 }
 
 func xlQuote(s string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "xlQuote: s=%.120q", s)
+	}
 	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
 }
 
 // cfOperandFormula turns an editor operand into an Excel formula term,
 // moved by (dC, dR) from the rule's anchor to the range's corner
 func cfOperandFormula(v model.CfOperand, kind string, dC, dR int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "cfOperandFormula: kind=%.120q dC=%d dR=%d", kind, dC, dR)
+	}
 	s := strings.TrimSpace(string(v))
 	if s == "" {
 		return `""`
@@ -143,6 +154,9 @@ func cfOperandFormula(v model.CfOperand, kind string, dC, dR int) string {
 
 // dateSerial reads the date forms the editor accepts into an Excel serial
 func dateSerial(s string) (int, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "dateSerial: s=%.120q", s)
+	}
 	for _, layout := range []string{"2006-01-02", "2006/01/02", "2006-1-2", "2006/1/2", "01/02/2006", "1/2/2006"} {
 		if t, err := time.Parse(layout, s); err == nil {
 			base := time.Date(1899, 12, 30, 0, 0, 0, 0, time.UTC)
@@ -155,6 +169,9 @@ func dateSerial(s string) (int, bool) {
 // cfRuleXML renders one editor rule as a <cfRule> for a range whose
 // top-left cell is ref, dC / dR away from the rule's anchor
 func cfRuleXML(rule *model.CfRule, dxf, priority int, ref string, dC, dR int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "cfRuleXML: dxf=%d priority=%d ref=%.120q dC=%d dR=%d", dxf, priority, ref, dC, dR)
+	}
 	kind := cfKinds[rule.Type]
 	op := func(v model.CfOperand) string { return cfOperandFormula(v, kind, dC, dR) }
 	head := func(typ, extra string) string {
@@ -210,6 +227,7 @@ func cfRuleXML(rule *model.CfRule, dxf, priority int, ref string, dC, dR int) st
 
 // dxf renders a rule's style as a differential format and returns its index
 func (t *xlsxStyleTable) dxf(st *model.CfStyle) int {
+	logger.DebugTrace("office/xlsx", "xlsxStyleTable.dxf")
 	var sb strings.Builder
 	sb.WriteString("<dxf>")
 	if st != nil && (st.B || st.I || st.U || st.Fc != "") {
@@ -244,6 +262,7 @@ func (t *xlsxStyleTable) dxf(st *model.CfStyle) int {
 // conditionalFormattingXML renders a sheet's rules; priority numbers run
 // on across the sheet
 func conditionalFormattingXML(ws *model.WorkSheet, styles *xlsxStyleTable) string {
+	logger.DebugTrace("office/xlsx", "conditionalFormattingXML")
 	if len(ws.CfDefs) == 0 {
 		return ""
 	}
@@ -308,6 +327,7 @@ func conditionalFormattingXML(ws *model.WorkSheet, styles *xlsxStyleTable) strin
 
 // filterRange is the range of a sheet's filter blob ({range: "A1:D20", ...})
 func filterRange(raw json.RawMessage) string {
+	logger.DebugTrace("office/xlsx", "filterRange")
 	if len(raw) == 0 {
 		return ""
 	}
@@ -332,6 +352,9 @@ func filterRange(raw json.RawMessage) string {
 
 // absRange turns "A1:D20" into "$A$1:$D$20" for a defined name
 func absRange(r string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "absRange: r=%.120q", r)
+	}
 	parts := strings.Split(r, ":")
 	for i, p := range parts {
 		if c, row, ok := model.ParseCellRef(p); ok {
@@ -349,6 +372,7 @@ const maxCfCells = 50000
 
 // parseDxfs reads styles.xml's differential formats
 func parseDxfs(data []byte) []*model.CfStyle {
+	logger.DebugTrace("office/xlsx", "parseDxfs")
 	if len(data) == 0 {
 		return nil
 	}
@@ -382,6 +406,9 @@ func parseDxfs(data []byte) []*model.CfStyle {
 }
 
 func argbToHex(v string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "argbToHex: v=%.120q", v)
+	}
 	v = strings.TrimSpace(v)
 	if len(v) == 8 {
 		v = v[2:]
@@ -398,6 +425,9 @@ func argbToHex(v string) string {
 // cfOperandFromXl turns an Excel formula term back into what the editor
 // shows in an operand box
 func cfOperandFromXl(f string) model.CfOperand {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "cfOperandFromXl: f=%.120q", f)
+	}
 	f = strings.TrimSpace(f)
 	if model.LooksNumeric(f) {
 		return model.CfOperand(f)
@@ -411,6 +441,9 @@ func cfOperandFromXl(f string) model.CfOperand {
 // parseSheetExtras reads the tab colour, the filter range and the
 // conditional formats of one worksheet
 func parseSheetExtras(tree *xmltree.Node, ws *model.WorkSheet, dxfs []*model.CfStyle) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "parseSheetExtras: len(dxfs)=%d", len(dxfs))
+	}
 	if tc := tree.Path("sheetPr", "tabColor"); tc != nil {
 		ws.Color = argbToHex(tc.Attr("rgb"))
 	}
@@ -498,6 +531,7 @@ var xlOpToCond = map[string]string{
 // cfRuleFromXl maps an Excel rule onto an editor condition (nil when the
 // editor has none)
 func cfRuleFromXl(cr *xmltree.Node) *model.CfRule {
+	logger.DebugTrace("office/xlsx", "cfRuleFromXl")
 	formulas := cr.All("formula")
 	fText := func(i int) string {
 		if i < len(formulas) {
@@ -538,6 +572,9 @@ func cfRuleFromXl(cr *xmltree.Node) *model.CfRule {
 }
 
 func textRule(cond, text string) *model.CfRule {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "textRule: cond=%.120q", cond)
+	}
 	if text == "" {
 		return nil
 	}

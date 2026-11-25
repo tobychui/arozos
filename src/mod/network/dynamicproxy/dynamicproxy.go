@@ -53,6 +53,9 @@ type ProxyHandler struct {
 }
 
 func NewDynamicProxy(port int) (*Router, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/dynamicproxy", "NewDynamicProxy: port=%d", port)
+	}
 	proxyMap := sync.Map{}
 	domainMap := sync.Map{}
 	thisRouter := Router{
@@ -73,6 +76,7 @@ func NewDynamicProxy(port int) (*Router, error) {
 
 // Start the dynamic routing
 func (router *Router) StartProxyService() error {
+	logger.Debug("network/dynamicproxy", "Router.StartProxyService")
 	//Create a new server object
 	if router.server != nil {
 		return errors.New("Reverse proxy server already running")
@@ -93,6 +97,7 @@ func (router *Router) StartProxyService() error {
 }
 
 func (router *Router) StopProxyService() error {
+	logger.Debug("network/dynamicproxy", "Router.StopProxyService")
 	if router.server == nil {
 		return errors.New("Reverse proxy server already stopped")
 	}
@@ -113,6 +118,9 @@ func (router *Router) StopProxyService() error {
 Add an URL into a custom proxy services
 */
 func (router *Router) AddProxyService(rootname string, domain string, requireTLS bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("network/dynamicproxy", "Router.AddProxyService: rootname=%.120q domain=%.120q requireTLS=%t", rootname, domain, requireTLS)
+	}
 	if domain[len(domain)-1:] == "/" {
 		domain = domain[:len(domain)-1]
 	}
@@ -146,6 +154,9 @@ func (router *Router) AddProxyService(rootname string, domain string, requireTLS
 Add an default router for the proxy server
 */
 func (router *Router) SetRootProxy(proxyLocation string, requireTLS bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("network/dynamicproxy", "Router.SetRootProxy: proxyLocation=%.120q requireTLS=%t", proxyLocation, requireTLS)
+	}
 	if proxyLocation[len(proxyLocation)-1:] == "/" {
 		proxyLocation = proxyLocation[:len(proxyLocation)-1]
 	}
@@ -177,6 +188,9 @@ func (router *Router) SetRootProxy(proxyLocation string, requireTLS bool) error 
 
 // Do all the main routing in here
 func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("network/dynamicproxy", "ProxyHandler.ServeHTTP: r=%s", logger.RequestSummary(r))
+	}
 	if strings.Contains(r.Host, ".") {
 		//This might be a subdomain. See if there are any subdomain proxy router for this
 		sep := h.Parent.getSubdomainProxyEndpointFromHostname(r.Host)

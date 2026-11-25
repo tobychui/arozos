@@ -3,6 +3,8 @@ package aroz
 import (
 	"path"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -25,11 +27,17 @@ const (
 
 // versionTime reads a snapshot folder name, in the server's local time.
 func versionTime(name string) (time.Time, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "versionTime: name=%.120q", name)
+	}
 	t, err := time.ParseInLocation(versionLayout, name, time.Local)
 	return t, err == nil
 }
 
 func joinShare(parts ...string) string {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "joinShare: len(parts)=%d", len(parts))
+	}
 	out := path.Join(parts...)
 	if out == "." {
 		return ""
@@ -40,6 +48,9 @@ func joinShare(parts ...string) string {
 // Snapshots lists when versions of p were taken. For a folder that is any
 // version of a file directly in it, so Windows can look each one up.
 func (s *share) Snapshots(p string) []time.Time {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.Snapshots: p=%.120q", p)
+	}
 	info, err := s.Stat(p)
 	isDir := err == nil && info.IsDir
 	if err != nil && p == "" {
@@ -77,6 +88,9 @@ func (s *share) Snapshots(p string) []time.Time {
 
 // SnapshotPath finds the version of p taken at t.
 func (s *share) SnapshotPath(p string, t time.Time) (string, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.SnapshotPath: p=%.120q", p)
+	}
 	id := t.In(time.Local).Format(versionLayout)
 	//A folder: the snapshot folder itself, listing the versions taken then
 	if info, err := s.Stat(p); (err == nil && info.IsDir) || p == "" {

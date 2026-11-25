@@ -39,6 +39,7 @@ type RouterDef struct {
 }
 
 func NewModuleRouter(option RouterOption) *RouterDef {
+	logger.DebugTrace("prouter", "NewModuleRouter")
 	return &RouterDef{
 		moduleUUID:              option.ModuleName,
 		adminOnly:               option.AdminOnly,
@@ -50,6 +51,9 @@ func NewModuleRouter(option RouterOption) *RouterDef {
 }
 
 func (router *RouterDef) HandleFunc(endpoint string, handler func(http.ResponseWriter, *http.Request)) error {
+	if logger.IsDebug() {
+		logger.Debugf("prouter", "RouterDef.HandleFunc: endpoint=%.120q", endpoint)
+	}
 	//Check if the endpoint already registered
 	if _, exist := router.endpoints[endpoint]; exist {
 		logger.PrintAndLog("Prouter", "WARNING! Duplicated registering of web endpoint: "+endpoint, nil)
@@ -57,6 +61,10 @@ func (router *RouterDef) HandleFunc(endpoint string, handler func(http.ResponseW
 	}
 
 	authAgent := router.userHandler.GetAuthAgent()
+	denied := func(w http.ResponseWriter, r *http.Request, reason string) {
+		logger.Debugf("prouter", "denied %s: %s", logger.RequestSummary(r), reason)
+		router.permissionDeniedHandler(w, r)
+	}
 
 	//OK. Register handler
 	http.HandleFunc(endpoint, func(w http.ResponseWriter, r *http.Request) {
@@ -64,14 +72,17 @@ func (router *RouterDef) HandleFunc(endpoint string, handler func(http.ResponseW
 		authAgent.HandleCheckAuth(w, r, func(w http.ResponseWriter, r *http.Request) {
 			//Check if the user has permission to access this module
 			userinfo, err := router.userHandler.GetUserInfoFromRequest(w, r)
+			if err == nil && logger.IsDebug() {
+				logger.Debugf("prouter", "%s by %q (module %q, admin only %t)", logger.RequestSummary(r), userinfo.Username, router.moduleUUID, router.adminOnly)
+			}
 			if err != nil {
-				router.permissionDeniedHandler(w, r)
+				denied(w, r, "user info unavailable")
 				return
 			}
 
 			//Check if the connection fits the RequireLAN requirement
 			if router.requireLAN == true && checkIfLAN(r) == false {
-				router.permissionDeniedHandler(w, r)
+				denied(w, r, "not from LAN")
 				return
 			}
 
@@ -79,7 +90,7 @@ func (router *RouterDef) HandleFunc(endpoint string, handler func(http.ResponseW
 			if router.moduleUUID == "" {
 				//That means this router can serve anyone as soon as its fit the admin setting
 				if router.adminOnly && !userinfo.IsAdmin() {
-					router.permissionDeniedHandler(w, r)
+					denied(w, r, "admin only")
 				} else {
 					handler(w, r)
 				}
@@ -93,7 +104,7 @@ func (router *RouterDef) HandleFunc(endpoint string, handler func(http.ResponseW
 					if userinfo.IsAdmin() == true {
 						handler(w, r)
 					} else {
-						router.permissionDeniedHandler(w, r)
+						denied(w, r, "admin only")
 						return
 					}
 				} else {
@@ -102,7 +113,7 @@ func (router *RouterDef) HandleFunc(endpoint string, handler func(http.ResponseW
 				}
 			} else {
 				//User has no permission to access this module
-				router.permissionDeniedHandler(w, r)
+				denied(w, r, "no access to module")
 				return
 			}
 		})

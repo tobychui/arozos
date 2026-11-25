@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -34,6 +36,9 @@ type ExpLoginHandler struct {
 
 // Create a new exponential login handler object
 func NewExponentialLoginHandler(baseDelay int, ceiling int) *ExpLoginHandler {
+	if logger.IsDebug() {
+		logger.Debugf("auth/explogin", "NewExponentialLoginHandler: baseDelay=%d ceiling=%d", baseDelay, ceiling)
+	}
 	recordMap := sync.Map{}
 
 	return &ExpLoginHandler{
@@ -45,6 +50,9 @@ func NewExponentialLoginHandler(baseDelay int, ceiling int) *ExpLoginHandler {
 
 // Check allow access now, if false return how many seconds till next retry
 func (e *ExpLoginHandler) AllowImmediateAccess(username string, r *http.Request) (bool, int64) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/explogin", "ExpLoginHandler.AllowImmediateAccess: username=%.120q r=%s", username, logger.RequestSummary(r))
+	}
 	userip, err := getIpFromRequest(r)
 	if err != nil {
 		//No ip information. Use 0.0.0.0
@@ -72,6 +80,9 @@ func (e *ExpLoginHandler) AllowImmediateAccess(username string, r *http.Request)
 
 // Add a user retry count after failed login
 func (e *ExpLoginHandler) AddUserRetrycount(username string, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/explogin", "ExpLoginHandler.AddUserRetrycount: username=%.120q r=%s", username, logger.RequestSummary(r))
+	}
 	userip, err := getIpFromRequest(r)
 	if err != nil {
 		//No ip information. Use 0.0.0.0
@@ -105,6 +116,9 @@ func (e *ExpLoginHandler) AddUserRetrycount(username string, r *http.Request) {
 
 // Reset a user retry count after successful login
 func (e *ExpLoginHandler) ResetUserRetryCount(username string, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/explogin", "ExpLoginHandler.ResetUserRetryCount: username=%.120q r=%s", username, logger.RequestSummary(r))
+	}
 	userip, err := getIpFromRequest(r)
 	if err != nil {
 		//No ip information. Use 0.0.0.0
@@ -117,6 +131,7 @@ func (e *ExpLoginHandler) ResetUserRetryCount(username string, r *http.Request) 
 
 // Reset all Login exponential record
 func (e *ExpLoginHandler) ResetAllUserRetryCounter() {
+	logger.DebugTrace("auth/explogin", "ExpLoginHandler.ResetAllUserRetryCounter")
 	e.LoginRecord.Range(func(key interface{}, value interface{}) bool {
 		e.LoginRecord.Delete(key)
 		return true
@@ -125,6 +140,9 @@ func (e *ExpLoginHandler) ResetAllUserRetryCounter() {
 
 // Get the next delay time
 func (e *ExpLoginHandler) getDelayTimeFromRetryCount(retryCount int) int64 {
+	if logger.IsDebug() {
+		logger.Debugf("auth/explogin", "ExpLoginHandler.getDelayTimeFromRetryCount: retryCount=%d", retryCount)
+	}
 	delaySecs := int64(math.Floor((math.Pow(2, float64(retryCount)) - 1) * 0.5))
 	if delaySecs > int64(e.DelayCeiling)-int64(e.BaseDelay) {
 		delaySecs = int64(e.DelayCeiling) - int64(e.BaseDelay)
@@ -140,6 +158,9 @@ func (e *ExpLoginHandler) getDelayTimeFromRetryCount(retryCount int) int64 {
 */
 
 func getIpFromRequest(r *http.Request) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/explogin", "getIpFromRequest: r=%s", logger.RequestSummary(r))
+	}
 	ip := r.Header.Get("X-REAL-IP")
 	netIP := net.ParseIP(ip)
 	if netIP != nil {

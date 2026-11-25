@@ -1,6 +1,7 @@
 package main
 
 import (
+	"imuslab.com/arozos/mod/info/logger"
 	module "imuslab.com/arozos/mod/modules"
 )
 
@@ -19,6 +20,7 @@ import (
 //Register the utilities here
 
 func util_init() {
+	logger.Debug("Core", "util_init")
 	/*
 		ArOZ Video Player - The basic video player
 	*/

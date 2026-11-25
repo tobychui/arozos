@@ -18,6 +18,9 @@ import (
 */
 
 func GetFilePermissions(fsh *filesystem.FileSystemHandler, file string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/fspermission", "GetFilePermissions: file=%.120q", file)
+	}
 	fshAbs := fsh.FileSystemAbstraction
 	fileStat, err := fshAbs.Stat(file)
 	if err != nil {
@@ -30,6 +33,9 @@ func GetFilePermissions(fsh *filesystem.FileSystemHandler, file string) (string,
 }
 
 func SetFilePermisson(fsh *filesystem.FileSystemHandler, file string, permissionKey string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/fspermission", "SetFilePermisson: file=%.120q", file)
+	}
 	fshAbs := fsh.FileSystemAbstraction
 	if fshAbs.FileExists(file) && filesystem.FileExists(file) {
 		//This ensure this must be a local file on the system

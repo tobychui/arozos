@@ -14,6 +14,9 @@ import (
 // LOGIN related function
 // functions basically same as arozos's original function
 func (ldap *ldapHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/ldap", "ldapHandler.HandleLoginPage: r=%s", logger.RequestSummary(r))
+	}
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "false" {
 		utils.SendTextResponse(w, "LDAP not enabled.")
@@ -42,6 +45,9 @@ func (ldap *ldapHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request)
 }
 
 func (ldap *ldapHandler) HandleNewPasswordPage(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/ldap", "ldapHandler.HandleNewPasswordPage: r=%s", logger.RequestSummary(r))
+	}
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "false" {
 		utils.SendTextResponse(w, "LDAP not enabled.")
@@ -84,6 +90,9 @@ func (ldap *ldapHandler) HandleNewPasswordPage(w http.ResponseWriter, r *http.Re
 }
 
 func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/ldap", "ldapHandler.HandleLogin: r=%s", logger.RequestSummary(r))
+	}
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "false" {
 		utils.SendTextResponse(w, "LDAP not enabled.")
@@ -149,6 +158,9 @@ func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ldap *ldapHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/ldap", "ldapHandler.HandleSetPassword: r=%s", logger.RequestSummary(r))
+	}
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "false" {
 		utils.SendTextResponse(w, "LDAP not enabled.")
@@ -209,6 +221,9 @@ func (ldap *ldapHandler) HandleSetPassword(w http.ResponseWriter, r *http.Reques
 
 // HandleCheckLDAP check if ldap is enabled
 func (ldap *ldapHandler) HandleCheckLDAP(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/ldap", "ldapHandler.HandleCheckLDAP: r=%s", logger.RequestSummary(r))
+	}
 	enabledB := false
 	enabled := ldap.readSingleConfig("enabled")
 	if enabled == "true" {

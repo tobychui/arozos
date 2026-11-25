@@ -60,6 +60,7 @@ type postSend struct {
 
 // shouldSaveSent applies the account's Sent-copy policy.
 func shouldSaveSent(account *Account) bool {
+	logger.Debug("email", "shouldSaveSent")
 	switch account.SaveSent {
 	case "always":
 		return true
@@ -77,6 +78,7 @@ func shouldSaveSent(account *Account) bool {
 
 // Send delivers (or queues) a message.
 func (m *Manager) Send(ctx context.Context, p Principal, request *ComposeRequest) (*SendResult, error) {
+	logger.Debug("email", "Manager.Send")
 	account, err := m.account(p, request.AccountID)
 	if err != nil {
 		return nil, err
@@ -125,6 +127,7 @@ func (m *Manager) Send(ctx context.Context, p Principal, request *ComposeRequest
 }
 
 func recipientAddresses(request *ComposeRequest) []Address {
+	logger.Debug("email", "recipientAddresses")
 	results := []Address{}
 	for _, list := range [][]string{request.To, request.Cc, request.Bcc} {
 		parsed, err := parseRecipients(list)
@@ -141,6 +144,9 @@ func recipientAddresses(request *ComposeRequest) []Address {
 // afterDelivery runs the follow-up work. Failures here never undo a sent
 // message, they are returned as a warning.
 func (m *Manager) afterDelivery(ctx context.Context, p Principal, account *Account, raw []byte, messageID string, date time.Time, post postSend) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.afterDelivery: messageID=%.120q", messageID)
+	}
 	warnings := []string{}
 	key := poolKey(p.Username, account.ID)
 
@@ -192,6 +198,7 @@ func (m *Manager) afterDelivery(ctx context.Context, p Principal, account *Accou
 // SaveDraft stores the composer content in the Drafts folder, replacing the
 // previous version of the same draft.
 func (m *Manager) SaveDraft(ctx context.Context, p Principal, request *ComposeRequest) (*DraftResult, error) {
+	logger.Debug("email", "Manager.SaveDraft")
 	account, err := m.account(p, request.AccountID)
 	if err != nil {
 		return nil, err
@@ -249,6 +256,9 @@ func (m *Manager) SaveDraft(ctx context.Context, p Principal, request *ComposeRe
 
 // DeleteDraft removes a draft the user discarded.
 func (m *Manager) DeleteDraft(ctx context.Context, p Principal, accountID string, folder string, uid uint32) error {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.DeleteDraft: accountID=%.120q folder=%.120q uid=%d", accountID, folder, uid)
+	}
 	if uid == 0 || folder == "" {
 		return errors.New("no draft to delete")
 	}

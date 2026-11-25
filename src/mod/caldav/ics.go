@@ -15,10 +15,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // eventToICS serialises a CalendarEvent as a VCALENDAR / VEVENT string.
 func eventToICS(ev CalendarEvent) string {
+	logger.Debug("caldav", "eventToICS")
 	var sb strings.Builder
 	sb.WriteString("BEGIN:VCALENDAR\r\n")
 	sb.WriteString("VERSION:2.0\r\n")
@@ -70,6 +73,9 @@ func eventToICS(ev CalendarEvent) string {
 // icsToEvent parses a VCALENDAR string and returns a CalendarEvent.
 // idHint is used as the event ID when the UID is absent or needs normalising.
 func icsToEvent(icsData string, idHint string) (CalendarEvent, error) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "icsToEvent: icsData=%.120q idHint=%.120q", icsData, idHint)
+	}
 	lines := unfoldICSLines(icsData)
 
 	ev := CalendarEvent{
@@ -148,6 +154,7 @@ func icsToEvent(icsData string, idHint string) (CalendarEvent, error) {
 
 // unfoldICSLines normalises line endings and joins continuation lines.
 func unfoldICSLines(data string) []string {
+	logger.Debug("caldav", "unfoldICSLines")
 	data = strings.ReplaceAll(data, "\r\n", "\n")
 	data = strings.ReplaceAll(data, "\r", "\n")
 	raw := strings.Split(data, "\n")
@@ -168,6 +175,9 @@ func unfoldICSLines(data string) []string {
 
 // splitICSLine splits "KEY;PARAMS:VALUE" at the first colon.
 func splitICSLine(line string) (string, string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "splitICSLine: line=%.120q", line)
+	}
 	idx := strings.Index(line, ":")
 	if idx < 0 {
 		return line, ""
@@ -176,6 +186,9 @@ func splitICSLine(line string) (string, string) {
 }
 
 func parseICSDateTime(key, val string) (time.Time, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "parseICSDateTime: val=%.120q", val)
+	}
 	val = strings.TrimSpace(val)
 	keyUpper := strings.ToUpper(key)
 
@@ -219,6 +232,7 @@ func parseICSDateTime(key, val string) (time.Time, bool) {
 // extractTZID pulls the TZID value out of an ICS property key such as
 // "DTSTART;TZID=Asia/Tokyo" or "DTEND;VALUE=DATE;TZID=America/New_York".
 func extractTZID(key string) string {
+	logger.Debug("caldav", "extractTZID")
 	for _, param := range strings.Split(key, ";") {
 		if strings.HasPrefix(strings.ToUpper(param), "TZID=") {
 			return param[5:]
@@ -229,6 +243,9 @@ func extractTZID(key string) string {
 
 // escapeICSText escapes special characters per RFC 5545 §3.3.11.
 func escapeICSText(s string) string {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "escapeICSText: s=%.120q", s)
+	}
 	s = strings.ReplaceAll(s, "\\", "\\\\")
 	s = strings.ReplaceAll(s, ";", "\\;")
 	s = strings.ReplaceAll(s, ",", "\\,")
@@ -238,6 +255,9 @@ func escapeICSText(s string) string {
 }
 
 func unescapeICSText(s string) string {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "unescapeICSText: s=%.120q", s)
+	}
 	s = strings.ReplaceAll(s, "\\n", "\n")
 	s = strings.ReplaceAll(s, "\\N", "\n")
 	s = strings.ReplaceAll(s, "\\;", ";")
@@ -248,6 +268,9 @@ func unescapeICSText(s string) string {
 
 // arozColorToHex maps the ArozOS colour names to Apple iCal hex codes.
 func arozColorToHex(color string) string {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "arozColorToHex: color=%.120q", color)
+	}
 	switch color {
 	case "blue":
 		return "#4A90D9"
@@ -268,6 +291,9 @@ func arozColorToHex(color string) string {
 
 // hexToArozColor maps a hex colour string back to an ArozOS colour name.
 func hexToArozColor(hex string) string {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "hexToArozColor: hex=%.120q", hex)
+	}
 	switch strings.ToUpper(hex) {
 	case "#4A90D9", "#007AFF", "#0000FF":
 		return "blue"
@@ -288,6 +314,7 @@ func hexToArozColor(hex string) string {
 
 // reminderToTrigger converts an EventReminder to a VALARM TRIGGER value.
 func reminderToTrigger(r *EventReminder) string {
+	logger.Debug("caldav", "reminderToTrigger")
 	if r == nil {
 		return "-PT15M"
 	}
@@ -304,6 +331,9 @@ func reminderToTrigger(r *EventReminder) string {
 // triggerToReminder parses a VALARM TRIGGER string into an EventReminder.
 // Only the common negative-duration forms used by iOS are handled.
 func triggerToReminder(trigger string) *EventReminder {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "triggerToReminder: trigger=%.120q", trigger)
+	}
 	trigger = strings.TrimSpace(trigger)
 	if !strings.HasPrefix(trigger, "-P") {
 		return nil
@@ -341,6 +371,9 @@ func triggerToReminder(trigger string) *EventReminder {
 // embedded line breaks, and trims surrounding whitespace.  The rule is passed
 // through verbatim otherwise so any valid RFC 5545 RRULE survives a round trip.
 func normalizeRRule(rrule string) string {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "normalizeRRule: rrule=%.120q", rrule)
+	}
 	rrule = strings.TrimSpace(rrule)
 	if rrule == "" {
 		return ""
@@ -355,6 +388,7 @@ func normalizeRRule(rrule string) string {
 
 // eventETag returns a quoted MD5 ETag for the given event.
 func eventETag(ev CalendarEvent) string {
+	logger.Debug("caldav", "eventETag")
 	data, _ := json.Marshal(ev)
 	h := md5.Sum(data)
 	return fmt.Sprintf(`"%x"`, h)
@@ -362,6 +396,9 @@ func eventETag(ev CalendarEvent) string {
 
 // collectionCTag returns an unquoted MD5 sync token for the whole collection.
 func collectionCTag(events []CalendarEvent) string {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "collectionCTag: len(events)=%d", len(events))
+	}
 	data, _ := json.Marshal(events)
 	h := md5.Sum(data)
 	return fmt.Sprintf("%x", h)

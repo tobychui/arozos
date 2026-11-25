@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var (
@@ -24,6 +26,9 @@ var (
 )
 
 func formatMbps(mbps int) string {
+	if logger.IsDebug() {
+		logger.Debugf("network", "formatMbps: mbps=%d", mbps)
+	}
 	if mbps >= 1000 {
 		if mbps%1000 == 0 {
 			return fmt.Sprintf("%d Gbps", mbps/1000)
@@ -37,6 +42,9 @@ func formatMbps(mbps int) string {
 // Uses ifconfig(8) per interface; returns N/A fields when the command
 // is unavailable or produces no parseable output.
 func nicExtraAll(ifaces []net.Interface) map[string]nicExtraInfo {
+	if logger.IsDebug() {
+		logger.Debugf("network", "nicExtraAll: len(ifaces)=%d", len(ifaces))
+	}
 	result := make(map[string]nicExtraInfo, len(ifaces))
 	for _, iface := range ifaces {
 		result[iface.Name] = darwinNICExtra(iface)
@@ -45,6 +53,7 @@ func nicExtraAll(ifaces []net.Interface) map[string]nicExtraInfo {
 }
 
 func darwinNICExtra(iface net.Interface) nicExtraInfo {
+	logger.Debug("network", "darwinNICExtra")
 	// Fallback state from Go flags
 	state := "down"
 	if iface.Flags&net.FlagUp != 0 {

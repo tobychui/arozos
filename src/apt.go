@@ -4,11 +4,13 @@ import (
 	"net/http"
 
 	apt "imuslab.com/arozos/mod/apt"
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
 
 func PackagManagerInit() {
+	logger.Debug("Core", "PackagManagerInit")
 	//Create a package manager
 	packageManager = apt.NewPackageManager(*allow_package_autoInstall)
 	systemWideLogger.PrintAndLog("APT", "Package Manager Initiated", nil)

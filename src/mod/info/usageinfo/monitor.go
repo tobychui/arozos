@@ -3,6 +3,8 @@ package usageinfo
 import (
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // monitorCache holds the most recently sampled CPU and RAM data.
@@ -22,6 +24,7 @@ var globalCache = &monitorCache{}
 // The HTTP handler can then return cached data without blocking. The samples
 // also feed the in-memory usage history (see GetHistory).
 func StartBackgroundMonitor() {
+	logger.Debug("info/usageinfo", "StartBackgroundMonitor")
 	startHistoryCommitter()
 	go func() {
 		prevStats, err := getCPUStats()
@@ -73,6 +76,7 @@ func StartBackgroundMonitor() {
 // ready is false for the first ~1 s after startup; callers may return zero
 // values until then.
 func GetCachedStats() (cpuUsage float64, usedRAM, totalRAM string, ramUsage float64, ready bool) {
+	logger.Debug("info/usageinfo", "GetCachedStats")
 	globalCache.mu.RLock()
 	defer globalCache.mu.RUnlock()
 	return globalCache.cpuUsage, globalCache.usedRAM, globalCache.totalRAM, globalCache.ramUsage, globalCache.ready

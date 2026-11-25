@@ -10,11 +10,14 @@ package media
 import (
 	"bytes"
 	"image"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // ImageConfig probes image bytes for their natural pixel size (decoders
 // are registered by the docx writer's blank imports)
 func ImageConfig(data []byte) (image.Config, string, error) {
+	logger.DebugTrace("office/internal/media", "ImageConfig")
 	return image.DecodeConfig(bytes.NewReader(data))
 }
 

@@ -23,6 +23,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // A SyntaxError represents a syntax error in the XML input stream.
@@ -32,6 +34,7 @@ type SyntaxError struct {
 }
 
 func (e *SyntaxError) Error() string {
+	logger.DebugTrace("network/webdav/internal/xml", "SyntaxError.Error")
 	return "XML syntax error on line " + strconv.Itoa(e.Line) + ": " + e.Msg
 }
 
@@ -50,6 +53,7 @@ type Name struct {
 
 // isNamespace reports whether the name is a namespace-defining name.
 func (name Name) isNamespace() bool {
+	logger.DebugTrace("network/webdav/internal/xml", "Name.isNamespace")
 	return name.Local == "xmlns" || name.Space == "xmlns"
 }
 
@@ -70,6 +74,7 @@ type StartElement struct {
 }
 
 func (e StartElement) Copy() StartElement {
+	logger.DebugTrace("network/webdav/internal/xml", "StartElement.Copy")
 	attrs := make([]Attr, len(e.Attr))
 	copy(attrs, e.Attr)
 	e.Attr = attrs
@@ -78,12 +83,14 @@ func (e StartElement) Copy() StartElement {
 
 // End returns the corresponding XML end element.
 func (e StartElement) End() EndElement {
+	logger.DebugTrace("network/webdav/internal/xml", "StartElement.End")
 	return EndElement{e.Name}
 }
 
 // setDefaultNamespace sets the namespace of the element
 // as the default for all elements contained within it.
 func (e *StartElement) setDefaultNamespace() {
+	logger.DebugTrace("network/webdav/internal/xml", "StartElement.setDefaultNamespace")
 	if e.Name.Space == "" {
 		// If there's no namespace on the element, don't
 		// set the default. Strictly speaking this might be wrong, as
@@ -116,18 +123,27 @@ type EndElement struct {
 type CharData []byte
 
 func makeCopy(b []byte) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "makeCopy: len(b)=%d", len(b))
+	}
 	b1 := make([]byte, len(b))
 	copy(b1, b)
 	return b1
 }
 
-func (c CharData) Copy() CharData { return CharData(makeCopy(c)) }
+func (c CharData) Copy() CharData {
+	logger.DebugTrace("network/webdav/internal/xml", "CharData.Copy")
+	return CharData(makeCopy(c))
+}
 
 // A Comment represents an XML comment of the form <!--comment-->.
 // The bytes do not include the <!-- and --> comment markers.
 type Comment []byte
 
-func (c Comment) Copy() Comment { return Comment(makeCopy(c)) }
+func (c Comment) Copy() Comment {
+	logger.DebugTrace("network/webdav/internal/xml", "Comment.Copy")
+	return Comment(makeCopy(c))
+}
 
 // A ProcInst represents an XML processing instruction of the form <?target inst?>
 type ProcInst struct {
@@ -136,6 +152,7 @@ type ProcInst struct {
 }
 
 func (p ProcInst) Copy() ProcInst {
+	logger.DebugTrace("network/webdav/internal/xml", "ProcInst.Copy")
 	p.Inst = makeCopy(p.Inst)
 	return p
 }
@@ -144,10 +161,14 @@ func (p ProcInst) Copy() ProcInst {
 // The bytes do not include the <! and > markers.
 type Directive []byte
 
-func (d Directive) Copy() Directive { return Directive(makeCopy(d)) }
+func (d Directive) Copy() Directive {
+	logger.DebugTrace("network/webdav/internal/xml", "Directive.Copy")
+	return Directive(makeCopy(d))
+}
 
 // CopyToken returns a copy of a Token.
 func CopyToken(t Token) Token {
+	logger.DebugTrace("network/webdav/internal/xml", "CopyToken")
 	switch v := t.(type) {
 	case CharData:
 		return v.Copy()
@@ -237,6 +258,7 @@ type Decoder struct {
 // If r does not implement io.ByteReader, NewDecoder will
 // do its own buffering.
 func NewDecoder(r io.Reader) *Decoder {
+	logger.DebugTrace("network/webdav/internal/xml", "NewDecoder")
 	d := &Decoder{
 		ns:       make(map[string]string),
 		nextByte: -1,
@@ -270,6 +292,7 @@ func NewDecoder(r io.Reader) *Decoder {
 // If Token encounters an unrecognized name space prefix,
 // it uses the prefix as the Space rather than report an error.
 func (d *Decoder) Token() (t Token, err error) {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.Token")
 	if d.stk != nil && d.stk.kind == stkEOF {
 		err = io.EOF
 		return
@@ -330,6 +353,9 @@ const xmlURL = "http://www.w3.org/XML/1998/namespace"
 // The default name space (for Space=="")
 // applies only to element names, not to attribute names.
 func (d *Decoder) translate(n *Name, isElementName bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "Decoder.translate: isElementName=%t", isElementName)
+	}
 	switch {
 	case n.Space == "xmlns":
 		return
@@ -348,6 +374,7 @@ func (d *Decoder) translate(n *Name, isElementName bool) {
 }
 
 func (d *Decoder) switchToReader(r io.Reader) {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.switchToReader")
 	// Get efficient byte at a time reader.
 	// Assume that if reader has its own
 	// ReadByte, it's efficient enough.
@@ -377,6 +404,9 @@ const (
 )
 
 func (d *Decoder) push(kind int) *stack {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "Decoder.push: kind=%d", kind)
+	}
 	s := d.free
 	if s != nil {
 		d.free = s.next
@@ -390,6 +420,7 @@ func (d *Decoder) push(kind int) *stack {
 }
 
 func (d *Decoder) pop() *stack {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.pop")
 	s := d.stk
 	if s != nil {
 		d.stk = s.next
@@ -403,6 +434,7 @@ func (d *Decoder) pop() *stack {
 // (that element is already pushed on the stack)
 // Token should return EOF until popEOF is called.
 func (d *Decoder) pushEOF() {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.pushEOF")
 	// Walk down stack to find Start.
 	// It might not be the top, because there might be stkNs
 	// entries above it.
@@ -429,6 +461,7 @@ func (d *Decoder) pushEOF() {
 // Undo a pushEOF.
 // The element must have been finished, so the EOF should be at the top of the stack.
 func (d *Decoder) popEOF() bool {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.popEOF")
 	if d.stk == nil || d.stk.kind != stkEOF {
 		return false
 	}
@@ -438,6 +471,7 @@ func (d *Decoder) popEOF() bool {
 
 // Record that we are starting an element with the given name.
 func (d *Decoder) pushElement(name Name) {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.pushElement")
 	s := d.push(stkStart)
 	s.name = name
 }
@@ -445,6 +479,9 @@ func (d *Decoder) pushElement(name Name) {
 // Record that we are changing the value of ns[local].
 // The old value is url, ok.
 func (d *Decoder) pushNs(local string, url string, ok bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "Decoder.pushNs: local=%.120q ok=%t", local, ok)
+	}
 	s := d.push(stkNs)
 	s.name.Local = local
 	s.name.Space = url
@@ -453,6 +490,7 @@ func (d *Decoder) pushNs(local string, url string, ok bool) {
 
 // Creates a SyntaxError with the current line number.
 func (d *Decoder) syntaxError(msg string) error {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.syntaxError")
 	return &SyntaxError{Msg: msg, Line: d.line}
 }
 
@@ -463,6 +501,7 @@ func (d *Decoder) syntaxError(msg string) error {
 // the stack to restore the name translations that existed
 // before we saw this element.
 func (d *Decoder) popElement(t *EndElement) bool {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.popElement")
 	s := d.pop()
 	name := t.Name
 	switch {
@@ -501,6 +540,7 @@ func (d *Decoder) popElement(t *EndElement) bool {
 // If the top element on the stack is autoclosing and
 // t is not the end tag, invent the end tag.
 func (d *Decoder) autoClose(t Token) (Token, bool) {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.autoClose")
 	if d.stk == nil || d.stk.kind != stkStart {
 		return nil, false
 	}
@@ -524,6 +564,7 @@ var errRawToken = errors.New("xml: cannot use RawToken from UnmarshalXML method"
 // start and end elements match and does not translate
 // name space prefixes to their corresponding URLs.
 func (d *Decoder) RawToken() (Token, error) {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.RawToken")
 	if d.unmarshalDepth > 0 {
 		return nil, errRawToken
 	}
@@ -531,6 +572,7 @@ func (d *Decoder) RawToken() (Token, error) {
 }
 
 func (d *Decoder) rawToken() (Token, error) {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.rawToken")
 	if d.err != nil {
 		return nil, d.err
 	}
@@ -830,6 +872,7 @@ func (d *Decoder) rawToken() (Token, error) {
 }
 
 func (d *Decoder) attrval() []byte {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.attrval")
 	b, ok := d.mustgetc()
 	if !ok {
 		return nil
@@ -865,6 +908,7 @@ func (d *Decoder) attrval() []byte {
 
 // Skip spaces if any
 func (d *Decoder) space() {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.space")
 	for {
 		b, ok := d.getc()
 		if !ok {
@@ -884,6 +928,7 @@ func (d *Decoder) space() {
 // and leave the error in d.err.
 // Maintain line number.
 func (d *Decoder) getc() (b byte, ok bool) {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.getc")
 	if d.err != nil {
 		return 0, false
 	}
@@ -910,12 +955,14 @@ func (d *Decoder) getc() (b byte, ok bool) {
 // The offset gives the location of the end of the most recently returned token
 // and the beginning of the next token.
 func (d *Decoder) InputOffset() int64 {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.InputOffset")
 	return d.offset
 }
 
 // Return saved offset.
 // If we did ungetc (nextByte >= 0), have to back up one.
 func (d *Decoder) savedOffset() int {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.savedOffset")
 	n := d.saved.Len()
 	if d.nextByte >= 0 {
 		n--
@@ -928,6 +975,7 @@ func (d *Decoder) savedOffset() int {
 // set d.err to SyntaxError("unexpected EOF")
 // and return ok==false
 func (d *Decoder) mustgetc() (b byte, ok bool) {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.mustgetc")
 	if b, ok = d.getc(); !ok {
 		if d.err == io.EOF {
 			d.err = d.syntaxError("unexpected EOF")
@@ -938,6 +986,9 @@ func (d *Decoder) mustgetc() (b byte, ok bool) {
 
 // Unread a single byte.
 func (d *Decoder) ungetc(b byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "Decoder.ungetc: b=%d", b)
+	}
 	if b == '\n' {
 		d.line--
 	}
@@ -958,6 +1009,9 @@ var entity = map[string]rune{
 // If cdata == true, we are in a <![CDATA[ section and need to find ]]>.
 // On failure return nil and leave the error in d.err.
 func (d *Decoder) text(quote int, cdata bool) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "Decoder.text: quote=%d cdata=%t", quote, cdata)
+	}
 	var b0, b1 byte
 	var trunc int
 	d.buf.Reset()
@@ -1126,6 +1180,9 @@ Input:
 // the Char production of http://www.xml.com/axml/testaxml.htm,
 // Section 2.2 Characters.
 func isInCharacterRange(r rune) (inrange bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "isInCharacterRange: r=%d", r)
+	}
 	return r == 0x09 ||
 		r == 0x0A ||
 		r == 0x0D ||
@@ -1137,6 +1194,7 @@ func isInCharacterRange(r rune) (inrange bool) {
 // Get name space name: name with a : stuck in the middle.
 // The part before the : is the name space identifier.
 func (d *Decoder) nsname() (name Name, ok bool) {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.nsname")
 	s, ok := d.name()
 	if !ok {
 		return
@@ -1155,6 +1213,7 @@ func (d *Decoder) nsname() (name Name, ok bool) {
 // Do not set d.err if the name is missing (unless unexpected EOF is received):
 // let the caller provide better context.
 func (d *Decoder) name() (s string, ok bool) {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.name")
 	d.buf.Reset()
 	if !d.readName() {
 		return "", false
@@ -1173,6 +1232,7 @@ func (d *Decoder) name() (s string, ok bool) {
 // The name is delimited by any single-byte character not valid in names.
 // All multi-byte characters are accepted; the caller must check their validity.
 func (d *Decoder) readName() (ok bool) {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.readName")
 	var b byte
 	if b, ok = d.mustgetc(); !ok {
 		return
@@ -1197,6 +1257,9 @@ func (d *Decoder) readName() (ok bool) {
 }
 
 func isNameByte(c byte) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "isNameByte: c=%d", c)
+	}
 	return 'A' <= c && c <= 'Z' ||
 		'a' <= c && c <= 'z' ||
 		'0' <= c && c <= '9' ||
@@ -1204,6 +1267,9 @@ func isNameByte(c byte) bool {
 }
 
 func isName(s []byte) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "isName: len(s)=%d", len(s))
+	}
 	if len(s) == 0 {
 		return false
 	}
@@ -1228,6 +1294,9 @@ func isName(s []byte) bool {
 }
 
 func isNameString(s string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "isNameString: s=%.120q", s)
+	}
 	if len(s) == 0 {
 		return false
 	}
@@ -1874,6 +1943,9 @@ var (
 // EscapeText writes to w the properly escaped XML equivalent
 // of the plain text data s.
 func EscapeText(w io.Writer, s []byte) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "EscapeText: len(s)=%d", len(s))
+	}
 	return escapeText(w, s, true)
 }
 
@@ -1881,6 +1953,9 @@ func EscapeText(w io.Writer, s []byte) error {
 // of the plain text data s. If escapeNewline is true, newline
 // characters will be escaped.
 func escapeText(w io.Writer, s []byte, escapeNewline bool) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "escapeText: len(s)=%d escapeNewline=%t", len(s), escapeNewline)
+	}
 	var esc []byte
 	last := 0
 	for i := 0; i < len(s); {
@@ -1930,6 +2005,9 @@ func escapeText(w io.Writer, s []byte, escapeNewline bool) error {
 // EscapeString writes to p the properly escaped XML equivalent
 // of the plain text data s.
 func (p *printer) EscapeString(s string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "printer.EscapeString: s=%.120q", s)
+	}
 	var esc []byte
 	last := 0
 	for i := 0; i < len(s); {
@@ -1970,12 +2048,18 @@ func (p *printer) EscapeString(s string) {
 // It is provided for backwards compatibility with Go 1.0.
 // Code targeting Go 1.1 or later should use EscapeText.
 func Escape(w io.Writer, s []byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "Escape: len(s)=%d", len(s))
+	}
 	EscapeText(w, s)
 }
 
 // procInst parses the `param="..."` or `param='...'`
 // value out of the provided string, returning "" if not found.
 func procInst(param, s string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "procInst: param=%.120q s=%.120q", param, s)
+	}
 	// TODO: this parsing is somewhat lame and not exact.
 	// It works for all actual cases, though.
 	param = param + "="

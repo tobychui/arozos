@@ -43,6 +43,7 @@ type reduceArgs struct {
 
 // buildMapSource wraps a script for the map half.
 func buildMapSource(script string) string {
+	logger.DebugTrace("cluster/jobs", "buildMapSource")
 	return jobPrelude + "\n" + script + `
 if (typeof mapper !== "function") { throw new Error("this map/reduce script defines no mapper(files, emit) function"); }
 var __emitted = [];
@@ -54,6 +55,7 @@ _job_output(JSON.stringify(__emitted));
 
 // buildReduceSource wraps a script for the reduce half.
 func buildReduceSource(script string) string {
+	logger.DebugTrace("cluster/jobs", "buildReduceSource")
 	return jobPrelude + "\n" + script + `
 if (typeof reducer !== "function") { throw new Error("this map/reduce script defines no reducer(key, values) function"); }
 var __groups = (JOB.args && JOB.args.groups) ? JOB.args.groups : {};
@@ -69,6 +71,7 @@ _job_output(JSON.stringify(__out));
 
 // sourceFor picks the right wrapper for a job kind.
 func sourceFor(rec Record) string {
+	logger.Debug("cluster/jobs", "sourceFor")
 	switch rec.Spec.Kind {
 	case KindMap:
 		return buildMapSource(rec.Spec.Script)
@@ -80,6 +83,9 @@ func sourceFor(rec Record) string {
 
 // children returns the child jobs of a parent.
 func (j *Manager) children(parentID string) []Record {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.children: parentID=%.120q", parentID)
+	}
 	out := []Record{}
 	for _, mj := range j.meta.Jobs() {
 		if mj.Removed {
@@ -98,6 +104,9 @@ func (j *Manager) children(parentID string) []Record {
 // expandDataset lists the files of a dataset and groups them by the node
 // holding a healthy copy (files with no reachable copy are reported).
 func (j *Manager) expandDataset(pattern string) (byNode map[string][]metadata.FileRecord, orphans []string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.expandDataset: pattern=%.120q", pattern)
+	}
 	byNode = map[string][]metadata.FileRecord{}
 	for _, rec := range j.meta.Glob(pattern) {
 		best := ""
@@ -125,6 +134,7 @@ func (j *Manager) expandDataset(pattern string) (byNode map[string][]metadata.Fi
 // once per parent: submitting a child re-enters the scheduler, so the parent
 // is marked running before any child exists.
 func (j *Manager) startMapReduce(parent Record) {
+	logger.Debug("cluster/jobs", "Manager.startMapReduce")
 	id := parent.Spec.ID
 	j.mu.Lock()
 	if j.starting[id] {
@@ -226,6 +236,7 @@ func (j *Manager) startMapReduce(parent Record) {
 // creates the reduce task when the map half is complete, and publishes the
 // final result.
 func (j *Manager) advanceMapReduce(parent Record) {
+	logger.Debug("cluster/jobs", "Manager.advanceMapReduce")
 	kids := j.children(parent.Spec.ID)
 	if len(kids) == 0 {
 		return
@@ -327,6 +338,9 @@ func (j *Manager) advanceMapReduce(parent Record) {
 }
 
 func (j *Manager) failParent(parent Record, reason string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.failParent: reason=%.120q", reason)
+	}
 	parent.State.Status = StatusFailed
 	parent.State.Error = reason
 	parent.State.Finished = time.Now().Unix()

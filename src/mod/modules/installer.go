@@ -31,6 +31,9 @@ import (
 
 // Install a module via selecting a zip file
 func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) error {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.InstallViaZip: realpath=%.120q", realpath)
+	}
 	//Check if file exists
 	if !utils.FileExists(realpath) {
 		return errors.New("*Module Installer* Installer file not found. Given: " + realpath)
@@ -83,6 +86,7 @@ func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) err
 
 // Reload all modules from agi file again
 func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) error {
+	logger.Debug("modules", "ModuleHandler.ReloadAllModules")
 	//Clear the current registered module list
 	newModuleList := []*ModuleInfo{}
 	for _, thisModule := range m.LoadedModule {
@@ -108,6 +112,7 @@ func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) error {
 
 // Install a module via git clone
 func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway) error {
+	logger.Debug("modules", "ModuleHandler.InstallModuleViaGit")
 	//Download the module from the gitURL
 	logger.PrintAndLog("Modules", fmt.Sprint("Starting module installation by Git cloning ", gitURL), nil)
 	newDownloadUUID := uuid.NewV4().String()
@@ -163,6 +168,9 @@ func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway)
 }
 
 func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.Gateway) error {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.ActivateModuleByRoot: moduleFolder=%.120q", moduleFolder)
+	}
 	//Check if there is init.agi. If yes, load it as an module
 	thisModuleEstimataedRoot := filepath.Join("./web/", filepath.Base(moduleFolder))
 	if utils.FileExists(thisModuleEstimataedRoot) {
@@ -185,6 +193,9 @@ func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.G
 
 // Handle and return the information of the current installed modules
 func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.HandleModuleInstallationListing: r=%s", logger.RequestSummary(r))
+	}
 	type ModuleInstallInfo struct {
 		Name          string // Name of the module
 		Desc          string // Description of module
@@ -272,6 +283,9 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 
 // Uninstall the given module
 func (m *ModuleHandler) UninstallModule(moduleName string) error {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.UninstallModule: moduleName=%.120q", moduleName)
+	}
 	//Check if this module is allowed to be removed
 	var targetModuleInfo *ModuleInfo = nil
 	for _, mod := range append(append([]*ModuleInfo{}, m.LoadedModule...), m.DisabledModule...) {
@@ -321,6 +335,9 @@ func (m *ModuleHandler) UninstallModule(moduleName string) error {
 // HandleUploadAndInstall accepts a multipart-uploaded zip file and installs it.
 // The file must be submitted in the "zipfile" field.
 func (m *ModuleHandler) HandleUploadAndInstall(w http.ResponseWriter, r *http.Request, gateway *agi.Gateway) {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.HandleUploadAndInstall: r=%s", logger.RequestSummary(r))
+	}
 	if err := r.ParseMultipartForm(64 << 20); err != nil {
 		utils.SendErrorResponse(w, "Failed to parse upload: "+err.Error())
 		return

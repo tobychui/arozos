@@ -15,6 +15,8 @@ import (
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // defaultLogLimit bounds Log when the caller passes a non-positive limit.
@@ -22,6 +24,9 @@ const defaultLogLimit = 50
 
 // Log returns up to limit commits reachable from HEAD, newest first.
 func (m *Manager) Log(realpath string, limit int) ([]CommitInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.Log: realpath=%.120q limit=%d", realpath, limit)
+	}
 	if limit <= 0 {
 		limit = defaultLogLimit
 	}
@@ -71,6 +76,9 @@ func (m *Manager) Log(realpath string, limit int) ([]CommitInfo, error) {
 // Branches lists local and remote-tracking branches. The current branch is
 // flagged so the switcher can render it as selected.
 func (m *Manager) Branches(realpath string) ([]BranchInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.Branches: realpath=%.120q", realpath)
+	}
 	repo, err := m.open(realpath)
 	if err != nil {
 		return nil, err
@@ -146,6 +154,9 @@ func (m *Manager) Branches(realpath string) ([]BranchInfo, error) {
 // Checkout switches to an existing branch, or creates it from the current HEAD
 // when create is set.
 func (m *Manager) Checkout(realpath string, branch string, create bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.Checkout: realpath=%.120q branch=%.120q create=%t", realpath, branch, create)
+	}
 	branch = strings.TrimSpace(branch)
 	if branch == "" {
 		return errors.New("branch name cannot be empty")
@@ -183,6 +194,9 @@ func (m *Manager) Checkout(realpath string, branch string, create bool) error {
 
 // findRemoteBranch resolves a "remote/branch" style name to its reference.
 func findRemoteBranch(repo *gogit.Repository, name string) (*plumbing.Reference, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "findRemoteBranch: name=%.120q", name)
+	}
 	parts := strings.SplitN(name, "/", 2)
 	if len(parts) != 2 {
 		return nil, errors.New("not a remote branch name")
@@ -192,6 +206,9 @@ func findRemoteBranch(repo *gogit.Repository, name string) (*plumbing.Reference,
 
 // shortLocalName strips the remote prefix so "origin/feature" becomes "feature".
 func shortLocalName(name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("git", "shortLocalName: name=%.120q", name)
+	}
 	parts := strings.SplitN(name, "/", 2)
 	if len(parts) == 2 {
 		return parts[1]
@@ -202,6 +219,9 @@ func shortLocalName(name string) string {
 // validateBranchName rejects the ref name characters git itself forbids, since
 // the value arrives from a browser text field.
 func validateBranchName(branch string) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "validateBranchName: branch=%.120q", branch)
+	}
 	//An empty name must never reach a ref operation: it would build a malformed
 	//ref such as "refs/heads/", which as a push refspec is silently accepted.
 	if strings.TrimSpace(branch) == "" {

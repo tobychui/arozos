@@ -1,5 +1,6 @@
 package cnn
 
+import "imuslab.com/arozos/mod/info/logger"
 import "net/http"
 
 // FaceItem is one detected face.
@@ -13,6 +14,9 @@ type FaceDetectionResult = envelope[FaceItem]
 
 // FaceDetect runs face detection (ultraface-rfb-320, ultraface-slim-320).
 func (c *Client) FaceDetect(image []byte, mimeType string, opt RequestOptions) (*FaceDetectionResult, *Job, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("aiservers/cnn", "Client.FaceDetect: len(image)=%d", len(image))
+	}
 	return doImageCall[FaceItem](c, "/v1/faces/detections", newImageRequest(image, mimeType, opt))
 }
 
@@ -28,6 +32,9 @@ type LandmarkResult = envelope[LandmarkItem]
 // FaceLandmarks detects faces and returns their landmark points (pfld).
 // Set opt.Cropped to treat the whole input image as a single face crop.
 func (c *Client) FaceLandmarks(image []byte, mimeType string, opt RequestOptions) (*LandmarkResult, *Job, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("aiservers/cnn", "Client.FaceLandmarks: len(image)=%d", len(image))
+	}
 	return doImageCall[LandmarkItem](c, "/v1/faces/landmarks", newImageRequest(image, mimeType, opt))
 }
 
@@ -45,6 +52,9 @@ type EmbeddingResult = envelope[EmbeddingItem]
 // (mbv2facenet). By default embeds the largest face; set opt.Cropped to
 // treat the input as a single face crop.
 func (c *Client) FaceEmbedding(image []byte, mimeType string, opt RequestOptions) (*EmbeddingResult, *Job, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("aiservers/cnn", "Client.FaceEmbedding: len(image)=%d", len(image))
+	}
 	return doImageCall[EmbeddingItem](c, "/v1/faces/embeddings", newImageRequest(image, mimeType, opt))
 }
 
@@ -71,6 +81,9 @@ type GenderResult = envelope[GenderItem]
 // reachable) with response object "face.gender". This method targets the
 // real route under an ArozOS-friendly name.
 func (c *Client) FaceAttributes(image []byte, mimeType string, opt RequestOptions) (*GenderResult, *Job, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("aiservers/cnn", "Client.FaceAttributes: len(image)=%d", len(image))
+	}
 	return doImageCall[GenderItem](c, "/v1/faces/gender", newImageRequest(image, mimeType, opt))
 }
 
@@ -108,6 +121,9 @@ type ComparisonResult struct {
 // FaceCompare compares two face images (each a photo or a crop) and returns
 // their cosine similarity (mbv2facenet).
 func (c *Client) FaceCompare(imageA, imageB []byte, mimeA, mimeB string, opt ComparisonOptions) (*ComparisonResult, error) {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/cnn", "Client.FaceCompare: len(imageA)=%d len(imageB)=%d", len(imageA), len(imageB))
+	}
 	req := comparisonRequest{
 		Model:     opt.Model,
 		ImageA:    dataURI(imageA, mimeA),

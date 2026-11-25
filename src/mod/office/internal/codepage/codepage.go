@@ -16,6 +16,8 @@ import (
 	"golang.org/x/text/encoding/korean"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/encoding/traditionalchinese"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Decoder turns bytes in one code page into text
@@ -26,6 +28,9 @@ type Decoder struct {
 // For returns the decoder of a Windows code page number; an unknown code
 // page decodes as cp1252
 func For(cp int) Decoder {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/codepage", "For: cp=%d", cp)
+	}
 	var e encoding.Encoding
 	switch cp {
 	case 874:
@@ -70,6 +75,9 @@ func For(cp int) Decoder {
 
 // ForCharset maps a font charset (LOGFONT lfCharSet) to its code page
 func ForCharset(charset int) Decoder {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/codepage", "ForCharset: charset=%d", charset)
+	}
 	switch charset {
 	case 128:
 		return For(932)
@@ -103,6 +111,9 @@ func ForCharset(charset int) Decoder {
 
 // Decode converts b; undecodable bytes become U+FFFD
 func (d Decoder) Decode(b []byte) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/codepage", "Decoder.Decode: len(b)=%d", len(b))
+	}
 	if len(b) == 0 {
 		return ""
 	}
@@ -120,6 +131,9 @@ func (d Decoder) Decode(b []byte) string {
 // Latin1 maps each byte to the code point of the same value (the
 // "compressed" strings of Excel 97 and PowerPoint 97)
 func Latin1(b []byte) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/codepage", "Latin1: len(b)=%d", len(b))
+	}
 	u := make([]uint16, len(b))
 	for i, c := range b {
 		u[i] = uint16(c)
@@ -139,6 +153,9 @@ var cp1252High = [32]rune{
 // Rune1252 maps one cp1252 byte to its character (Word 97's compressed
 // text)
 func Rune1252(c byte) rune {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/codepage", "Rune1252: c=%d", c)
+	}
 	if c >= 0x80 && c <= 0x9F {
 		return cp1252High[c-0x80]
 	}

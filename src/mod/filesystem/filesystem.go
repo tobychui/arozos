@@ -116,6 +116,7 @@ type FileSystemHandler struct {
 
 // Create a list of file system handler from the given json content
 func NewFileSystemHandlersFromJSON(jsonContent []byte, runtimePersistenceConfig RuntimePersistenceConfig) ([]*FileSystemHandler, error) {
+	logger.Debug("filesystem", "NewFileSystemHandlersFromJSON")
 	//Generate a list of handler option from json file
 	options, err := loadConfigFromJSON(jsonContent)
 	if err != nil {
@@ -138,6 +139,7 @@ func NewFileSystemHandlersFromJSON(jsonContent []byte, runtimePersistenceConfig 
 
 // Create a new file system handler with the given config
 func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig RuntimePersistenceConfig) (*FileSystemHandler, error) {
+	logger.Debug("filesystem", "NewFileSystemHandler")
 	fstype := strings.ToLower(option.Filesystem)
 	if inSlice([]string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs"}, fstype) || fstype == "" {
 		//Check if the target fs require mounting
@@ -393,11 +395,13 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 
 // Check if a fsh is a network drive
 func (fsh *FileSystemHandler) IsNetworkDrive() bool {
+	logger.DebugTrace("filesystem", "FileSystemHandler.IsNetworkDrive")
 	return arozfs.IsNetworkDrive(fsh.Filesystem)
 }
 
 // Check if a fsh is a local disk drive
 func (fsh *FileSystemHandler) IsLocalDrive() bool {
+	logger.Debug("filesystem", "FileSystemHandler.IsLocalDrive")
 	//Check if network drive
 	if arozfs.IsNetworkDrive(fsh.Filesystem) {
 		return false
@@ -413,6 +417,9 @@ func (fsh *FileSystemHandler) IsLocalDrive() bool {
 
 // Buffer a file to local tmp folder and return the tmp location for further processing
 func (fsh *FileSystemHandler) BufferRemoteToLocal(rpath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "FileSystemHandler.BufferRemoteToLocal: rpath=%.120q", rpath)
+	}
 	//Check if the remote file exists
 	fsa := fsh.FileSystemAbstraction
 	if !fsa.FileExists(rpath) {
@@ -459,10 +466,16 @@ func (fsh *FileSystemHandler) BufferRemoteToLocal(rpath string) (string, error) 
 }
 
 func (fsh *FileSystemHandler) IsRootOf(vpath string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem", "FileSystemHandler.IsRootOf: vpath=%.120q", vpath)
+	}
 	return strings.HasPrefix(vpath, fsh.UUID+":")
 }
 
 func (fsh *FileSystemHandler) GetUniquePathHash(vpath string, username string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "FileSystemHandler.GetUniquePathHash: vpath=%.120q username=%.120q", vpath, username)
+	}
 	fshAbs := fsh.FileSystemAbstraction
 	rpath := ""
 	if strings.Contains(vpath, ":/") {
@@ -480,6 +493,9 @@ func (fsh *FileSystemHandler) GetUniquePathHash(vpath string, username string) (
 }
 
 func (fsh *FileSystemHandler) GetDirctorySizeFromRealPath(rpath string, includeHidden bool) (int64, int) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "FileSystemHandler.GetDirctorySizeFromRealPath: rpath=%.120q includeHidden=%t", rpath, includeHidden)
+	}
 	var size int64 = 0
 	var fileCount int = 0
 	err := fsh.FileSystemAbstraction.Walk(rpath, func(thisFilename string, info os.FileInfo, err error) error {
@@ -510,12 +526,16 @@ func (fsh *FileSystemHandler) GetDirctorySizeFromRealPath(rpath string, includeH
 }
 
 func (fsh *FileSystemHandler) GetDirctorySizeFromVpath(vpath string, username string, includeHidden bool) (int64, int) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "FileSystemHandler.GetDirctorySizeFromVpath: vpath=%.120q username=%.120q includeHidden=%t", vpath, username, includeHidden)
+	}
 	realpath, _ := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, username)
 	return fsh.GetDirctorySizeFromRealPath(realpath, includeHidden)
 }
 
 // Reload the target file system abstraction
 func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
+	logger.Debug("filesystem", "FileSystemHandler.ReloadFileSystelAbstraction")
 	logger.PrintAndLog("Filesystem", "[File System] Reloading File System Abstraction for "+fsh.Name, nil)
 	//Load the start option for this fsh
 	originalStartOption := fsh.StartOptions
@@ -540,11 +560,13 @@ func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
 
 // Check if this file system require user isolation (aka Hierarchy == user)
 func (fsh *FileSystemHandler) RequierUserIsolation() bool {
+	logger.DebugTrace("filesystem", "FileSystemHandler.RequierUserIsolation")
 	return fsh.Hierarchy == "user"
 }
 
 // Close an openeded File System
 func (fsh *FileSystemHandler) Close() {
+	logger.Debug("filesystem", "FileSystemHandler.Close")
 	//Set the close flag to true so others function wont access it
 	fsh.Closed = true
 
@@ -557,6 +579,9 @@ func (fsh *FileSystemHandler) Close() {
 
 // Helper function
 func inSlice(slice []string, val string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "inSlice: len(slice)=%d val=%.120q", len(slice), val)
+	}
 	for _, item := range slice {
 		if item == val {
 			return true
@@ -566,6 +591,9 @@ func inSlice(slice []string, val string) bool {
 }
 
 func FileExists(filename string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "FileExists: filename=%.120q", filename)
+	}
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false

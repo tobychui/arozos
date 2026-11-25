@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -50,6 +51,7 @@ type Settings struct {
 }
 
 func defaultSettings() Settings {
+	logger.DebugTrace("fileservers/servers/syncthingserv", "defaultSettings")
 	return Settings{
 		Port:            DefaultPort,
 		GlobalDiscovery: true,
@@ -85,6 +87,9 @@ type Folder struct {
 }
 
 func validMode(mode string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncthingserv", "validMode: mode=%.120q", mode)
+	}
 	return mode == ModeBackup || mode == ModeMirror || mode == ModeTwoWay
 }
 
@@ -94,6 +99,7 @@ type store struct {
 }
 
 func newStore(db *database.Database) (*store, error) {
+	logger.Debug("fileservers/servers/syncthingserv", "newStore")
 	if err := db.NewTable(settingsTable); err != nil {
 		return nil, err
 	}
@@ -101,6 +107,7 @@ func newStore(db *database.Database) (*store, error) {
 }
 
 func (s *store) settings() Settings {
+	logger.Debug("fileservers/servers/syncthingserv", "store.settings")
 	settings := defaultSettings()
 	if s.db.KeyExists(settingsTable, keySettings) {
 		s.db.Read(settingsTable, keySettings, &settings)
@@ -115,10 +122,12 @@ func (s *store) settings() Settings {
 }
 
 func (s *store) setSettings(settings Settings) error {
+	logger.DebugTrace("fileservers/servers/syncthingserv", "store.setSettings")
 	return s.db.Write(settingsTable, keySettings, settings)
 }
 
 func (s *store) enabled() bool {
+	logger.Debug("fileservers/servers/syncthingserv", "store.enabled")
 	enabled := false
 	if s.db.KeyExists(settingsTable, keyEnabled) {
 		s.db.Read(settingsTable, keyEnabled, &enabled)
@@ -127,10 +136,14 @@ func (s *store) enabled() bool {
 }
 
 func (s *store) setEnabled(enabled bool) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncthingserv", "store.setEnabled: enabled=%t", enabled)
+	}
 	return s.db.Write(settingsTable, keyEnabled, enabled)
 }
 
 func (s *store) devices() []Device {
+	logger.Debug("fileservers/servers/syncthingserv", "store.devices")
 	rows, err := s.db.ListTableWithPrefix(settingsTable, prefixDevice)
 	if err != nil {
 		return []Device{}
@@ -152,6 +165,9 @@ func (s *store) devices() []Device {
 }
 
 func (s *store) device(id string) (Device, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "store.device: id=%.120q", id)
+	}
 	var d Device
 	if !s.db.KeyExists(settingsTable, prefixDevice+id) {
 		return d, false
@@ -161,14 +177,19 @@ func (s *store) device(id string) (Device, bool) {
 }
 
 func (s *store) putDevice(d Device) error {
+	logger.DebugTrace("fileservers/servers/syncthingserv", "store.putDevice")
 	return s.db.Write(settingsTable, prefixDevice+d.ID, d)
 }
 
 func (s *store) deleteDevice(id string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncthingserv", "store.deleteDevice: id=%.120q", id)
+	}
 	return s.db.Delete(settingsTable, prefixDevice+id)
 }
 
 func (s *store) folders() []Folder {
+	logger.Debug("fileservers/servers/syncthingserv", "store.folders")
 	rows, err := s.db.ListTableWithPrefix(settingsTable, prefixFolder)
 	if err != nil {
 		return []Folder{}
@@ -190,6 +211,9 @@ func (s *store) folders() []Folder {
 }
 
 func (s *store) folder(id string) (Folder, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "store.folder: id=%.120q", id)
+	}
 	var f Folder
 	if !s.db.KeyExists(settingsTable, prefixFolder+id) {
 		return f, false
@@ -199,16 +223,23 @@ func (s *store) folder(id string) (Folder, bool) {
 }
 
 func (s *store) putFolder(f Folder) error {
+	logger.DebugTrace("fileservers/servers/syncthingserv", "store.putFolder")
 	return s.db.Write(settingsTable, prefixFolder+f.ID, f)
 }
 
 func (s *store) deleteFolder(id string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncthingserv", "store.deleteFolder: id=%.120q", id)
+	}
 	return s.db.Delete(settingsTable, prefixFolder+id)
 }
 
 // removeDeviceFromFolders takes a device out of every folder it was shared
 // with, so that a device added again later does not get them back unasked.
 func (s *store) removeDeviceFromFolders(deviceID string) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "store.removeDeviceFromFolders: deviceID=%.120q", deviceID)
+	}
 	for _, f := range s.folders() {
 		kept := f.Devices[:0]
 		changed := false

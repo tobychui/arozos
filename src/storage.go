@@ -13,6 +13,7 @@ import (
 	"imuslab.com/arozos/mod/permission"
 
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	storage "imuslab.com/arozos/mod/storage"
 )
 
@@ -24,6 +25,7 @@ var (
 )
 
 func StorageInit() {
+	logger.Debug("Core", "StorageInit")
 	//Load the default handler for the user storage root
 	if !fs.FileExists(filepath.Clean(*root_directory) + "/") {
 		os.MkdirAll(filepath.Clean(*root_directory)+"/", 0755)
@@ -37,6 +39,7 @@ func StorageInit() {
 }
 
 func LoadBaseStoragePool() error {
+	logger.Debug("Core", "LoadBaseStoragePool")
 	//All fsh for the base pool
 	fsHandlers := []*fs.FileSystemHandler{}
 	//Use for Debian buster local file system
@@ -122,6 +125,7 @@ func LoadBaseStoragePool() error {
 
 // Initialize the storage connection health check for all fsh.
 func storageHeartbeatTickerInit() {
+	logger.Debug("Core", "storageHeartbeatTickerInit")
 	ticker := time.NewTicker(60 * time.Second)
 	done := make(chan bool)
 	go func() {
@@ -140,6 +144,7 @@ func storageHeartbeatTickerInit() {
 // Perform heartbeat to all connected file system abstraction.
 // Blocking function, use with go routine if needed
 func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
+	logger.Debug("Core", "StoragePerformFileSystemAbstractionConnectionHeartbeat")
 	allFsh := GetAllLoadedFsh()
 	for _, thisFsh := range allFsh {
 		if isClusterOrShareDrive(thisFsh) {
@@ -190,6 +195,7 @@ func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 
 // Initialize group storage pool
 func GroupStoragePoolInit() {
+	logger.Debug("Core", "GroupStoragePoolInit")
 	//Mount permission groups
 	for _, pg := range permissionHandler.PermissionGroups {
 		//For each group, check does this group has a config file
@@ -206,6 +212,7 @@ func GroupStoragePoolInit() {
 }
 
 func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
+	logger.Debug("Core", "LoadStoragePoolForGroup")
 	expectedConfigPath := "./system/storage/" + pg.Name + ".json"
 	if fs.FileExists(expectedConfigPath) {
 		//Read the config file
@@ -256,11 +263,15 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 
 // Check if a storage pool exists by its group owner name
 func StoragePoolExists(poolOwner string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "StoragePoolExists: poolOwner=%.120q", poolOwner)
+	}
 	_, err := GetStoragePoolByOwner(poolOwner)
 	return err == nil
 }
 
 func GetAllStoragePools() []*storage.StoragePool {
+	logger.Debug("Core", "GetAllStoragePools")
 	//Append the base pool
 	results := []*storage.StoragePool{baseStoragePool}
 
@@ -273,6 +284,9 @@ func GetAllStoragePools() []*storage.StoragePool {
 }
 
 func GetStoragePoolByOwner(owner string) (*storage.StoragePool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "GetStoragePoolByOwner: owner=%.120q", owner)
+	}
 	sps := GetAllStoragePools()
 	for _, pool := range sps {
 		if pool.Owner == owner {
@@ -283,6 +297,9 @@ func GetStoragePoolByOwner(owner string) (*storage.StoragePool, error) {
 }
 
 func GetFSHandlerSubpathFromVpath(vpath string) (*fs.FileSystemHandler, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "GetFSHandlerSubpathFromVpath: vpath=%.120q", vpath)
+	}
 	VirtualRootID, subpath, err := fs.GetIDFromVirtualPath(vpath)
 	if err != nil {
 		return nil, "", errors.New("Unable to resolve requested path: " + err.Error())
@@ -306,6 +323,9 @@ func GetFSHandlerSubpathFromVpath(vpath string) (*fs.FileSystemHandler, string, 
 }
 
 func GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "GetFsHandlerByUUID: uuid=%.120q", uuid)
+	}
 	//Filter out the :/ fropm uuid if exists
 	if strings.Contains(uuid, ":") {
 		uuid = strings.Split(uuid, ":")[0]
@@ -325,6 +345,7 @@ func GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, error) {
 }
 
 func GetAllLoadedFsh() []*fs.FileSystemHandler {
+	logger.Debug("Core", "GetAllLoadedFsh")
 	fshTmp := map[string]*fs.FileSystemHandler{}
 	allFsh := []*fs.FileSystemHandler{}
 	allStoragePools := GetAllStoragePools()
@@ -344,6 +365,7 @@ func GetAllLoadedFsh() []*fs.FileSystemHandler {
 }
 
 func RegisterStorageSettings() {
+	logger.DebugTrace("Core", "RegisterStorageSettings")
 	//Storage Pool Configuration
 	registerSetting(settingModule{
 		Name:         "Storage Pools",
@@ -358,10 +380,12 @@ func RegisterStorageSettings() {
 
 // CloseAllStorages Close all storage database
 func CloseAllStorages() {
+	logger.DebugTrace("Core", "CloseAllStorages")
 
 }
 
 func closeAllStoragePools() {
+	logger.Debug("Core", "closeAllStoragePools")
 	//Stop the storage pool heartbeat
 	storageHeartbeatTickerChan <- true
 

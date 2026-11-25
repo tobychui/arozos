@@ -25,6 +25,9 @@ import (
 // during this VM's lifetime (see static.AgiLibInjectionPayload.RegisterCleanup).
 // Callers MUST defer it - it is safe to call more than once.
 func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemHandler, scriptPath string, scriptScope string, u *user.User, w http.ResponseWriter, r *http.Request) func() {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("agi", "Gateway.injectUserFunctions: scriptPath=%.120q scriptScope=%.120q r=%s", scriptPath, scriptScope, logger.RequestSummary(r))
+	}
 	//Teardown closures registered by loadable libraries for this VM.
 	//Guarded by a mutex as a library may spawn goroutines that register late.
 	var cleanupMutex sync.Mutex

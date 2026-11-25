@@ -22,6 +22,7 @@ import (
 	"imuslab.com/arozos/mod/agi"
 	"imuslab.com/arozos/mod/cluster/jobs"
 	"imuslab.com/arozos/mod/cluster/metadata"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -29,6 +30,9 @@ import (
 type clusterJobExecutor struct{}
 
 func (e *clusterJobExecutor) UserExists(owner string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterJobExecutor.UserExists: owner=%.120q", owner)
+	}
 	if authAgent == nil {
 		return false
 	}
@@ -37,6 +41,9 @@ func (e *clusterJobExecutor) UserExists(owner string) bool {
 
 // Run executes the wrapped job source as the job owner.
 func (e *clusterJobExecutor) Run(ctx context.Context, rec jobs.Record, source string, hooks jobs.ExecHooks) (json.RawMessage, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterJobExecutor.Run: source=%.120q", source)
+	}
 	if AGIGateway == nil {
 		return nil, errors.New("AGI gateway not ready")
 	}
@@ -130,6 +137,9 @@ func (e *clusterJobExecutor) Run(ctx context.Context, rec jobs.Record, source st
 // clusterJobLocality reports how many bytes of the given cluster paths have a
 // healthy copy on a node, and their total size.
 func clusterJobLocality(paths []string, nodeID string) (int64, int64) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterJobLocality: len(paths)=%d nodeID=%.120q", len(paths), nodeID)
+	}
 	if clusterMetadata == nil {
 		return 0, 0
 	}
@@ -160,6 +170,9 @@ func clusterJobLocality(paths []string, nodeID string) (int64, int64) {
 }
 
 func locationOnNode(rec *metadata.FileRecord, nodeID string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "locationOnNode: nodeID=%.120q", nodeID)
+	}
 	for _, l := range rec.HealthyLocations() {
 		if l.NodeID == nodeID {
 			return true
@@ -170,6 +183,9 @@ func locationOnNode(rec *metadata.FileRecord, nodeID string) bool {
 
 // clusterJobCaller maps a request to the logged-in user for the jobs API.
 func clusterJobCaller(w http.ResponseWriter, r *http.Request) (jobs.Caller, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterJobCaller: r=%s", logger.RequestSummary(r))
+	}
 	u, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		return jobs.Caller{}, err
@@ -181,6 +197,9 @@ func clusterJobCaller(w http.ResponseWriter, r *http.Request) (jobs.Caller, erro
 // the job. POST: name, script (vpath), args (JSON), inputs (JSON array),
 // features (comma separated), timeout, priority.
 func clusterJobSubmit(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterJobSubmit: r=%s", logger.RequestSummary(r))
+	}
 	if clusterJobs == nil {
 		utils.SendErrorResponse(w, "cluster jobs not available")
 		return
@@ -252,6 +271,9 @@ func clusterJobSubmit(w http.ResponseWriter, r *http.Request) {
 }
 
 func splitList(s string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "splitList: s=%.120q", s)
+	}
 	out := []string{}
 	for _, part := range strings.Split(s, ",") {
 		if p := strings.TrimSpace(part); p != "" {
@@ -264,6 +286,9 @@ func splitList(s string) []string {
 // clusterSchedExplain answers /system/cluster/sched/explain?job=<id> with the
 // ranking the scheduler would have used for that job.
 func clusterSchedExplain(r *http.Request) (interface{}, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterSchedExplain: r=%s", logger.RequestSummary(r))
+	}
 	if clusterJobs == nil {
 		return nil, errors.New("cluster jobs not available")
 	}
@@ -286,6 +311,9 @@ func clusterSchedExplain(r *http.Request) (interface{}, error) {
 
 // clusterReadScript loads a script from a user's file system.
 func clusterReadScript(username string, vpath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterReadScript: username=%.120q vpath=%.120q", username, vpath)
+	}
 	u, err := userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
 		return "", err

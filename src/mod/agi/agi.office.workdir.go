@@ -10,6 +10,7 @@ import (
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
 )
 
@@ -49,6 +50,9 @@ var officeLegacyWorkdirs = []string{
 // cleanOfficeVpath normalises a vpath for the prefix checks below and
 // rejects anything that climbs out with ".."
 func cleanOfficeVpath(vp string) (string, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "cleanOfficeVpath: vp=%.120q", vp)
+	}
 	vp = strings.ReplaceAll(vp, "\\", "/")
 	for _, seg := range strings.Split(vp, "/") {
 		if seg == ".." {
@@ -67,6 +71,9 @@ func cleanOfficeVpath(vp string) (string, bool) {
 // (strictly inside one of their folders): the only places the workdir
 // functions may touch or delete, and the links a save must not lose
 func isOfficeWorkdir(vp string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "isOfficeWorkdir: vp=%.120q", vp)
+	}
 	clean, ok := cleanOfficeVpath(vp)
 	if !ok {
 		return false
@@ -83,6 +90,9 @@ func isOfficeWorkdir(vp string) bool {
 // themselves (tmp:/.appdata/Office/cache, the legacy user:/ folders, ...):
 // those may be swept by age but never touched or deleted whole
 func isOfficeWorkdirRoot(vp string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "isOfficeWorkdirRoot: vp=%.120q", vp)
+	}
 	clean, ok := cleanOfficeVpath(vp)
 	if !ok {
 		return false
@@ -103,6 +113,9 @@ func isOfficeWorkdirRoot(vp string) bool {
 
 // newestModTime is the most recent modification time in a tree
 func newestModTime(fsa filesystem.FileSystemAbstraction, rpath string) time.Time {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "newestModTime: rpath=%.120q", rpath)
+	}
 	var newest time.Time
 	fsa.Walk(rpath, func(p string, info os.FileInfo, err error) error {
 		if err == nil && info != nil && info.ModTime().After(newest) {
@@ -114,6 +127,7 @@ func newestModTime(fsa filesystem.FileSystemAbstraction, rpath string) time.Time
 }
 
 func (g *Gateway) injectOfficeWorkdirFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler) {
+	logger.Debug("agi", "Gateway.injectOfficeWorkdirFunctions")
 	// resolve checks and resolves one workdir argument
 	resolve := func(raw string, sweep bool) (*filesystem.FileSystemHandler, string, string) {
 		vp := static.RelativeVpathRewrite(scriptFsh, raw, vm, u)

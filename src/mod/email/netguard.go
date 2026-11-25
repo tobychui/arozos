@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -36,6 +38,7 @@ var cgnatBlock = &net.IPNet{IP: net.IPv4(100, 64, 0, 0), Mask: net.CIDRMask(10, 
 
 // isRestrictedIP reports whether ip points into a local or special network.
 func isRestrictedIP(ip net.IP) bool {
+	logger.Debug("email", "isRestrictedIP")
 	if ip == nil {
 		return true
 	}
@@ -56,6 +59,9 @@ var lookupIPAddr = func(ctx context.Context, host string) ([]net.IPAddr, error) 
 // dialGuarded opens a TCP connection to host:port. With allowPrivate false
 // every resolved address must be public.
 func dialGuarded(ctx context.Context, host string, port int, allowPrivate bool) (net.Conn, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "dialGuarded: host=%.120q port=%d", host, port)
+	}
 	host = strings.TrimSpace(host)
 	if host == "" {
 		return nil, errors.New("server host is empty")
@@ -101,6 +107,9 @@ func dialGuarded(ctx context.Context, host string, port int, allowPrivate bool) 
 
 // tlsConfigFor builds the client TLS configuration for a server name.
 func tlsConfigFor(host string, nextProto string) *tls.Config {
+	if logger.IsDebug() {
+		logger.Debugf("email", "tlsConfigFor: host=%.120q nextProto=%.120q", host, nextProto)
+	}
 	config := &tls.Config{
 		ServerName: strings.Trim(host, "[]"),
 		MinVersion: tls.VersionTLS12,
@@ -113,6 +122,9 @@ func tlsConfigFor(host string, nextProto string) *tls.Config {
 
 // dialTLS opens an implicit-TLS connection with the handshake completed.
 func dialTLS(ctx context.Context, host string, port int, allowPrivate bool, nextProto string) (net.Conn, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "dialTLS: host=%.120q port=%d nextProto=%.120q", host, port, nextProto)
+	}
 	raw, err := dialGuarded(ctx, host, port, allowPrivate)
 	if err != nil {
 		return nil, err
@@ -129,6 +141,9 @@ func dialTLS(ctx context.Context, host string, port int, allowPrivate bool, next
 
 // describeTLSError turns the common certificate failures into sentences.
 func describeTLSError(err error) error {
+	if logger.IsDebug() {
+		logger.Debugf("email", "describeTLSError: err=%v", err)
+	}
 	var hostnameErr *tls.CertificateVerificationError
 	if errors.As(err, &hostnameErr) {
 		return fmt.Errorf("the server certificate could not be verified: %v", hostnameErr.Err)
@@ -143,6 +158,7 @@ func describeTLSError(err error) error {
 // address policy, used for autoconfig documents fetched from a user-typed
 // domain.
 func guardedHTTPClient(allowPrivate bool, timeout time.Duration) *http.Client {
+	logger.Debug("email", "guardedHTTPClient")
 	transport := &http.Transport{
 		Proxy: nil,
 		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {

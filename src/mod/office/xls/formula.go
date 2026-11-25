@@ -29,6 +29,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf16"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var errFormula = errors.New("unsupported formula")
@@ -40,6 +42,9 @@ var errCodes = map[byte]string{
 }
 
 func errText(code byte) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "errText: code=%d", code)
+	}
 	if s, ok := errCodes[code]; ok {
 		return s
 	}
@@ -54,6 +59,9 @@ var binOps = map[byte]string{
 
 // colName is the letter name of a 0-based column
 func colName(c int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "colName: c=%d", c)
+	}
 	s := ""
 	c++
 	for c > 0 {
@@ -66,6 +74,9 @@ func colName(c int) string {
 
 // cellText prints one reference with its $ markers
 func cellText(row, col int, rowRel, colRel bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "cellText: row=%d col=%d rowRel=%t colRel=%t", row, col, rowRel, colRel)
+	}
 	var b strings.Builder
 	if !colRel {
 		b.WriteByte('$')
@@ -80,6 +91,9 @@ func cellText(row, col int, rowRel, colRel bool) string {
 
 // quoteSheet quotes a sheet name when a formula needs it to
 func quoteSheet(name string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "quoteSheet: name=%.120q", name)
+	}
 	plain := name != ""
 	for i, r := range name {
 		if !(r == '_' || r == '.' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r > 0x7F) {
@@ -102,6 +116,9 @@ func quoteSheet(name string) string {
 }
 
 func looksLikeRef(s string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "looksLikeRef: s=%.120q", s)
+	}
 	i := 0
 	for i < len(s) && (s[i] >= 'A' && s[i] <= 'Z' || s[i] >= 'a' && s[i] <= 'z') {
 		i++
@@ -119,6 +136,9 @@ func looksLikeRef(s string) bool {
 
 // formatNumber prints a constant the way Excel shows it in the formula bar
 func formatNumber(v float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "formatNumber: v=%g", v)
+	}
 	if math.IsInf(v, 0) || math.IsNaN(v) {
 		return "#NUM!"
 	}
@@ -140,6 +160,9 @@ func formatNumber(v float64) string {
 }
 
 func quoteString(s string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "quoteString: s=%.120q", s)
+	}
 	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
 }
 
@@ -155,9 +178,15 @@ type fmla struct {
 	isName bool // a defined name's formula: N references are relative to A1
 }
 
-func (f *fmla) push(s string) { f.stack = append(f.stack, s) }
+func (f *fmla) push(s string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "fmla.push: s=%.120q", s)
+	}
+	f.stack = append(f.stack, s)
+}
 
 func (f *fmla) pop() (string, bool) {
+	logger.DebugTrace("office/xls", "fmla.pop")
 	if len(f.stack) == 0 {
 		return "", false
 	}
@@ -167,6 +196,9 @@ func (f *fmla) pop() (string, bool) {
 }
 
 func (f *fmla) popN(n int) ([]string, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "fmla.popN: n=%d", n)
+	}
 	if n > len(f.stack) {
 		return nil, false
 	}
@@ -177,17 +209,24 @@ func (f *fmla) popN(n int) ([]string, bool) {
 
 // decompile turns rgce (+ rgcb) into formula text without the leading "="
 func (b *book) decompile(rgce, rgcb []byte, row, col int) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.decompile: len(rgce)=%d len(rgcb)=%d row=%d col=%d", len(rgce), len(rgcb), row, col)
+	}
 	f := &fmla{b: b, rgce: rgce, rgcb: rgcb, row: row, col: col}
 	return f.run()
 }
 
 // decompileName decompiles a defined name's formula
 func (b *book) decompileName(rgce, rgcb []byte) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.decompileName: len(rgce)=%d len(rgcb)=%d", len(rgce), len(rgcb))
+	}
 	f := &fmla{b: b, rgce: rgce, rgcb: rgcb, isName: true}
 	return f.run()
 }
 
 func (f *fmla) run() (string, error) {
+	logger.DebugTrace("office/xls", "fmla.run")
 	p := 0
 	le := binary.LittleEndian
 	b := f.rgce
@@ -469,6 +508,9 @@ func (f *fmla) run() (string, error) {
 // readRef reads one cell reference; rel marks an N reference whose
 // relative parts are offsets from the formula's cell
 func (f *fmla) readRef(b []byte, p *int, rel bool) (row, col int, rowRel, colRel bool, ok bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "fmla.readRef: len(b)=%d rel=%t", len(b), rel)
+	}
 	le := binary.LittleEndian
 	if f.b.biff8 {
 		if *p+4 > len(b) {
@@ -515,6 +557,9 @@ func (f *fmla) readRef(b []byte, p *int, rel bool) (row, col int, rowRel, colRel
 }
 
 func wrap(v, n int) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "wrap: v=%d n=%d", v, n)
+	}
 	v %= n
 	if v < 0 {
 		v += n
@@ -525,6 +570,9 @@ func wrap(v, n int) int {
 // readArea reads a rectangle reference; whole rows and columns print the
 // way Excel shows them (A:B, 3:5)
 func (f *fmla) readArea(b []byte, p *int, rel bool) (string, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "fmla.readArea: len(b)=%d rel=%t", len(b), rel)
+	}
 	le := binary.LittleEndian
 	var r1, r2, c1, c2 int
 	var rr1, rr2, cr1, cr2 bool
@@ -613,6 +661,9 @@ func (f *fmla) readArea(b []byte, p *int, rel bool) (string, bool) {
 // read3DPrefix reads the sheet part of a 3D reference ("Data!",
 // "'Q1':'Q4'!") or "#REF!" for a sheet that is gone or external
 func (f *fmla) read3DPrefix(b []byte, p *int) (string, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "fmla.read3DPrefix: len(b)=%d", len(b))
+	}
 	le := binary.LittleEndian
 	if f.b.biff8 {
 		if *p+2 > len(b) {
@@ -637,6 +688,7 @@ func (f *fmla) read3DPrefix(b []byte, p *int) (string, bool) {
 
 // arrayConst reads the next array constant out of rgcb
 func (f *fmla) arrayConst() (string, error) {
+	logger.DebugTrace("office/xls", "fmla.arrayConst")
 	le := binary.LittleEndian
 	c := f.rgcb
 	if f.cbPos+3 > len(c) {
@@ -731,6 +783,7 @@ func (f *fmla) arrayConst() (string, error) {
 
 // skipMemArea steps over the PtgExtraMem list of a ptgMemArea
 func (f *fmla) skipMemArea() {
+	logger.DebugTrace("office/xls", "fmla.skipMemArea")
 	c := f.rgcb
 	if f.cbPos+2 > len(c) {
 		f.cbPos = len(c)
@@ -746,6 +799,9 @@ func (f *fmla) skipMemArea() {
 
 // decodeChars decodes 8-bit (Latin-1) or UTF-16LE characters
 func decodeChars(b []byte, high bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "decodeChars: len(b)=%d high=%t", len(b), high)
+	}
 	if !high {
 		u := make([]uint16, len(b))
 		for i, c := range b {

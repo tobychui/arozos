@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/cluster/membership"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Volume is a folder one node contributes to the namespace.
@@ -64,6 +65,7 @@ type Location struct {
 
 // Healthy reports whether the copy can be read.
 func (l Location) Healthy() bool {
+	logger.DebugTrace("cluster/metadata", "Location.Healthy")
 	return l.State == LocCommitted || l.State == LocVerified
 }
 
@@ -85,6 +87,7 @@ type FileRecord struct {
 
 // Clone returns an independent copy.
 func (f *FileRecord) Clone() *FileRecord {
+	logger.Debug("cluster/metadata", "FileRecord.Clone")
 	c := *f
 	c.Locations = append([]Location{}, f.Locations...)
 	return &c
@@ -92,6 +95,9 @@ func (f *FileRecord) Clone() *FileRecord {
 
 // Location returns the copy on the given volume, if any.
 func (f *FileRecord) Location(volumeID string) (Location, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "FileRecord.Location: volumeID=%.120q", volumeID)
+	}
 	for _, l := range f.Locations {
 		if l.VolumeID == volumeID {
 			return l, true
@@ -102,6 +108,7 @@ func (f *FileRecord) Location(volumeID string) (Location, bool) {
 
 // SetLocation adds or replaces the copy on the given volume.
 func (f *FileRecord) SetLocation(loc Location) {
+	logger.Debug("cluster/metadata", "FileRecord.SetLocation")
 	loc.Updated = time.Now().Unix()
 	for i, l := range f.Locations {
 		if l.VolumeID == loc.VolumeID {
@@ -114,6 +121,9 @@ func (f *FileRecord) SetLocation(loc Location) {
 
 // RemoveLocation drops the copy on the given volume.
 func (f *FileRecord) RemoveLocation(volumeID string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "FileRecord.RemoveLocation: volumeID=%.120q", volumeID)
+	}
 	out := f.Locations[:0]
 	for _, l := range f.Locations {
 		if l.VolumeID != volumeID {
@@ -125,6 +135,7 @@ func (f *FileRecord) RemoveLocation(volumeID string) {
 
 // HealthyLocations lists readable copies.
 func (f *FileRecord) HealthyLocations() []Location {
+	logger.Debug("cluster/metadata", "FileRecord.HealthyLocations")
 	out := []Location{}
 	for _, l := range f.Locations {
 		if l.Healthy() {
@@ -223,6 +234,9 @@ type LeaseResponse struct {
 // form: forward slashes, cleaned, leading slash, no trailing slash except
 // for the root, optional "cluster:" prefix removed.
 func NormalizePath(p string) string {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "NormalizePath: p=%.120q", p)
+	}
 	p = strings.TrimSpace(p)
 	p = strings.ReplaceAll(p, "\\", "/")
 	if i := strings.Index(p, ":"); i >= 0 && i < 16 && !strings.Contains(p[:i], "/") {
@@ -240,6 +254,9 @@ func NormalizePath(p string) string {
 
 // ParentPath returns the parent of a normalized path ("/" for the root).
 func ParentPath(p string) string {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "ParentPath: p=%.120q", p)
+	}
 	if p == "/" {
 		return "/"
 	}
@@ -248,6 +265,9 @@ func ParentPath(p string) string {
 
 // TopFolder returns "/photos" for "/photos/2026/a.jpg" ("/" for root entries).
 func TopFolder(p string) string {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "TopFolder: p=%.120q", p)
+	}
 	p = NormalizePath(p)
 	if p == "/" {
 		return "/"
@@ -256,4 +276,9 @@ func TopFolder(p string) string {
 	return "/" + parts[0]
 }
 
-func nextVersion(prev int64) int64 { return membership.NextVersion(prev) }
+func nextVersion(prev int64) int64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/metadata", "nextVersion: prev=%d", prev)
+	}
+	return membership.NextVersion(prev)
+}

@@ -36,6 +36,7 @@ import (
 	"sync"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/locale/fonts"
 )
 
@@ -87,6 +88,7 @@ type cachedFile struct {
 // NewServer prepares the locale server and reads the language list and the
 // characters each language uses
 func NewServer(opts Options) (*Server, error) {
+	logger.Debug("locale", "NewServer")
 	if _, err := os.Stat(opts.Root); err != nil {
 		return nil, err
 	}
@@ -97,11 +99,13 @@ func NewServer(opts Options) (*Server, error) {
 
 // Root returns the locale folder
 func (s *Server) Root() string {
+	logger.DebugTrace("locale", "Server.Root")
 	return s.opts.Root
 }
 
 // Languages lists the languages of the system's interface strings
 func (s *Server) Languages() []Language {
+	logger.Debug("locale", "Server.Languages")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]Language(nil), s.languages...)
@@ -109,6 +113,7 @@ func (s *Server) Languages() []Language {
 
 // LanguageCodes lists the language codes, lower case
 func (s *Server) LanguageCodes() []string {
+	logger.Debug("locale", "Server.LanguageCodes")
 	langs := s.Languages()
 	codes := make([]string, len(langs))
 	for i, l := range langs {
@@ -121,6 +126,7 @@ func (s *Server) LanguageCodes() []string {
 // system_settings.json, else file_explorer.json) and the text of each
 // language, which it hands to the font library
 func (s *Server) Rescan() {
+	logger.Debug("locale", "Server.Rescan")
 	texts := map[string]*strings.Builder{}
 	names := map[string]string{}
 	var order []string
@@ -194,6 +200,7 @@ func (s *Server) Rescan() {
 
 // collectText appends every string of a locale block except the font ones
 func collectText(v interface{}, b *strings.Builder) {
+	logger.DebugTrace("locale", "collectText")
 	switch t := v.(type) {
 	case string:
 		b.WriteString(t)
@@ -213,6 +220,9 @@ func collectText(v interface{}, b *strings.Builder) {
 
 // resolve maps a path below URLPrefix to a file, nil when it is not served
 func (s *Server) resolve(rel string) (string, os.FileInfo) {
+	if logger.IsDebug() {
+		logger.Debugf("locale", "Server.resolve: rel=%.120q", rel)
+	}
 	if rel == "" || strings.ContainsAny(rel, "\\\x00:") || strings.HasPrefix(rel, "/") {
 		return "", nil
 	}
@@ -242,6 +252,9 @@ func (s *Server) resolve(rel string) (string, os.FileInfo) {
 
 // Serve answers a request below URLPrefix for a logged in user
 func (s *Server) Serve(w http.ResponseWriter, r *http.Request, username string) {
+	if logger.IsDebug() {
+		logger.Debugf("locale", "Server.Serve: r=%s username=%.120q", logger.RequestSummary(r), username)
+	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -295,6 +308,9 @@ func (s *Server) Serve(w http.ResponseWriter, r *http.Request, username string) 
 }
 
 func serveFile(w http.ResponseWriter, r *http.Request, full string, st os.FileInfo) {
+	if logger.IsDebug() {
+		logger.Debugf("locale", "serveFile: r=%s full=%.120q", logger.RequestSummary(r), full)
+	}
 	f, err := os.Open(full)
 	if err != nil {
 		http.NotFound(w, r)
@@ -307,6 +323,9 @@ func serveFile(w http.ResponseWriter, r *http.Request, full string, st os.FileIn
 
 // sendRevalidated sends a per user response the browser revalidates by ETag
 func sendRevalidated(w http.ResponseWriter, r *http.Request, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("locale", "sendRevalidated: r=%s", logger.RequestSummary(r))
+	}
 	sum := sha1.Sum(body)
 	etag := `"` + hex.EncodeToString(sum[:10]) + `"`
 	w.Header().Set("Cache-Control", "private, no-cache")
@@ -323,6 +342,9 @@ func sendRevalidated(w http.ResponseWriter, r *http.Request, body []byte) {
 
 // load returns a locale file, parsed, from the cache while it is unchanged
 func (s *Server) load(full string, st os.FileInfo) *cachedFile {
+	if logger.IsDebug() {
+		logger.Debugf("locale", "Server.load: full=%.120q", full)
+	}
 	s.mu.Lock()
 	c := s.cache[full]
 	s.mu.Unlock()
@@ -351,6 +373,9 @@ func (s *Server) load(full string, st os.FileInfo) *cachedFile {
 // nil when no language of the file uses one. Everything else, including the
 // order of the keys, stays as the file has it.
 func (s *Server) render(file *cachedFile, depth int, username string) []byte {
+	if logger.IsDebug() {
+		logger.Debugf("locale", "Server.render: depth=%d username=%.120q", depth, username)
+	}
 	if file.keysAt < 0 {
 		return nil
 	}
@@ -415,6 +440,7 @@ type member struct {
 
 // objectMembers splits a JSON object into its members, in order
 func objectMembers(raw []byte) ([]member, error) {
+	logger.Debug("locale", "objectMembers")
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
 		return nil, errors.New("not a JSON object")
@@ -442,6 +468,9 @@ func objectMembers(raw []byte) ([]member, error) {
 }
 
 func encodeObject(members []member) []byte {
+	if logger.IsDebug() {
+		logger.Debugf("locale", "encodeObject: len(members)=%d", len(members))
+	}
 	var b bytes.Buffer
 	b.WriteByte('{')
 	for i, m := range members {
@@ -458,6 +487,9 @@ func encodeObject(members []member) []byte {
 }
 
 func stringMember(key, value string) member {
+	if logger.IsDebug() {
+		logger.Debugf("locale", "stringMember: value=%.120q", value)
+	}
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false)
@@ -467,6 +499,9 @@ func stringMember(key, value string) member {
 
 // serveStyleSheet sends the user's font style sheet, or the preview one
 func (s *Server) serveStyleSheet(w http.ResponseWriter, r *http.Request, username string) {
+	if logger.IsDebug() {
+		logger.Debugf("locale", "Server.serveStyleSheet: r=%s username=%.120q", logger.RequestSummary(r), username)
+	}
 	w.Header().Set("Content-Type", "text/css; charset=utf-8")
 	var css string
 	if r.URL.Query().Get("preview") != "" {

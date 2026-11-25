@@ -9,6 +9,8 @@ package email
 
 import (
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // UserSettings are one ArozOS user's Mail preferences.
@@ -34,6 +36,7 @@ type UserSettings struct {
 
 // DefaultUserSettings are applied to anything a user has not chosen.
 func DefaultUserSettings() UserSettings {
+	logger.DebugTrace("email", "DefaultUserSettings")
 	return UserSettings{
 		Theme:               "system",
 		Density:             "comfortable",
@@ -57,6 +60,7 @@ func DefaultUserSettings() UserSettings {
 // normalise clamps every field into its valid range, so a hand-edited or
 // older record can never put the UI into an impossible state.
 func (s *UserSettings) normalise() {
+	logger.Debug("email", "UserSettings.normalise")
 	defaults := DefaultUserSettings()
 	if !oneOf(s.Theme, "system", "light", "dark") {
 		s.Theme = defaults.Theme
@@ -110,6 +114,7 @@ func (s *UserSettings) normalise() {
 // IsTrustedSender reports whether remote content of mail from address loads
 // without asking: either the exact address or its whole domain is trusted.
 func (s *UserSettings) IsTrustedSender(address string) bool {
+	logger.Debug("email", "UserSettings.IsTrustedSender")
 	address = strings.ToLower(strings.TrimSpace(address))
 	if address == "" {
 		return false
@@ -175,6 +180,7 @@ type OAuthClientView struct {
 }
 
 func defaultAdminConfig() AdminConfig {
+	logger.DebugTrace("email", "defaultAdminConfig")
 	return AdminConfig{
 		Google:          OAuthClient{Flow: FlowRedirect},
 		Microsoft:       OAuthClient{Flow: FlowDevice, Tenant: "common"},
@@ -183,6 +189,7 @@ func defaultAdminConfig() AdminConfig {
 }
 
 func (c *AdminConfig) normalise() {
+	logger.Debug("email", "AdminConfig.normalise")
 	if !oneOf(c.Google.Flow, FlowRedirect, FlowLoopback) {
 		c.Google.Flow = FlowRedirect
 	}
@@ -205,6 +212,7 @@ func (c *AdminConfig) normalise() {
 }
 
 func (c *OAuthClient) view() OAuthClientView {
+	logger.DebugTrace("email", "OAuthClient.view")
 	return OAuthClientView{
 		Enabled:   c.Enabled,
 		ClientID:  c.ClientID,
@@ -215,6 +223,9 @@ func (c *OAuthClient) view() OAuthClientView {
 }
 
 func oneOf(value string, options ...string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("email", "oneOf: value=%.120q len(options)=%d", value, len(options))
+	}
 	for _, option := range options {
 		if value == option {
 			return true

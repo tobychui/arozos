@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -77,6 +79,9 @@ var (
 
 // NormalizeSlug turns a free text name (e.g. a container name) into a valid slug
 func NormalizeSlug(name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "NormalizeSlug: name=%.120q", name)
+	}
 	name = strings.ToLower(strings.TrimSpace(name))
 	var b strings.Builder
 	lastDash := true
@@ -98,11 +103,17 @@ func NormalizeSlug(name string) string {
 
 // ValidSlug reports whether s can be used as an endpoint slug
 func ValidSlug(s string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("appproxy", "ValidSlug: s=%.120q", s)
+	}
 	return slugRegex.MatchString(s)
 }
 
 // NormalizeHostname lower-cases a host name and drops any port
 func NormalizeHostname(host string) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "NormalizeHostname: host=%.120q", host)
+	}
 	host = strings.ToLower(strings.TrimSpace(host))
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
@@ -112,6 +123,9 @@ func NormalizeHostname(host string) string {
 
 // normalizeWindowSize clamps a float window dimension, 0 means default
 func normalizeWindowSize(v int) int {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "normalizeWindowSize: v=%d", v)
+	}
 	if v <= 0 {
 		return 0
 	}
@@ -126,6 +140,9 @@ func normalizeWindowSize(v int) int {
 
 // validateTarget checks a host:port upstream address
 func validateTarget(target string) error {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "validateTarget: target=%.120q", target)
+	}
 	host, port, err := net.SplitHostPort(target)
 	if err != nil {
 		return errors.New("Target must be host:port, e.g. 127.0.0.1:8081")
@@ -142,6 +159,9 @@ func validateTarget(target string) error {
 
 // isLoopbackHost reports whether host points back at this machine
 func isLoopbackHost(host string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "isLoopbackHost: host=%.120q", host)
+	}
 	host = strings.ToLower(host)
 	if host == "localhost" || host == "0.0.0.0" || host == "::" {
 		return true
@@ -152,6 +172,9 @@ func isLoopbackHost(host string) bool {
 
 // validateOrigin checks a scheme://host[:port] origin without a path
 func validateOrigin(origin string) error {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "validateOrigin: origin=%.120q", origin)
+	}
 	u, err := url.Parse(origin)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return errors.New("Portal origin must look like https://nas.example.com")
@@ -165,6 +188,9 @@ func validateOrigin(origin string) error {
 // Normalize fills defaults and validates the endpoint. selfPort is the port
 // ArozOS itself listens on (a loopback target on it would proxy into itself)
 func (e *Endpoint) Normalize(selfPort int) error {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Endpoint.Normalize: selfPort=%d", selfPort)
+	}
 	e.Slug = strings.TrimSpace(e.Slug)
 	if !ValidSlug(e.Slug) {
 		return errors.New("Slug may only contain a-z, 0-9 and - (max 63 characters)")
@@ -244,11 +270,13 @@ func (e *Endpoint) Normalize(selfPort int) error {
 
 // PathPrefix is the path mode URL prefix of this endpoint, without a trailing slash
 func (e *Endpoint) PathPrefix() string {
+	logger.DebugTrace("appproxy", "Endpoint.PathPrefix")
 	return "/app/" + e.Slug
 }
 
 // UpstreamURL is the base URL requests are forwarded to
 func (e *Endpoint) UpstreamURL() *url.URL {
+	logger.Debug("appproxy", "Endpoint.UpstreamURL")
 	scheme := "http"
 	if e.TargetTLS {
 		scheme = "https"
@@ -259,6 +287,7 @@ func (e *Endpoint) UpstreamURL() *url.URL {
 // CanAccess reports whether a user may open the endpoint. A nil identity is
 // an anonymous visitor
 func (e *Endpoint) CanAccess(id *Identity) bool {
+	logger.Debug("appproxy", "Endpoint.CanAccess")
 	if !e.RequireLogin {
 		return true
 	}

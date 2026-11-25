@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // OIDCDiscovery is the OpenID Connect Discovery document served at
@@ -41,6 +43,7 @@ var httpClient = &http.Client{Timeout: 10 * time.Second}
 // BuildWellKnownURL returns the standard OIDC discovery URL for issuerURL.
 // It is safe to call with a URL that already ends with the well-known path.
 func BuildWellKnownURL(issuerURL string) string {
+	logger.Debug("auth/oauth2", "BuildWellKnownURL")
 	issuerURL = strings.TrimRight(issuerURL, "/")
 	if strings.HasSuffix(issuerURL, ".well-known/openid-configuration") {
 		return issuerURL
@@ -52,6 +55,7 @@ func BuildWellKnownURL(issuerURL string) string {
 // issuerURL. The URL may or may not include the /.well-known/openid-configuration
 // suffix — both forms are handled transparently.
 func FetchOIDCDiscovery(issuerURL string) (*OIDCDiscovery, error) {
+	logger.Debug("auth/oauth2", "FetchOIDCDiscovery")
 	if strings.TrimSpace(issuerURL) == "" {
 		return nil, fmt.Errorf("issuer URL must not be empty")
 	}
@@ -98,6 +102,9 @@ func FetchOIDCDiscovery(issuerURL string) (*OIDCDiscovery, error) {
 // and returns the value of usernameField from the JSON claims.
 // If usernameField is empty, it defaults to "email".
 func getUserInfoFromEndpoint(accessToken, userinfoURL, usernameField string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/oauth2", "getUserInfoFromEndpoint: usernameField=%.120q", usernameField)
+	}
 	if userinfoURL == "" {
 		return "", fmt.Errorf("userinfo endpoint URL is not configured")
 	}
@@ -151,6 +158,9 @@ func getUserInfoFromEndpoint(accessToken, userinfoURL, usernameField string) (st
 
 // claimKeys returns the sorted key names of a claims map for error messages.
 func claimKeys(m map[string]interface{}) []string {
+	if logger.IsDebug() {
+		logger.Debugf("auth/oauth2", "claimKeys: len(m)=%d", len(m))
+	}
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)

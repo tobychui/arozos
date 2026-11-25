@@ -118,6 +118,7 @@ type Manager struct {
 
 // New creates the identity service and registers its ACN endpoints.
 func New(opt Option) (*Manager, error) {
+	logger.Debug("cluster/identity", "New")
 	if opt.Membership == nil || opt.Accounts == nil {
 		return nil, errors.New("membership manager and account store are required")
 	}
@@ -149,10 +150,12 @@ func New(opt Option) (*Manager, error) {
 
 // Close stops the background sync.
 func (i *Manager) Close() {
+	logger.DebugTrace("cluster/identity", "Manager.Close")
 	i.once.Do(func() { close(i.stop) })
 }
 
 func (i *Manager) loadManaged() {
+	logger.Debug("cluster/identity", "Manager.loadManaged")
 	entries, err := i.db.ListTable(membership.TableIdentity)
 	if err != nil {
 		return
@@ -168,6 +171,9 @@ func (i *Manager) loadManaged() {
 }
 
 func (i *Manager) markManaged(username string, origin string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/identity", "Manager.markManaged: username=%.120q origin=%.120q", username, origin)
+	}
 	i.mu.Lock()
 	i.managed[username] = true
 	i.mu.Unlock()
@@ -175,6 +181,9 @@ func (i *Manager) markManaged(username string, origin string) {
 }
 
 func (i *Manager) unmarkManaged(username string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/identity", "Manager.unmarkManaged: username=%.120q", username)
+	}
 	i.mu.Lock()
 	delete(i.managed, username)
 	i.mu.Unlock()
@@ -183,6 +192,9 @@ func (i *Manager) unmarkManaged(username string) {
 
 // IsManaged reports whether an account on this node mirrors the origin.
 func (i *Manager) IsManaged(username string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/identity", "Manager.IsManaged: username=%.120q", username)
+	}
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.managed[username]
@@ -190,12 +202,14 @@ func (i *Manager) IsManaged(username string) bool {
 
 // Origin returns the identity origin node and whether it is this node.
 func (i *Manager) Origin() (nodeID string, isSelf bool) {
+	logger.Debug("cluster/identity", "Manager.Origin")
 	origin := i.m.IdentityOrigin()
 	return origin, origin != "" && origin == i.m.NodeID()
 }
 
 // forwardingActive is true when logins should be checked on another node.
 func (i *Manager) forwardingActive() (string, bool) {
+	logger.Debug("cluster/identity", "Manager.forwardingActive")
 	origin, self := i.Origin()
 	if origin == "" || self || !i.m.InCluster() {
 		return "", false
@@ -205,6 +219,9 @@ func (i *Manager) forwardingActive() (string, bool) {
 
 // localGroups keeps only the groups that exist on this node.
 func (i *Manager) localGroups(groups []string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/identity", "Manager.localGroups: len(groups)=%d", len(groups))
+	}
 	out := []string{}
 	for _, g := range groups {
 		if g != "" && i.acc.GroupExists(g) {
@@ -216,6 +233,9 @@ func (i *Manager) localGroups(groups []string) []string {
 
 // mirrorAccount creates or updates the local copy of an origin account.
 func (i *Manager) mirrorAccount(origin string, username string, hash string, groups []string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/identity", "Manager.mirrorAccount: origin=%.120q username=%.120q len(groups)=%d", origin, username, len(groups))
+	}
 	if err := i.acc.SetPasswordHash(username, hash); err != nil {
 		return err
 	}
@@ -232,6 +252,9 @@ func (i *Manager) mirrorAccount(origin string, username string, hash string, gro
 
 // ForwardAuth is installed as the auth agent's ForwardAuth hook.
 func (i *Manager) ForwardAuth(username string, passwordHash string) auth.ForwardAuthResult {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/identity", "Manager.ForwardAuth: username=%.120q", username)
+	}
 	origin, active := i.forwardingActive()
 	if !active {
 		return auth.ForwardAuthResult{}
@@ -284,6 +307,9 @@ func (i *Manager) ForwardAuth(username string, passwordHash string) auth.Forward
 // NotifyPasswordChanged forwards a password change of a replicated account
 // to the origin so it does not get reverted by the next sync.
 func (i *Manager) NotifyPasswordChanged(username string, passwordHash string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/identity", "Manager.NotifyPasswordChanged: username=%.120q", username)
+	}
 	origin, active := i.forwardingActive()
 	if !active || !i.IsManaged(username) {
 		return
@@ -304,6 +330,7 @@ func (i *Manager) NotifyPasswordChanged(username string, passwordHash string) {
 
 // buildDirectory lists the accounts of this node (served when it is the origin).
 func (i *Manager) buildDirectory() Directory {
+	logger.Debug("cluster/identity", "Manager.buildDirectory")
 	dir := Directory{Origin: i.m.NodeID(), Users: []Account{}, Time: time.Now().Unix()}
 	users := i.acc.ListUsers()
 	sort.Strings(users)
@@ -323,6 +350,9 @@ func (i *Manager) buildDirectory() Directory {
 
 // applyDirectory mirrors the origin directory onto this node.
 func (i *Manager) applyDirectory(origin string, dir Directory) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/identity", "Manager.applyDirectory: origin=%.120q", origin)
+	}
 	seen := map[string]bool{}
 	skipped := []string{}
 	conflicts := []string{}
@@ -367,6 +397,7 @@ func (i *Manager) applyDirectory(origin string, dir Directory) {
 // SyncNow pulls the origin directory once. It is a no-op on the origin
 // itself or when forward authentication is disabled.
 func (i *Manager) SyncNow() error {
+	logger.Debug("cluster/identity", "Manager.SyncNow")
 	origin, active := i.forwardingActive()
 	if !active {
 		return nil
@@ -395,6 +426,7 @@ func (i *Manager) SyncNow() error {
 
 // TriggerSync asks the background loop to sync soon.
 func (i *Manager) TriggerSync() {
+	logger.Debug("cluster/identity", "Manager.TriggerSync")
 	select {
 	case i.trigger <- struct{}{}:
 	default:
@@ -402,6 +434,7 @@ func (i *Manager) TriggerSync() {
 }
 
 func (i *Manager) loop() {
+	logger.Debug("cluster/identity", "Manager.loop")
 	ticker := time.NewTicker(i.interval)
 	defer ticker.Stop()
 	//Initial sync shortly after boot so members are warm before first login
@@ -443,6 +476,7 @@ type Status struct {
 
 // Status builds the current identity status.
 func (i *Manager) Status() Status {
+	logger.Debug("cluster/identity", "Manager.Status")
 	origin, self := i.Origin()
 	i.mu.Lock()
 	defer i.mu.Unlock()
@@ -466,6 +500,9 @@ func (i *Manager) Status() Status {
 }
 
 func validUsername(u string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/identity", "validUsername: u=%.120q", u)
+	}
 	if u == "" || len(u) > 128 {
 		return false
 	}

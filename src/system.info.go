@@ -9,6 +9,7 @@ import (
 
 	fs "imuslab.com/arozos/mod/filesystem"
 	info "imuslab.com/arozos/mod/info/hardwareinfo"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/info/logviewer"
 	usage "imuslab.com/arozos/mod/info/usageinfo"
 	"imuslab.com/arozos/mod/network/netstat"
@@ -19,6 +20,7 @@ import (
 
 // InitShowSysInformation xxx
 func SystemInfoInit() {
+	logger.Debug("Core", "SystemInfoInit")
 	systemWideLogger.PrintAndLog("System", "Operation System: "+runtime.GOOS, nil)
 	systemWideLogger.PrintAndLog("System", "System Architecture: "+runtime.GOARCH, nil)
 
@@ -207,6 +209,9 @@ func SystemInfoInit() {
 }
 
 func InfoHandleGetRuntimeInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "InfoHandleGetRuntimeInfo: r=%s", logger.RequestSummary(r))
+	}
 	type RuntimeInfo struct {
 		StartupTime      int64
 		ContinuesRuntime int64
@@ -222,6 +227,9 @@ func InfoHandleGetRuntimeInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "InfoHandleTaskInfo: r=%s", logger.RequestSummary(r))
+	}
 	type UsageInfo struct {
 		CPU      float64
 		UsedRAM  string
@@ -250,6 +258,9 @@ func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {
 // InfoHandleUsageHistory returns the in-memory CPU, RAM and network history
 // of the range given by "range" (1h or 24h), oldest point first
 func InfoHandleUsageHistory(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "InfoHandleUsageHistory: r=%s", logger.RequestSummary(r))
+	}
 	rangeName, _ := utils.GetPara(r, "range")
 	if rangeName != "24h" {
 		rangeName = "1h"

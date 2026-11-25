@@ -35,6 +35,7 @@ const (
 )
 
 func sendJSON(w http.ResponseWriter, value any) {
+	logger.Debug("fileservers/servers/syncthingserv", "sendJSON")
 	js, err := json.Marshal(value)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -45,6 +46,9 @@ func sendJSON(w http.ResponseWriter, value any) {
 
 // postOnly reads a form value from the body of a POST alone.
 func postOnly(r *http.Request, key string) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "postOnly: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		return ""
 	}
@@ -54,6 +58,9 @@ func postOnly(r *http.Request, key string) string {
 
 // postList reads a JSON array of strings from the body of a POST.
 func postList(r *http.Request, key string) ([]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "postList: r=%s", logger.RequestSummary(r))
+	}
 	raw := strings.TrimSpace(postOnly(r, key))
 	if raw == "" {
 		return []string{}, nil
@@ -67,6 +74,9 @@ func postList(r *http.Request, key string) ([]string, error) {
 
 // cleanName trims a name a user typed and refuses control characters.
 func cleanName(name string, max int) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "cleanName: name=%.120q max=%d", name, max)
+	}
 	name = strings.TrimSpace(name)
 	if !utf8.ValidString(name) {
 		return "", errors.New("The name is not valid text")
@@ -84,6 +94,9 @@ func cleanName(name string, max int) (string, error) {
 
 // validFolderID accepts an ID that a device offered or the server made.
 func validFolderID(id string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "validFolderID: id=%.120q", id)
+	}
 	if id == "" || len(id) > maxIDLength || !utf8.ValidString(id) {
 		return false
 	}
@@ -97,6 +110,7 @@ func validFolderID(id string) bool {
 
 // newFolderID makes an ID in Syncthing's own style, like "k3x9q-p0w2e".
 func newFolderID() string {
+	logger.Debug("fileservers/servers/syncthingserv", "newFolderID")
 	const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, 11)
 	for i := range b {
@@ -116,6 +130,9 @@ func newFolderID() string {
 // currentAllowedUser returns the user of a request who may use Syncthing,
 // and writes the refusal itself otherwise.
 func (m *Manager) currentAllowedUser(w http.ResponseWriter, r *http.Request) (string, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.currentAllowedUser: r=%s", logger.RequestSummary(r))
+	}
 	username, err := m.opt.CurrentUser(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -129,6 +146,9 @@ func (m *Manager) currentAllowedUser(w http.ResponseWriter, r *http.Request) (st
 }
 
 func requirePost(w http.ResponseWriter, r *http.Request) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "requirePost: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "This request must be a POST")
 		return false
@@ -198,6 +218,9 @@ type UserStatus struct {
 }
 
 func (m *Manager) deviceView(d Device, running bool, reasons map[string]Reason) DeviceView {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.deviceView: running=%t len(reasons)=%d", running, len(reasons))
+	}
 	view := DeviceView{ID: d.ID, Name: d.Name, Paused: d.Paused, Added: d.Added}
 	if reason, ok := reasons[d.ID]; ok {
 		view.Reason = reason.Key
@@ -214,6 +237,9 @@ func (m *Manager) deviceView(d Device, running bool, reasons map[string]Reason) 
 }
 
 func (m *Manager) folderView(f Folder, running bool, reasons map[string]Reason) FolderView {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.folderView: running=%t len(reasons)=%d", running, len(reasons))
+	}
 	view := FolderView{
 		ID:          f.ID,
 		Label:       f.Label,
@@ -248,6 +274,7 @@ func (m *Manager) folderView(f Folder, running bool, reasons map[string]Reason) 
 
 // snapshot copies what the handlers read of the last plan.
 func (m *Manager) snapshot() (running bool, deviceReasons, folderReasons map[string]Reason) {
+	logger.Debug("fileservers/servers/syncthingserv", "Manager.snapshot")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	deviceReasons = map[string]Reason{}
@@ -263,6 +290,9 @@ func (m *Manager) snapshot() (running bool, deviceReasons, folderReasons map[str
 
 // HandleStatus reports the service as the signed in user sees it.
 func (m *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.HandleStatus: r=%s", logger.RequestSummary(r))
+	}
 	username, err := m.opt.CurrentUser(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -340,6 +370,9 @@ func (m *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
 // HandleQR returns the server's device ID as a QR code, which the Syncthing
 // apps can scan when adding a device.
 func (m *Manager) HandleQR(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.HandleQR: r=%s", logger.RequestSummary(r))
+	}
 	if _, ok := m.currentAllowedUser(w, r); !ok {
 		return
 	}
@@ -364,6 +397,9 @@ func (m *Manager) HandleQR(w http.ResponseWriter, r *http.Request) {
 // has to come with it, so that a browser left open cannot be used to let
 // another device into the account's drives.
 func (m *Manager) HandleDeviceAdd(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.HandleDeviceAdd: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -421,6 +457,9 @@ func (m *Manager) HandleDeviceAdd(w http.ResponseWriter, r *http.Request) {
 
 // ownDevice returns a device of the signed in user named in the request.
 func (m *Manager) ownDevice(w http.ResponseWriter, r *http.Request, username string) (Device, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.ownDevice: r=%s username=%.120q", logger.RequestSummary(r), username)
+	}
 	id, err := m.eng.ParseDeviceID(postOnly(r, "id"))
 	if err == nil {
 		if d, found := m.store.device(id); found && d.Owner == username {
@@ -433,6 +472,9 @@ func (m *Manager) ownDevice(w http.ResponseWriter, r *http.Request, username str
 
 // HandleDeviceEdit renames or pauses one of the user's devices.
 func (m *Manager) HandleDeviceEdit(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.HandleDeviceEdit: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -468,6 +510,9 @@ func (m *Manager) HandleDeviceEdit(w http.ResponseWriter, r *http.Request) {
 // HandleDeviceRemove unlinks one of the user's devices. The files it synced
 // stay where they are.
 func (m *Manager) HandleDeviceRemove(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.HandleDeviceRemove: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -487,6 +532,7 @@ func (m *Manager) HandleDeviceRemove(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Manager) removeDevice(d Device) {
+	logger.Debug("fileservers/servers/syncthingserv", "Manager.removeDevice")
 	m.store.deleteDevice(d.ID)
 	m.store.removeDeviceFromFolders(d.ID)
 	m.changed()
@@ -503,6 +549,9 @@ type folderInput struct {
 }
 
 func (m *Manager) readFolderInput(r *http.Request, username string, current *Folder) (folderInput, error) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.readFolderInput: r=%s username=%.120q", logger.RequestSummary(r), username)
+	}
 	in := folderInput{Mode: ModeBackup}
 	if current != nil {
 		in = folderInput{Label: current.Label, Mode: current.Mode, VersionDays: current.VersionDays, Devices: current.Devices}
@@ -556,6 +605,9 @@ func (m *Manager) readFolderInput(r *http.Request, username string, current *Fol
 // HandleFolderAdd syncs a folder of the user's drives. With an id, it
 // accepts a folder one of the user's devices offered.
 func (m *Manager) HandleFolderAdd(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.HandleFolderAdd: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -638,6 +690,9 @@ func (m *Manager) HandleFolderAdd(w http.ResponseWriter, r *http.Request) {
 
 // checkOverlap refuses a path that is, holds or is inside another folder.
 func (m *Manager) checkOverlap(realPath, exceptID string) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.checkOverlap: realPath=%.120q exceptID=%.120q", realPath, exceptID)
+	}
 	m.mu.Lock()
 	known := make(map[string]string, len(m.lastPath))
 	for id, p := range m.lastPath {
@@ -664,6 +719,9 @@ func (m *Manager) checkOverlap(realPath, exceptID string) error {
 
 // ownFolder returns a folder of the signed in user named in the request.
 func (m *Manager) ownFolder(w http.ResponseWriter, r *http.Request, username string) (Folder, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.ownFolder: r=%s username=%.120q", logger.RequestSummary(r), username)
+	}
 	id := postOnly(r, "id")
 	if f, found := m.store.folder(id); found && f.Owner == username {
 		return f, true
@@ -676,6 +734,9 @@ func (m *Manager) ownFolder(w http.ResponseWriter, r *http.Request, username str
 // one of the user's folders. A folder cannot move: remove it and add it
 // again at the other place.
 func (m *Manager) HandleFolderEdit(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.HandleFolderEdit: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -706,6 +767,9 @@ func (m *Manager) HandleFolderEdit(w http.ResponseWriter, r *http.Request) {
 
 // HandleFolderRemove stops syncing one of the user's folders. Its files stay.
 func (m *Manager) HandleFolderRemove(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.HandleFolderRemove: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -724,6 +788,7 @@ func (m *Manager) HandleFolderRemove(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Manager) removeFolder(f Folder) {
+	logger.Debug("fileservers/servers/syncthingserv", "Manager.removeFolder")
 	m.store.deleteFolder(f.ID)
 	m.mu.Lock()
 	delete(m.lastPath, f.ID)
@@ -733,6 +798,9 @@ func (m *Manager) removeFolder(f Folder) {
 
 // HandleFolderRescan looks for changes in one of the user's folders now.
 func (m *Manager) HandleFolderRescan(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.HandleFolderRescan: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -757,6 +825,9 @@ func (m *Manager) HandleFolderRescan(w http.ResponseWriter, r *http.Request) {
 
 // HandleOfferIgnore turns down a folder one of the user's devices offered.
 func (m *Manager) HandleOfferIgnore(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.HandleOfferIgnore: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -797,6 +868,9 @@ type AdminConfig struct {
 
 // HandleConfig reads or changes the settings.
 func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.HandleConfig: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		m.mu.Lock()
 		config := AdminConfig{Running: m.running, LastError: m.lastError}
@@ -870,6 +944,9 @@ type AdminOverview struct {
 
 // HandleOverview lists what every user syncs.
 func (m *Manager) HandleOverview(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.HandleOverview: r=%s", logger.RequestSummary(r))
+	}
 	running, deviceReasons, folderReasons := m.snapshot()
 	overview := AdminOverview{Running: running, Devices: []DeviceView{}, Folders: []FolderView{}, Unknown: []UnknownDevice{}}
 	for _, d := range m.store.devices() {
@@ -890,6 +967,9 @@ func (m *Manager) HandleOverview(w http.ResponseWriter, r *http.Request) {
 
 // HandleAdminRemove removes any user's device or folder.
 func (m *Manager) HandleAdminRemove(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.HandleAdminRemove: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -919,6 +999,9 @@ func (m *Manager) HandleAdminRemove(w http.ResponseWriter, r *http.Request) {
 }
 
 func containsString(list []string, value string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "containsString: len(list)=%d value=%.120q", len(list), value)
+	}
 	for _, v := range list {
 		if v == value {
 			return true

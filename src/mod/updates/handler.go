@@ -45,6 +45,9 @@ type UpdateConfig struct {
 }
 
 func HandleUpdateCheckSize(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("updates", "HandleUpdateCheckSize: r=%s", logger.RequestSummary(r))
+	}
 	webpack, err := utils.PostPara(r, "webpack")
 	if err != nil {
 		utils.SendErrorResponse(w, "Invalid or empty webpack download URL")
@@ -68,6 +71,9 @@ func HandleUpdateCheckSize(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleUpdateDownloadRequest(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("updates", "HandleUpdateDownloadRequest: r=%s", logger.RequestSummary(r))
+	}
 	webpack, err := utils.GetPara(r, "webpack")
 	if err != nil {
 		utils.SendErrorResponse(w, "Invalid or empty webpack download URL")
@@ -139,6 +145,9 @@ func HandleUpdateDownloadRequest(w http.ResponseWriter, r *http.Request) {
 
 // Handle getting information for vendor update
 func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("updates", "HandleGetUpdatePlatformInfo: r=%s", logger.RequestSummary(r))
+	}
 	type UpdatePackageInfo struct {
 		Config UpdateConfig
 		OS     string
@@ -173,6 +182,9 @@ func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
 
 // Handle check if there is a pending update
 func HandlePendingCheck(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("updates", "HandlePendingCheck: r=%s", logger.RequestSummary(r))
+	}
 	if utils.FileExists("./updates/") && utils.FileExists("./updates/web/") && utils.FileExists("./updates/system/") {
 		//Update is pending
 		utils.SendJSONResponse(w, "true")

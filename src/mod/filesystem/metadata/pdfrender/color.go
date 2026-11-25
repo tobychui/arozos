@@ -2,6 +2,8 @@ package pdfrender
 
 import (
 	"math"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -22,32 +24,65 @@ type csGray struct{}
 type csRGB struct{}
 type csCMYK struct{}
 
-func (csGray) nComps() int        { return 1 }
-func (csGray) initial() []float64 { return []float64{0} }
+func (csGray) nComps() int {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csGray.nComps")
+	return 1
+}
+func (csGray) initial() []float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csGray.initial")
+	return []float64{0}
+}
 func (csGray) toRGB(c []float64) (float64, float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "csGray.toRGB: len(c)=%d", len(c))
+	}
 	v := comp(c, 0)
 	return v, v, v
 }
 
-func (csRGB) nComps() int        { return 3 }
-func (csRGB) initial() []float64 { return []float64{0, 0, 0} }
+func (csRGB) nComps() int {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csRGB.nComps")
+	return 3
+}
+func (csRGB) initial() []float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csRGB.initial")
+	return []float64{0, 0, 0}
+}
 func (csRGB) toRGB(c []float64) (float64, float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "csRGB.toRGB: len(c)=%d", len(c))
+	}
 	return comp(c, 0), comp(c, 1), comp(c, 2)
 }
 
-func (csCMYK) nComps() int        { return 4 }
-func (csCMYK) initial() []float64 { return []float64{0, 0, 0, 1} }
+func (csCMYK) nComps() int {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csCMYK.nComps")
+	return 4
+}
+func (csCMYK) initial() []float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csCMYK.initial")
+	return []float64{0, 0, 0, 1}
+}
 func (csCMYK) toRGB(c []float64) (float64, float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "csCMYK.toRGB: len(c)=%d", len(c))
+	}
 	return cmykToRGB(comp(c, 0), comp(c, 1), comp(c, 2), comp(c, 3))
 }
 
 // cmykToRGB is the naive conversion; without the output profile anything
 // better is a guess
 func cmykToRGB(c, m, y, k float64) (float64, float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "cmykToRGB: c=%g m=%g y=%g k=%g", c, m, y, k)
+	}
 	return (1 - c) * (1 - k), (1 - m) * (1 - k), (1 - y) * (1 - k)
 }
 
 func comp(c []float64, i int) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "comp: len(c)=%d i=%d", len(c), i)
+	}
 	if i < len(c) {
 		return clamp(c[i], 0, 1)
 	}
@@ -60,9 +95,18 @@ type csLab struct {
 	scale bool
 }
 
-func (cs *csLab) nComps() int        { return 3 }
-func (cs *csLab) initial() []float64 { return []float64{0, 0, 0} }
+func (cs *csLab) nComps() int {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csLab.nComps")
+	return 3
+}
+func (cs *csLab) initial() []float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csLab.initial")
+	return []float64{0, 0, 0}
+}
 func (cs *csLab) toRGB(c []float64) (float64, float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "csLab.toRGB: len(c)=%d", len(c))
+	}
 	L := 0.0
 	a, b := 0.0, 0.0
 	if len(c) > 2 {
@@ -90,6 +134,9 @@ func (cs *csLab) toRGB(c []float64) (float64, float64, float64) {
 }
 
 func gammaSRGB(v float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "gammaSRGB: v=%g", v)
+	}
 	v = clamp(v, 0, 1)
 	if v <= 0.0031308 {
 		return 12.92 * v
@@ -103,9 +150,18 @@ type csIndexed struct {
 	palette [][3]float64
 }
 
-func (cs *csIndexed) nComps() int        { return 1 }
-func (cs *csIndexed) initial() []float64 { return []float64{0} }
+func (cs *csIndexed) nComps() int {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csIndexed.nComps")
+	return 1
+}
+func (cs *csIndexed) initial() []float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csIndexed.initial")
+	return []float64{0}
+}
 func (cs *csIndexed) toRGB(c []float64) (float64, float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "csIndexed.toRGB: len(c)=%d", len(c))
+	}
 	i := 0
 	if len(c) > 0 {
 		i = int(c[0] + 0.5)
@@ -133,8 +189,12 @@ type csTint struct {
 	cache map[float64][3]float64
 }
 
-func (cs *csTint) nComps() int { return cs.n }
+func (cs *csTint) nComps() int {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csTint.nComps")
+	return cs.n
+}
 func (cs *csTint) initial() []float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csTint.initial")
 	out := make([]float64, cs.n)
 	for i := range out {
 		out[i] = 1
@@ -142,6 +202,9 @@ func (cs *csTint) initial() []float64 {
 	return out
 }
 func (cs *csTint) toRGB(c []float64) (float64, float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "csTint.toRGB: len(c)=%d", len(c))
+	}
 	if cs.all {
 		v := 1 - comp(c, 0)
 		return v, v, v
@@ -169,13 +232,20 @@ type csPattern struct {
 }
 
 func (cs *csPattern) nComps() int {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csPattern.nComps")
 	if cs.base != nil {
 		return cs.base.nComps()
 	}
 	return 0
 }
-func (cs *csPattern) initial() []float64 { return nil }
+func (cs *csPattern) initial() []float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csPattern.initial")
+	return nil
+}
 func (cs *csPattern) toRGB(c []float64) (float64, float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "csPattern.toRGB: len(c)=%d", len(c))
+	}
 	if cs.base != nil {
 		return cs.base.toRGB(c)
 	}
@@ -185,6 +255,9 @@ func (cs *csPattern) toRGB(c []float64) (float64, float64, float64) {
 // loadColorSpace resolves a colour space by value. Names are looked up in
 // the resources' /ColorSpace dictionary first.
 func (d *Document) loadColorSpace(o Object, res Dict, depth int) colorSpace {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.loadColorSpace: depth=%d", depth)
+	}
 	if depth > 8 {
 		return nil
 	}

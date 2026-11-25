@@ -6,6 +6,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -35,6 +37,9 @@ var windowsDeviceNames = map[string]bool{
 
 // ValidateUsername reports why a name cannot be used for a new account
 func ValidateUsername(name string) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "ValidateUsername: name=%.120q", name)
+	}
 	if name == "" {
 		return errors.New("Username cannot be empty")
 	}

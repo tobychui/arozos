@@ -12,6 +12,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // BUG(rsc): Mapping between XML elements and data structures is inherently flawed:
@@ -111,12 +113,14 @@ import (
 // Unmarshal maps an XML element to a pointer by setting the pointer
 // to a freshly allocated value and then mapping the element to that value.
 func Unmarshal(data []byte, v interface{}) error {
+	logger.DebugTrace("network/webdav/internal/xml", "Unmarshal")
 	return NewDecoder(bytes.NewReader(data)).Decode(v)
 }
 
 // Decode works like xml.Unmarshal, except it reads the decoder
 // stream to find the start element.
 func (d *Decoder) Decode(v interface{}) error {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.Decode")
 	return d.DecodeElement(v, nil)
 }
 
@@ -125,6 +129,7 @@ func (d *Decoder) Decode(v interface{}) error {
 // It is useful when a client reads some raw XML tokens itself
 // but also wants to defer to Unmarshal for some elements.
 func (d *Decoder) DecodeElement(v interface{}, start *StartElement) error {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.DecodeElement")
 	val := reflect.ValueOf(v)
 	if val.Kind() != reflect.Ptr {
 		return errors.New("non-pointer passed to Unmarshal")
@@ -135,7 +140,10 @@ func (d *Decoder) DecodeElement(v interface{}, start *StartElement) error {
 // An UnmarshalError represents an error in the unmarshalling process.
 type UnmarshalError string
 
-func (e UnmarshalError) Error() string { return string(e) }
+func (e UnmarshalError) Error() string {
+	logger.DebugTrace("network/webdav/internal/xml", "UnmarshalError.Error")
+	return string(e)
+}
 
 // Unmarshaler is the interface implemented by objects that can unmarshal
 // an XML element description of themselves.
@@ -170,6 +178,7 @@ type UnmarshalerAttr interface {
 
 // receiverType returns the receiver type to use in an expression like "%s.MethodName".
 func receiverType(val interface{}) string {
+	logger.DebugTrace("network/webdav/internal/xml", "receiverType")
 	t := reflect.TypeOf(val)
 	if t.Name() != "" {
 		return t.String()
@@ -180,6 +189,7 @@ func receiverType(val interface{}) string {
 // unmarshalInterface unmarshals a single XML element into val.
 // start is the opening tag of the element.
 func (p *Decoder) unmarshalInterface(val Unmarshaler, start *StartElement) error {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.unmarshalInterface")
 	// Record that decoder must stop at end tag corresponding to start.
 	p.pushEOF()
 
@@ -202,6 +212,7 @@ func (p *Decoder) unmarshalInterface(val Unmarshaler, start *StartElement) error
 // The chardata contained in the element (but not its children)
 // is passed to the text unmarshaler.
 func (p *Decoder) unmarshalTextInterface(val encoding.TextUnmarshaler, start *StartElement) error {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.unmarshalTextInterface")
 	var buf []byte
 	depth := 1
 	for depth > 0 {
@@ -225,6 +236,7 @@ func (p *Decoder) unmarshalTextInterface(val encoding.TextUnmarshaler, start *St
 
 // unmarshalAttr unmarshals a single XML attribute into val.
 func (p *Decoder) unmarshalAttr(val reflect.Value, attr Attr) error {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.unmarshalAttr")
 	if val.Kind() == reflect.Ptr {
 		if val.IsNil() {
 			val.Set(reflect.New(val.Type().Elem()))
@@ -269,6 +281,7 @@ var (
 
 // Unmarshal a single XML element into val.
 func (p *Decoder) unmarshal(val reflect.Value, start *StartElement) error {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.unmarshal")
 	// Find start element if we need it.
 	if start == nil {
 		for {
@@ -552,6 +565,9 @@ Loop:
 }
 
 func copyValue(dst reflect.Value, src []byte) (err error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "copyValue: len(src)=%d", len(src))
+	}
 	dst0 := dst
 
 	if dst.Kind() == reflect.Ptr {
@@ -609,6 +625,9 @@ func copyValue(dst reflect.Value, src []byte) (err error) {
 // from the Decoder until start's matching end element, or if it's
 // still untouched because start is uninteresting for sv's fields.
 func (p *Decoder) unmarshalPath(tinfo *typeInfo, sv reflect.Value, parents []string, start *StartElement) (consumed bool, err error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "Decoder.unmarshalPath: len(parents)=%d", len(parents))
+	}
 	recurse := false
 Loop:
 	for i := range tinfo.fields {
@@ -674,6 +693,7 @@ Loop:
 // It returns nil if it finds an end element matching the start
 // element; otherwise it returns an error describing the problem.
 func (d *Decoder) Skip() error {
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.Skip")
 	for {
 		tok, err := d.Token()
 		if err != nil {

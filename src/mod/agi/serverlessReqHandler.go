@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/robertkrimen/otto"
+	"imuslab.com/arozos/mod/info/logger"
 	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -17,6 +18,9 @@ import (
 */
 
 func (g *Gateway) injectServerlessFunctions(vm *otto.Otto, scriptFile string, scriptScope string, u *user.User, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.injectServerlessFunctions: scriptFile=%.120q scriptScope=%.120q r=%s", scriptFile, scriptScope, logger.RequestSummary(r))
+	}
 	vm.Set("REQ_METHOD", r.Method)
 	vm.Set("getPara", func(call otto.FunctionCall) otto.Value {
 		key, _ := call.Argument(0).ToString()

@@ -6,6 +6,7 @@ package network
 import (
 	"net"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/info/wininfo"
 )
 
@@ -14,6 +15,9 @@ import (
 // (mod/info/wininfo). It used to start PowerShell's Get-NetAdapter, which
 // shared the console ArozOS runs in.
 func nicExtraAll(ifaces []net.Interface) map[string]nicExtraInfo {
+	if logger.IsDebug() {
+		logger.Debugf("network", "nicExtraAll: len(ifaces)=%d", len(ifaces))
+	}
 	result := make(map[string]nicExtraInfo, len(ifaces))
 
 	// Flag-based fallback for interfaces the API does not report

@@ -110,6 +110,9 @@ type tailBuffer struct {
 const hlsStderrTailBytes = 4096
 
 func (t *tailBuffer) Write(p []byte) (int, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("media/transcoder", "tailBuffer.Write: len(p)=%d", len(p))
+	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.data = append(t.data, p...)
@@ -120,6 +123,7 @@ func (t *tailBuffer) Write(p []byte) (int, error) {
 }
 
 func (t *tailBuffer) String() string {
+	logger.DebugTrace("media/transcoder", "tailBuffer.String")
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return string(t.data)
@@ -128,6 +132,7 @@ func (t *tailBuffer) String() string {
 // StderrTail returns the end of the transcode's diagnostic output, for logging
 // when the session fails to produce anything playable.
 func (s *HLSSession) StderrTail() string {
+	logger.Debug("media/transcoder", "HLSSession.StderrTail")
 	if s.stderr == nil {
 		return ""
 	}
@@ -137,12 +142,14 @@ func (s *HLSSession) StderrTail() string {
 // touch records activity so the janitor does not reap a session that is still
 // being played.
 func (s *HLSSession) touch() {
+	logger.Debug("media/transcoder", "HLSSession.touch")
 	s.mu.Lock()
 	s.lastAccess = time.Now()
 	s.mu.Unlock()
 }
 
 func (s *HLSSession) idleFor() time.Duration {
+	logger.Debug("media/transcoder", "HLSSession.idleFor")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return time.Since(s.lastAccess)
@@ -150,6 +157,7 @@ func (s *HLSSession) idleFor() time.Duration {
 
 // PlaylistPath returns the on-disk location of this session's playlist.
 func (s *HLSSession) PlaylistPath() string {
+	logger.DebugTrace("media/transcoder", "HLSSession.PlaylistPath")
 	return filepath.Join(s.Dir, hlsPlaylistName)
 }
 
@@ -158,6 +166,9 @@ func (s *HLSSession) PlaylistPath() string {
 // it must look exactly like a name this session generated, so a request can
 // never address a file outside the session directory.
 func (s *HLSSession) SegmentPath(name string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "HLSSession.SegmentPath: name=%.120q", name)
+	}
 	if !validHLSSegmentName(name) {
 		return "", errors.New("invalid segment name")
 	}
@@ -171,6 +182,7 @@ func (s *HLSSession) SegmentPath(name string) (string, error) {
 // the channel that goroutine closes instead, since calling Wait twice on the
 // same command is an error.
 func (s *HLSSession) stop() {
+	logger.Debug("media/transcoder", "HLSSession.stop")
 	s.mu.Lock()
 	if s.stopped {
 		s.mu.Unlock()
@@ -197,6 +209,9 @@ func (s *HLSSession) stop() {
 // package generates ("seg00000.m4s", plus the fixed init segment name), rejecting anything containing a path
 // separator, "..", or unexpected characters.
 func validHLSSegmentName(name string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "validHLSSegmentName: name=%.120q", name)
+	}
 	// The fMP4 initialisation segment is fetched through the same endpoint as
 	// the media segments, so it has to be accepted here too. Matching the exact
 	// constant keeps the guarantee that only generated names resolve.
@@ -221,6 +236,9 @@ func validHLSSegmentName(name string) bool {
 // hlsSessionKey identifies a reusable transcode. Two requests that would
 // produce byte-identical output share a session.
 func hlsSessionKey(owner string, inputFile string, resolution TranscodeOutputResolution, startTime float64) string {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "hlsSessionKey: owner=%.120q inputFile=%.120q startTime=%g", owner, inputFile, startTime)
+	}
 	raw := strings.Join([]string{
 		owner,
 		inputFile,
@@ -239,6 +257,9 @@ func hlsSessionKey(owner string, inputFile string, resolution TranscodeOutputRes
 // segments be fetched from an HTTP endpoint rather than sitting next to the
 // playlist on disk.
 func buildHLSArgs(inputFile string, dir string, resolution TranscodeOutputResolution, startTime float64, segmentBaseURL string, hw *hwEncoderProfile) ([]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "buildHLSArgs: inputFile=%.120q dir=%.120q startTime=%g", inputFile, dir, startTime)
+	}
 	scale, err := resolutionScaleFilter(resolution)
 	if err != nil {
 		return nil, err
@@ -314,6 +335,9 @@ func buildHLSArgs(inputFile string, dir string, resolution TranscodeOutputResolu
 // and the player's first request - the init segment - 404s. ffmpeg on Windows
 // accepts forward slashes, and on every other OS this changes nothing.
 func hlsOutputPath(dir string, name string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("media/transcoder", "hlsOutputPath: dir=%.120q name=%.120q", dir, name)
+	}
 	return filepath.ToSlash(filepath.Join(dir, name))
 }
 
@@ -332,6 +356,9 @@ type HLSManager struct {
 // directory left behind by a previous run is discarded, since the ffmpeg
 // processes that were filling those directories died with that run.
 func NewHLSManager(tmpDirectory string, segmentEndpoint string) (*HLSManager, error) {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "NewHLSManager: tmpDirectory=%.120q segmentEndpoint=%.120q", tmpDirectory, segmentEndpoint)
+	}
 	root := filepath.Join(tmpDirectory, hlsWorkingDirName)
 	os.RemoveAll(root)
 	if err := os.MkdirAll(root, 0755); err != nil {
@@ -349,6 +376,7 @@ func NewHLSManager(tmpDirectory string, segmentEndpoint string) (*HLSManager, er
 
 // janitor reaps sessions nobody has touched for hlsIdleTimeout.
 func (m *HLSManager) janitor() {
+	logger.Debug("media/transcoder", "HLSManager.janitor")
 	ticker := time.NewTicker(hlsJanitorInterval)
 	defer ticker.Stop()
 	for {
@@ -362,6 +390,7 @@ func (m *HLSManager) janitor() {
 }
 
 func (m *HLSManager) reapIdle() {
+	logger.Debug("media/transcoder", "HLSManager.reapIdle")
 	m.mu.Lock()
 	var expired []*HLSSession
 	for key, session := range m.sessions {
@@ -380,6 +409,7 @@ func (m *HLSManager) reapIdle() {
 
 // Close stops the janitor and tears down every live session.
 func (m *HLSManager) Close() {
+	logger.Debug("media/transcoder", "HLSManager.Close")
 	m.mu.Lock()
 	if m.closed {
 		m.mu.Unlock()
@@ -403,6 +433,9 @@ func (m *HLSManager) Close() {
 // Session returns a live session by ID, or nil. It counts as activity, so
 // fetching segments keeps the session from being reaped mid-playback.
 func (m *HLSManager) Session(id string) *HLSSession {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "HLSManager.Session: id=%.120q", id)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, session := range m.sessions {
@@ -423,6 +456,9 @@ func (m *HLSManager) Session(id string) *HLSSession {
 // such id; the previous transcode of the same file for the same user is then
 // treated as the one being replaced.
 func (m *HLSManager) GetOrCreate(owner string, client string, inputFile string, resolution TranscodeOutputResolution, startTime float64) (*HLSSession, error) {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "HLSManager.GetOrCreate: owner=%.120q client=%.120q inputFile=%.120q startTime=%g", owner, client, inputFile, startTime)
+	}
 	key := hlsSessionKey(owner, inputFile, resolution, startTime)
 
 	m.mu.Lock()
@@ -505,6 +541,7 @@ func (m *HLSManager) GetOrCreate(owner string, client string, inputFile string, 
 // Must be called with m.mu held; the returned sessions are stopped by the
 // caller once the lock is released, since stopping waits on a process.
 func (m *HLSManager) collectSuperseded(newKey string, session *HLSSession) []*HLSSession {
+	logger.Debug("media/transcoder", "HLSManager.collectSuperseded")
 	var superseded []*HLSSession
 	for key, candidate := range m.sessions {
 		if key == newKey {
@@ -534,6 +571,7 @@ func (m *HLSManager) collectSuperseded(newKey string, session *HLSSession) []*HL
 // evictToCapacity stops the least recently used sessions until there is room
 // for one more.
 func (m *HLSManager) evictToCapacity() {
+	logger.Debug("media/transcoder", "HLSManager.evictToCapacity")
 	for {
 		m.mu.Lock()
 		if len(m.sessions) < hlsMaxSessions {
@@ -560,6 +598,7 @@ func (m *HLSManager) evictToCapacity() {
 }
 
 func (m *HLSManager) segmentBaseURL(sessionID string) string {
+	logger.DebugTrace("media/transcoder", "HLSManager.segmentBaseURL")
 	return m.segmentEndpoint + "?sid=" + sessionID + "&name="
 }
 
@@ -571,6 +610,7 @@ func (m *HLSManager) segmentBaseURL(sessionID string) string {
 // playlist URL (/media/hls?file=…) and 404, so the rewrite happens here rather
 // than leaving every client to work it out.
 func (m *HLSManager) ReadPlaylist(session *HLSSession) ([]byte, error) {
+	logger.Debug("media/transcoder", "HLSManager.ReadPlaylist")
 	content, err := os.ReadFile(session.PlaylistPath())
 	if err != nil {
 		return nil, err
@@ -581,6 +621,9 @@ func (m *HLSManager) ReadPlaylist(session *HLSSession) ([]byte, error) {
 // rewritePlaylistInitURI replaces the URI inside an #EXT-X-MAP tag. Split out
 // from the file read so the substitution can be unit-tested directly.
 func rewritePlaylistInitURI(playlist []byte, initURL string) []byte {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "rewritePlaylistInitURI: len(playlist)=%d", len(playlist))
+	}
 	lines := strings.Split(string(playlist), "\n")
 	for i, line := range lines {
 		if !strings.HasPrefix(strings.TrimSpace(line), "#EXT-X-MAP:") {
@@ -603,6 +646,7 @@ func rewritePlaylistInitURI(playlist []byte, initURL string) []byte {
 // WaitForPlaylist blocks until the session's playlist lists at least one
 // segment, so the player is never handed an empty playlist to choke on.
 func (s *HLSSession) WaitForPlaylist(timeout time.Duration) error {
+	logger.Debug("media/transcoder", "HLSSession.WaitForPlaylist")
 	deadline := time.Now().Add(timeout)
 	s.mu.Lock()
 	exited := s.exited
@@ -634,6 +678,9 @@ func (s *HLSSession) WaitForPlaylist(timeout time.Duration) error {
 // segment. ffmpeg writes the header before the first segment is complete, so
 // the file existing is not on its own enough.
 func playlistHasSegment(path string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "playlistHasSegment: path=%.120q", path)
+	}
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return false

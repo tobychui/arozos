@@ -15,11 +15,13 @@ import (
 	"imuslab.com/arozos/mod/disk/raid"
 	smart "imuslab.com/arozos/mod/disk/smart"
 	sortfile "imuslab.com/arozos/mod/disk/sortfile"
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
 
 func RAIDServiceInit() {
+	logger.Debug("Core", "RAIDServiceInit")
 	/*
 		RAID Management
 
@@ -51,6 +53,7 @@ func RAIDServiceInit() {
 }
 
 func DiskServiceInit() {
+	logger.Debug("Core", "DiskServiceInit")
 	//Register Disk Utilities under System Setting
 	//Disk info are only viewable by administrator
 	router := prout.NewModuleRouter(prout.RouterOption{

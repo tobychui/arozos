@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	notification "imuslab.com/arozos/mod/notification"
 	"imuslab.com/arozos/mod/notification/agents/desktopn"
 	"imuslab.com/arozos/mod/notification/agents/smtpn"
@@ -41,6 +42,7 @@ var (
 )
 
 func notificationInit() {
+	logger.Debug("Core", "notificationInit")
 	//Create a new notification queue
 	notificationQueue = notification.NewNotificationQueue()
 
@@ -107,6 +109,7 @@ func notificationInit() {
 // telegramChatIDResolver returns a resolver that reads the per-user Telegram
 // chat id from the preference store (nil-safe).
 func telegramChatIDResolver() func(string) (string, error) {
+	logger.DebugTrace("Core", "telegramChatIDResolver")
 	return func(username string) (string, error) {
 		if notificationPreferenceStore == nil {
 			return "", errNotificationStoreUnavailable
@@ -118,6 +121,7 @@ func telegramChatIDResolver() func(string) (string, error) {
 // webhookTargetResolver returns a resolver that reads the per-user webhook
 // target from the preference store (nil-safe).
 func webhookTargetResolver() func(string) (webhookn.Target, error) {
+	logger.DebugTrace("Core", "webhookTargetResolver")
 	return func(username string) (webhookn.Target, error) {
 		if notificationPreferenceStore == nil {
 			return webhookn.Target{}, errNotificationStoreUnavailable
@@ -133,6 +137,7 @@ var errNotificationStoreUnavailable = errors.New("notification preference store 
 // priority threshold, then broadcasts a per-user copy through the queue.
 // This is the entry point used by the AGI notification library.
 func sendUserNotification(payload *notification.NotificationPayload) error {
+	logger.Debug("Core", "sendUserNotification")
 	if notificationQueue == nil {
 		return errors.New("notification system not initialised")
 	}
@@ -166,6 +171,9 @@ func sendUserNotification(payload *notification.NotificationPayload) error {
 
 // joinStrings joins a slice with ", " without pulling in strings just for one call site.
 func joinStrings(items []string) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "joinStrings: len(items)=%d", len(items))
+	}
 	out := ""
 	for i, item := range items {
 		if i > 0 {

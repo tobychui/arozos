@@ -71,6 +71,7 @@ type requestCanceler interface {
 // To rewrite Host headers, use ReverseProxy directly with a custom
 // Director policy.
 func NewReverseProxy(target *url.URL) *ReverseProxy {
+	logger.Debug("network/reverseproxy", "NewReverseProxy")
 	targetQuery := target.RawQuery
 	director := func(req *http.Request) {
 		req.URL.Scheme = target.Scheme
@@ -96,6 +97,9 @@ func NewReverseProxy(target *url.URL) *ReverseProxy {
 }
 
 func singleJoiningSlash(a, b string) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/reverseproxy", "singleJoiningSlash: a=%.120q b=%.120q", a, b)
+	}
 	aslash := strings.HasSuffix(a, "/")
 	bslash := strings.HasPrefix(b, "/")
 	switch {
@@ -108,6 +112,7 @@ func singleJoiningSlash(a, b string) string {
 }
 
 func copyHeader(dst, src http.Header) {
+	logger.Debug("network/reverseproxy", "copyHeader")
 	for k, vv := range src {
 		for _, v := range vv {
 			dst.Add(k, v)
@@ -130,6 +135,7 @@ var hopHeaders = []string{
 }
 
 func (p *ReverseProxy) copyResponse(dst io.Writer, src io.Reader) {
+	logger.Debug("network/reverseproxy", "ReverseProxy.copyResponse")
 	if p.FlushInterval != 0 {
 		if wf, ok := dst.(writeFlusher); ok {
 			mlw := &maxLatencyWriter{
@@ -160,12 +166,16 @@ type maxLatencyWriter struct {
 }
 
 func (m *maxLatencyWriter) Write(b []byte) (int, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/reverseproxy", "maxLatencyWriter.Write: len(b)=%d", len(b))
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.dst.Write(b)
 }
 
 func (m *maxLatencyWriter) flushLoop() {
+	logger.Debug("network/reverseproxy", "maxLatencyWriter.flushLoop")
 	t := time.NewTicker(m.latency)
 	defer t.Stop()
 	for {
@@ -184,10 +194,14 @@ func (m *maxLatencyWriter) flushLoop() {
 }
 
 func (m *maxLatencyWriter) stop() {
+	logger.DebugTrace("network/reverseproxy", "maxLatencyWriter.stop")
 	m.done <- true
 }
 
 func (p *ReverseProxy) logf(format string, args ...interface{}) {
+	if logger.IsDebug() {
+		logger.Debugf("network/reverseproxy", "ReverseProxy.logf: format=%.120q len(args)=%d", format, len(args))
+	}
 	if p.ErrorLog != nil {
 		p.ErrorLog.Printf(format, args...)
 	} else {
@@ -196,6 +210,7 @@ func (p *ReverseProxy) logf(format string, args ...interface{}) {
 }
 
 func removeHeaders(header http.Header) {
+	logger.Debug("network/reverseproxy", "removeHeaders")
 	// Remove hop-by-hop headers listed in the "Connection" header.
 	if c := header.Get("Connection"); c != "" {
 		for _, f := range strings.Split(c, ",") {
@@ -219,6 +234,9 @@ func removeHeaders(header http.Header) {
 }
 
 func addXForwardedForHeader(req *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("network/reverseproxy", "addXForwardedForHeader: req=%s", logger.RequestSummary(req))
+	}
 	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
 		// If we aren't the first proxy retain prior
 		// X-Forwarded-For information as a comma+space
@@ -231,6 +249,9 @@ func addXForwardedForHeader(req *http.Request) {
 }
 
 func (p *ReverseProxy) ProxyHTTP(rw http.ResponseWriter, req *http.Request) error {
+	if logger.IsDebug() {
+		logger.Debugf("network/reverseproxy", "ReverseProxy.ProxyHTTP: req=%s", logger.RequestSummary(req))
+	}
 	transport := p.Transport
 	if transport == nil {
 		transport = http.DefaultTransport
@@ -319,6 +340,9 @@ func (p *ReverseProxy) ProxyHTTP(rw http.ResponseWriter, req *http.Request) erro
 }
 
 func (p *ReverseProxy) ProxyHTTPS(rw http.ResponseWriter, req *http.Request) error {
+	if logger.IsDebug() {
+		logger.Debugf("network/reverseproxy", "ReverseProxy.ProxyHTTPS: req=%s", logger.RequestSummary(req))
+	}
 	hij, ok := rw.(http.Hijacker)
 	if !ok {
 		p.logf("http server does not support hijacker")
@@ -380,6 +404,9 @@ func (p *ReverseProxy) ProxyHTTPS(rw http.ResponseWriter, req *http.Request) err
 }
 
 func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) error {
+	if logger.IsDebug() {
+		logger.Debugf("network/reverseproxy", "ReverseProxy.ServeHTTP: req=%s", logger.RequestSummary(req))
+	}
 	if req.Method == "CONNECT" {
 		err := p.ProxyHTTPS(rw, req)
 		return err

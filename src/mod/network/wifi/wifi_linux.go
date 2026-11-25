@@ -21,6 +21,9 @@ import (
 
 // Toggle WiFi On Off. Only allow on sudo mode
 func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "WiFiManager.SetInterfacePower: wlanInterface=%.120q on=%t", wlanInterface, on)
+	}
 	status := "up"
 	if on == false {
 		status = "down"
@@ -37,6 +40,9 @@ func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
 }
 
 func (w *WiFiManager) GetInterfacePowerStatuts(wlanInterface string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "WiFiManager.GetInterfacePowerStatuts: wlanInterface=%.120q", wlanInterface)
+	}
 	//Check if interface is in list
 	interfaceList, err := w.GetWirelessInterfaces()
 	if err != nil {
@@ -71,6 +77,9 @@ func (w *WiFiManager) GetInterfacePowerStatuts(wlanInterface string) (bool, erro
 
 // Scan Nearby WiFi
 func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "WiFiManager.ScanNearbyWiFi: interfaceName=%.120q", interfaceName)
+	}
 	rcmd := `iwlist ` + interfaceName + ` scan`
 	if w.sudo_mode {
 		rcmd = "sudo " + rcmd
@@ -182,6 +191,9 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 
 // markConnectedBSS flags the scan result the interface is associated with
 func markConnectedBSS(results []WiFiInfo, interfaceName string) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "markConnectedBSS: len(results)=%d interfaceName=%.120q", len(results), interfaceName)
+	}
 	link, err := readIwLink(interfaceName)
 	if err != nil || !link.Connected {
 		return
@@ -195,6 +207,9 @@ func markConnectedBSS(results []WiFiInfo, interfaceName string) {
 
 // readIwLink runs "iw dev <interface> link"
 func readIwLink(interfaceName string) (iwLinkInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "readIwLink: interfaceName=%.120q", interfaceName)
+	}
 	if interfaceName == "" || strings.ContainsAny(interfaceName, " /\\") {
 		return iwLinkInfo{}, errors.New("invalid interface name")
 	}
@@ -207,6 +222,9 @@ func readIwLink(interfaceName string) (iwLinkInfo, error) {
 
 // Hack the signal level out of the nmcli bars
 func (w *WiFiManager) getSignalLevelEstimation(bar string) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "WiFiManager.getSignalLevelEstimation: bar=%.120q", bar)
+	}
 	bar = strings.TrimSpace(bar)
 	if bar == "▂▄▆█" {
 		return "-45 dBm[Estimated]"
@@ -223,6 +241,7 @@ func (w *WiFiManager) getSignalLevelEstimation(bar string) string {
 
 // Get all the network interfaces
 func (w *WiFiManager) GetWirelessInterfaces() ([]string, error) {
+	logger.Debug("network/wifi", "WiFiManager.GetWirelessInterfaces")
 	rcmd := `iw dev | awk '$1=="Interface"{print $2}'`
 	cmd := exec.Command("bash", "-c", rcmd)
 	out, err := cmd.CombinedOutput()
@@ -237,6 +256,9 @@ func (w *WiFiManager) GetWirelessInterfaces() ([]string, error) {
 }
 
 func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string, identity string) (*WiFiConnectionResult, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "WiFiManager.ConnectWiFi: ssid=%.120q identity=%.120q", ssid, identity)
+	}
 	//Build the network config file
 
 	//Updates 21-10-2020, use nmcli if exists
@@ -451,6 +473,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 // Get the current connected wifi, return ESSID, wifi interface name and error if any
 // Return ESSID, interface and error
 func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
+	logger.Debug("network/wifi", "WiFiManager.GetConnectedWiFi")
 	cmd := exec.Command("iwgetid")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -527,6 +550,9 @@ func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
 }
 
 func (w *WiFiManager) CheckInterfaceIsAP(wlanInterfaceName string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "WiFiManager.CheckInterfaceIsAP: wlanInterfaceName=%.120q", wlanInterfaceName)
+	}
 	cmd := exec.Command("bash", "-c", "iwconfig wlan1 | grep Mode")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -545,6 +571,9 @@ func (w *WiFiManager) CheckInterfaceIsAP(wlanInterfaceName string) (bool, error)
 }
 
 func (w *WiFiManager) RemoveWifi(ssid string) error {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "WiFiManager.RemoveWifi: ssid=%.120q", ssid)
+	}
 
 	if pkg_exists("nmcli") {
 		//Make use of nmcli storage
@@ -569,16 +598,19 @@ func (w *WiFiManager) RemoveWifi(ssid string) error {
 
 // CanControlInterfacePower reports whether SetInterfacePower is supported
 func (w *WiFiManager) CanControlInterfacePower() bool {
+	logger.DebugTrace("network/wifi", "WiFiManager.CanControlInterfacePower")
 	return true
 }
 
 // CanConnect reports whether ConnectWiFi and RemoveWifi are supported
 func (w *WiFiManager) CanConnect() bool {
+	logger.DebugTrace("network/wifi", "WiFiManager.CanConnect")
 	return true
 }
 
 // GetInterfaceStatus returns the live state of every wireless interface
 func (w *WiFiManager) GetInterfaceStatus() ([]WiFiInterfaceStatus, error) {
+	logger.Debug("network/wifi", "WiFiManager.GetInterfaceStatus")
 	names, err := w.GetWirelessInterfaces()
 	if err != nil {
 		return []WiFiInterfaceStatus{}, err
@@ -595,6 +627,9 @@ func (w *WiFiManager) GetInterfaceStatus() ([]WiFiInterfaceStatus, error) {
 }
 
 func (w *WiFiManager) interfaceStatus(name string) WiFiInterfaceStatus {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "WiFiManager.interfaceStatus: name=%.120q", name)
+	}
 	status := WiFiInterfaceStatus{
 		Name:          name,
 		State:         "disconnected",
@@ -677,6 +712,9 @@ func (w *WiFiManager) interfaceStatus(name string) WiFiInterfaceStatus {
 // readRfkill reports whether any rfkill switch of the interface's PHY is
 // blocked (kind is "soft" or "hard"). ok is false when there is no switch.
 func readRfkill(sysDir string, kind string) (blocked bool, ok bool) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "readRfkill: sysDir=%.120q kind=%.120q", sysDir, kind)
+	}
 	matches, err := filepath.Glob(filepath.Join(sysDir, "phy80211", "rfkill*", kind))
 	if err != nil || len(matches) == 0 {
 		return false, false
@@ -696,6 +734,9 @@ func readRfkill(sysDir string, kind string) (blocked bool, ok bool) {
 
 // Helper functions
 func fileInDir(filesourcepath string, directory string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "fileInDir: filesourcepath=%.120q directory=%.120q", filesourcepath, directory)
+	}
 	filepathAbs, err := filepath.Abs(filesourcepath)
 	if err != nil {
 		return false
@@ -716,6 +757,9 @@ func fileInDir(filesourcepath string, directory string) bool {
 }
 
 func fileExists(filename string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "fileExists: filename=%.120q", filename)
+	}
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false
@@ -724,6 +768,9 @@ func fileExists(filename string) bool {
 }
 
 func pkg_exists(pkgname string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "pkg_exists: pkgname=%.120q", pkgname)
+	}
 	cmd := exec.Command("which", pkgname)
 	out, _ := cmd.CombinedOutput()
 

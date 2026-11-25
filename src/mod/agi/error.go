@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -16,6 +18,9 @@ import (
 */
 
 func (g *Gateway) RenderErrorTemplate(w http.ResponseWriter, errmsg string, scriptpath string) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.RenderErrorTemplate: errmsg=%.120q scriptpath=%.120q", errmsg, scriptpath)
+	}
 	templateFile, err := os.ReadFile("system/agi/error.html")
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)

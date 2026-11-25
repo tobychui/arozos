@@ -12,6 +12,7 @@ package doc
 	wherever a piece or a CHPX run ends.
 */
 
+import "imuslab.com/arozos/mod/info/logger"
 import "encoding/binary"
 
 type run struct {
@@ -30,6 +31,7 @@ type para struct {
 
 // depth is the table nesting depth of the paragraph (0 = body text)
 func (pg *para) depth() int {
+	logger.DebugTrace("office/doc", "para.depth")
 	if !pg.p.inTable {
 		return 0
 	}
@@ -47,6 +49,9 @@ const maxTableDepth = 64
 
 // isRowEnd reports the paragraph that closes a table row at depth d
 func (pg *para) isRowEnd(d int) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "para.isRowEnd: d=%d", d)
+	}
 	if d <= 1 {
 		return pg.p.ttp && pg.depth() <= 1
 	}
@@ -55,6 +60,9 @@ func (pg *para) isRowEnd(d int) bool {
 
 // isCellEnd reports the paragraph that closes a cell at depth d
 func (pg *para) isCellEnd(d int) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "para.isCellEnd: d=%d", d)
+	}
 	if d <= 1 {
 		return pg.end == 0x07 && pg.depth() <= 1
 	}
@@ -64,6 +72,9 @@ func (pg *para) isCellEnd(d int) bool {
 // papAt resolves the paragraph properties for the paragraph whose end
 // mark is at cp
 func (d *docFile) papAt(cp int) (int, *pap) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "docFile.papAt: cp=%d", cp)
+	}
 	p := newPap()
 	istd := 0
 	fc := fcOf(d.pieces, cp)
@@ -93,6 +104,9 @@ func (d *docFile) papAt(cp int) (int, *pap) {
 
 // pieceSprms applies the property group a piece's Prm points at
 func (d *docFile) pieceSprms(prm uint16, fn func(uint16, []byte)) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "docFile.pieceSprms: prm=%d", prm)
+	}
 	if prm&1 == 0 {
 		return // Prm0: a single, rarely used modifier from a fixed table
 	}
@@ -104,6 +118,9 @@ func (d *docFile) pieceSprms(prm uint16, fn func(uint16, []byte)) {
 
 // chpRuns splits [cp1, cp2) into runs of uniform character formatting
 func (d *docFile) chpRuns(cp1, cp2 int) []run {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "docFile.chpRuns: cp1=%d cp2=%d", cp1, cp2)
+	}
 	var out []run
 	cp := cp1
 	for cp < cp2 {
@@ -146,6 +163,9 @@ func (d *docFile) chpRuns(cp1, cp2 int) []run {
 
 // nextRunStart is the start of the first run after fc (-1 when none)
 func nextRunStart(runs []fkpRun, fc int) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "nextRunStart: len(runs)=%d fc=%d", len(runs), fc)
+	}
 	lo, hi := 0, len(runs)
 	for lo < hi {
 		m := (lo + hi) / 2
@@ -164,6 +184,9 @@ func nextRunStart(runs []fkpRun, fc int) int {
 // paragraphs splits a story into paragraphs; sectionEnds holds the CPs
 // right after each section mark (main text only)
 func (d *docFile) paragraphs(cp1, cp2 int, sectionEnds map[int]bool) []*para {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "docFile.paragraphs: cp1=%d cp2=%d len(sectionEnds)=%d", cp1, cp2, len(sectionEnds))
+	}
 	var out []*para
 	start := cp1
 	for cp := cp1; cp < cp2; cp++ {

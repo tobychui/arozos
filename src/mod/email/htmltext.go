@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"golang.org/x/net/html"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var (
@@ -35,6 +37,9 @@ var blockTextElements = map[string]bool{
 // htmlToText renders HTML as text. withLinks appends link targets that differ
 // from their text, which is useful in a plain-text alternative.
 func htmlToText(source string, withLinks bool) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "htmlToText: source=%.120q withLinks=%t", source, withLinks)
+	}
 	tokenizer := html.NewTokenizer(strings.NewReader(source))
 	var builder strings.Builder
 	skipDepth := 0
@@ -148,6 +153,9 @@ func htmlToText(source string, withLinks bool) string {
 }
 
 func attributeValue(tokenizer *html.Tokenizer, hasAttr bool, wanted string) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "attributeValue: hasAttr=%t wanted=%.120q", hasAttr, wanted)
+	}
 	for hasAttr {
 		var key, value []byte
 		key, value, hasAttr = tokenizer.TagAttr()
@@ -159,6 +167,7 @@ func attributeValue(tokenizer *html.Tokenizer, hasAttr bool, wanted string) stri
 }
 
 func finishText(text string) string {
+	logger.Debug("email", "finishText")
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
 		lines[i] = strings.TrimRight(line, " \t")
@@ -170,6 +179,9 @@ func finishText(text string) string {
 
 // previewText builds the one-line snippet shown under a subject.
 func previewText(text string, max int) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "previewText: max=%d", max)
+	}
 	//Quoted reply lines would make every message of a thread look the same
 	lines := strings.Split(text, "\n")
 	kept := lines[:0]

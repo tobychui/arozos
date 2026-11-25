@@ -39,6 +39,9 @@ type ServerMessageBlockFileSystemAbstraction struct {
 }
 
 func NewServerMessageBlockFileSystemAbstraction(uuid string, hierarchy string, ipaddr string, rootShare string, username string, password string) (ServerMessageBlockFileSystemAbstraction, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "NewServerMessageBlockFileSystemAbstraction: uuid=%.120q hierarchy=%.120q ipaddr=%.120q rootShare=%.120q username=%.120q", uuid, hierarchy, ipaddr, rootShare, username)
+	}
 	logger.PrintAndLog("Smbfs", "[SMB-FS] Connecting to "+uuid+":/ ("+ipaddr+")", nil)
 	//Patch the ip address if port not found
 	if !strings.Contains(ipaddr, ":") {
@@ -101,19 +104,31 @@ func NewServerMessageBlockFileSystemAbstraction(uuid string, hierarchy string, i
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) Chmod(filename string, mode os.FileMode) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Chmod: filename=%.120q", filename)
+	}
 	filename = a.filterFilepath(filename)
 	filename = toWinPath(filename)
 	return a.share.Chmod(filename, mode)
 }
 func (a ServerMessageBlockFileSystemAbstraction) Chown(filename string, uid int, gid int) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Chown: filename=%.120q uid=%d gid=%d", filename, uid, gid)
+	}
 	return arozfs.ErrOperationNotSupported
 }
 func (a ServerMessageBlockFileSystemAbstraction) Chtimes(filename string, atime time.Time, mtime time.Time) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Chtimes: filename=%.120q", filename)
+	}
 	filename = a.filterFilepath(filename)
 	filename = toWinPath(filename)
 	return a.share.Chtimes(filename, atime, mtime)
 }
 func (a ServerMessageBlockFileSystemAbstraction) Create(filename string) (arozfs.File, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Create: filename=%.120q", filename)
+	}
 	filename = a.filterFilepath(filename)
 	f, err := a.share.Create(filename)
 	if err != nil {
@@ -123,19 +138,29 @@ func (a ServerMessageBlockFileSystemAbstraction) Create(filename string) (arozfs
 	return af, nil
 }
 func (a ServerMessageBlockFileSystemAbstraction) Mkdir(filename string, mode os.FileMode) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Mkdir: filename=%.120q", filename)
+	}
 	filename = a.filterFilepath(filename)
 	filename = toWinPath(filename)
 	return a.share.Mkdir(filename, mode)
 }
 func (a ServerMessageBlockFileSystemAbstraction) MkdirAll(filename string, mode os.FileMode) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.MkdirAll: filename=%.120q", filename)
+	}
 	filename = a.filterFilepath(filename)
 	filename = toWinPath(filename)
 	return a.share.MkdirAll(filename, mode)
 }
 func (a ServerMessageBlockFileSystemAbstraction) Name() string {
+	logger.DebugTrace("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Name")
 	return ""
 }
 func (a ServerMessageBlockFileSystemAbstraction) Open(filename string) (arozfs.File, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Open: filename=%.120q", filename)
+	}
 	filename = toWinPath(a.filterFilepath(filename))
 	f, err := a.share.Open(filename)
 	if err != nil {
@@ -145,6 +170,9 @@ func (a ServerMessageBlockFileSystemAbstraction) Open(filename string) (arozfs.F
 	return af, nil
 }
 func (a ServerMessageBlockFileSystemAbstraction) OpenFile(filename string, flag int, perm os.FileMode) (arozfs.File, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.OpenFile: filename=%.120q flag=%d", filename, flag)
+	}
 	filename = toWinPath(a.filterFilepath(filename))
 	f, err := a.share.OpenFile(filename, flag, perm)
 	if err != nil {
@@ -154,25 +182,38 @@ func (a ServerMessageBlockFileSystemAbstraction) OpenFile(filename string, flag 
 	return af, nil
 }
 func (a ServerMessageBlockFileSystemAbstraction) Remove(filename string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Remove: filename=%.120q", filename)
+	}
 	filename = a.filterFilepath(filename)
 	filename = toWinPath(filename)
 	return a.share.Remove(filename)
 }
 func (a ServerMessageBlockFileSystemAbstraction) RemoveAll(filename string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.RemoveAll: filename=%.120q", filename)
+	}
 	filename = a.filterFilepath(filename)
 	filename = toWinPath(filename)
 	return a.share.RemoveAll(filename)
 }
 func (a ServerMessageBlockFileSystemAbstraction) Rename(oldname, newname string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Rename: oldname=%.120q newname=%.120q", oldname, newname)
+	}
 	oldname = toWinPath(a.filterFilepath(oldname))
 	newname = toWinPath(a.filterFilepath(newname))
 	return a.share.Rename(oldname, newname)
 }
 func (a ServerMessageBlockFileSystemAbstraction) Stat(filename string) (os.FileInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Stat: filename=%.120q", filename)
+	}
 	filename = toWinPath(a.filterFilepath(filename))
 	return a.share.Stat(filename)
 }
 func (a ServerMessageBlockFileSystemAbstraction) Close() error {
+	logger.Debug("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Close")
 	//Stop connection checker
 	go func() {
 		a.tickerChan <- true
@@ -195,6 +236,9 @@ func (a ServerMessageBlockFileSystemAbstraction) Close() error {
 */
 
 func (a ServerMessageBlockFileSystemAbstraction) VirtualPathToRealPath(subpath string, username string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.VirtualPathToRealPath: subpath=%.120q username=%.120q", subpath, username)
+	}
 	//The generic translator refuses subpaths that climb out of the share
 	//root or the user's home ("user:../bob")
 	rpath, err := arozfs.GenericVirtualPathToRealPathTranslator(a.UUID, a.Hierarchy, subpath, username)
@@ -205,6 +249,9 @@ func (a ServerMessageBlockFileSystemAbstraction) VirtualPathToRealPath(subpath s
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) RealPathToVirtualPath(fullpath string, username string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.RealPathToVirtualPath: fullpath=%.120q username=%.120q", fullpath, username)
+	}
 	fullpath = a.filterFilepath(fullpath)
 	if a.fsaRoot != "" {
 		fullpath = strings.TrimPrefix(fullpath, a.fsaRoot)
@@ -217,6 +264,9 @@ func (a ServerMessageBlockFileSystemAbstraction) RealPathToVirtualPath(fullpath 
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) FileExists(realpath string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.FileExists: realpath=%.120q", realpath)
+	}
 	realpath = toWinPath(a.filterFilepath(realpath))
 	f, err := a.share.Open(realpath)
 	if err != nil {
@@ -227,6 +277,9 @@ func (a ServerMessageBlockFileSystemAbstraction) FileExists(realpath string) boo
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) IsDir(realpath string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.IsDir: realpath=%.120q", realpath)
+	}
 	realpath = a.filterFilepath(realpath)
 	realpath = toWinPath(realpath)
 	stx, err := a.share.Stat(realpath)
@@ -237,6 +290,9 @@ func (a ServerMessageBlockFileSystemAbstraction) IsDir(realpath string) bool {
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) Glob(realpathWildcard string) ([]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Glob: realpathWildcard=%.120q", realpathWildcard)
+	}
 	realpathWildcard = strings.ReplaceAll(realpathWildcard, "[", "?")
 	realpathWildcard = strings.ReplaceAll(realpathWildcard, "]", "?")
 	matches, err := a.share.Glob(realpathWildcard)
@@ -247,6 +303,9 @@ func (a ServerMessageBlockFileSystemAbstraction) Glob(realpathWildcard string) (
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) GetFileSize(realpath string) int64 {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.GetFileSize: realpath=%.120q", realpath)
+	}
 	realpath = toWinPath(a.filterFilepath(realpath))
 	stat, err := a.share.Stat(realpath)
 	if err != nil {
@@ -256,6 +315,9 @@ func (a ServerMessageBlockFileSystemAbstraction) GetFileSize(realpath string) in
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) GetModTime(realpath string) (int64, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.GetModTime: realpath=%.120q", realpath)
+	}
 	realpath = toWinPath(a.filterFilepath(realpath))
 	stat, err := a.share.Stat(realpath)
 	if err != nil {
@@ -265,15 +327,24 @@ func (a ServerMessageBlockFileSystemAbstraction) GetModTime(realpath string) (in
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.WriteFile: filename=%.120q", filename)
+	}
 	filename = toWinPath(a.filterFilepath(filename))
 	return a.share.WriteFile(filename, content, mode)
 }
 func (a ServerMessageBlockFileSystemAbstraction) ReadFile(filename string) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.ReadFile: filename=%.120q", filename)
+	}
 	filename = toWinPath(a.filterFilepath(filename))
 	return a.share.ReadFile(filename)
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.ReadDir: filename=%.120q", filename)
+	}
 	filename = toWinPath(a.filterFilepath(filename))
 	fis, err := a.share.ReadDir(filename)
 	if err != nil {
@@ -291,6 +362,9 @@ func (a ServerMessageBlockFileSystemAbstraction) ReadDir(filename string) ([]fs.
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) WriteStream(filename string, stream io.Reader, mode os.FileMode) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.WriteStream: filename=%.120q", filename)
+	}
 	filename = toWinPath(a.filterFilepath(filename))
 	f, err := a.share.OpenFile(filename, os.O_CREATE|os.O_WRONLY, mode)
 	if err != nil {
@@ -316,6 +390,9 @@ func (a ServerMessageBlockFileSystemAbstraction) WriteStream(filename string, st
 	return nil
 }
 func (a ServerMessageBlockFileSystemAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.ReadStream: filename=%.120q", filename)
+	}
 	filename = toWinPath(a.filterFilepath(filename))
 	f, err := a.share.OpenFile(filename, os.O_RDONLY, 0755)
 	if err != nil {
@@ -326,6 +403,9 @@ func (a ServerMessageBlockFileSystemAbstraction) ReadStream(filename string) (io
 
 // Note that walk on SMB is super slow. Avoid using this if possible.
 func (a ServerMessageBlockFileSystemAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Walk: root=%.120q", root)
+	}
 	root = toWinPath(a.filterFilepath(root))
 	err := fs.WalkDir(a.share.DirFS(root), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -342,6 +422,7 @@ func (a ServerMessageBlockFileSystemAbstraction) Walk(root string, walkFn filepa
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) Heartbeat() error {
+	logger.Debug("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.Heartbeat")
 	_, err := a.share.Stat("")
 	return err
 }
@@ -353,6 +434,7 @@ func (a ServerMessageBlockFileSystemAbstraction) Heartbeat() error {
 */
 
 func (a *ServerMessageBlockFileSystemAbstraction) CapacityInfo() {
+	logger.Debug("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.CapacityInfo")
 	fsinfo, err := a.share.Statfs(".")
 	if err != nil {
 		return
@@ -368,11 +450,15 @@ func (a *ServerMessageBlockFileSystemAbstraction) CapacityInfo() {
 */
 
 func toWinPath(filename string) string {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "toWinPath: filename=%.120q", filename)
+	}
 	backslashed := strings.ReplaceAll(filename, "/", "\\")
 	return strings.TrimPrefix(backslashed, "\\")
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) filterFilepath(rawpath string) string {
+	logger.Debug("filesystem/abstractions/smbfs", "ServerMessageBlockFileSystemAbstraction.filterFilepath")
 	rawpath = filepath.ToSlash(filepath.Clean(rawpath))
 	rawpath = strings.TrimSpace(rawpath)
 
@@ -386,6 +472,9 @@ func (a ServerMessageBlockFileSystemAbstraction) filterFilepath(rawpath string) 
 }
 
 func wildCardToRegexp(pattern string) string {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/smbfs", "wildCardToRegexp: pattern=%.120q", pattern)
+	}
 	var result strings.Builder
 	for i, literal := range strings.Split(pattern, "*") {
 		// Replace * with .*

@@ -45,6 +45,7 @@ type UserHandler struct {
 
 // Initiate a new user handler
 func NewUserHandler(systemdb *db.Database, authAgent *auth.AuthAgent, permissionHandler *permission.PermissionHandler, baseStoragePool *storage.StoragePool, shareEntryTable **shareEntry.ShareEntryTable) (*UserHandler, error) {
+	logger.DebugTrace("user", "NewUserHandler")
 	return &UserHandler{
 		authAgent:       authAgent,
 		database:        systemdb,
@@ -56,28 +57,34 @@ func NewUserHandler(systemdb *db.Database, authAgent *auth.AuthAgent, permission
 
 // Return the user handler's auth agent
 func (u *UserHandler) GetAuthAgent() *auth.AuthAgent {
+	logger.DebugTrace("user", "UserHandler.GetAuthAgent")
 	return u.authAgent
 }
 
 func (u *UserHandler) GetPermissionHandler() *permission.PermissionHandler {
+	logger.DebugTrace("user", "UserHandler.GetPermissionHandler")
 	return u.phandler
 }
 
 // Get the user's base storage pool, in most case it is the system pool
 func (u *UserHandler) GetStoragePool() *storage.StoragePool {
+	logger.DebugTrace("user", "UserHandler.GetStoragePool")
 	return u.basePool
 }
 
 func (u *UserHandler) GetDatabase() *db.Database {
+	logger.DebugTrace("user", "UserHandler.GetDatabase")
 	return u.database
 }
 
 func (u *UserHandler) UpdateStoragePool(newpool *storage.StoragePool) {
+	logger.DebugTrace("user", "UserHandler.UpdateStoragePool")
 	u.basePool = newpool
 }
 
 // SetDriveRules sets where the access lists of the drives are read from
 func (u *UserHandler) SetDriveRules(rules access.Source) {
+	logger.DebugTrace("user", "UserHandler.SetDriveRules")
 	u.driveRules = rules
 }
 
@@ -85,6 +92,7 @@ func (u *UserHandler) SetDriveRules(rules access.Source) {
 // drive list of its user from when it was created, so they are rebuilt after
 // a change of who may use which drive.
 func (u *UserHandler) ResetQuotaManagers() {
+	logger.DebugTrace("user", "UserHandler.ResetQuotaManagers")
 	quotaManagerBuffer.Range(func(key, value interface{}) bool {
 		quotaManagerBuffer.Delete(key)
 		return true
@@ -93,6 +101,9 @@ func (u *UserHandler) ResetQuotaManagers() {
 
 // Get User object from username
 func (u *UserHandler) GetUserInfoFromUsername(username string) (*User, error) {
+	if logger.IsDebug() {
+		logger.Debugf("user", "UserHandler.GetUserInfoFromUsername: username=%.120q", username)
+	}
 	//Check if user exists
 	if !u.authAgent.UserExists(username) {
 		return &User{}, errors.New("User not exists")
@@ -164,6 +175,9 @@ func (u *UserHandler) GetUserInfoFromUsername(username string) (*User, error) {
 
 // Get user obejct from session
 func (u *UserHandler) GetUserInfoFromRequest(w http.ResponseWriter, r *http.Request) (*User, error) {
+	if logger.IsDebug() {
+		logger.Debugf("user", "UserHandler.GetUserInfoFromRequest: r=%s", logger.RequestSummary(r))
+	}
 	username, err := u.authAgent.GetUserName(w, r)
 	if err != nil {
 		return &User{}, err
@@ -178,6 +192,9 @@ func (u *UserHandler) GetUserInfoFromRequest(w http.ResponseWriter, r *http.Requ
 
 // Get all the users given the permission group name, super IO heavy operation
 func (u *UserHandler) GetUsersInPermissionGroup(permissionGroupName string) ([]*User, error) {
+	if logger.IsDebug() {
+		logger.Debugf("user", "UserHandler.GetUsersInPermissionGroup: permissionGroupName=%.120q", permissionGroupName)
+	}
 	results := []*User{}
 	//Check if the given group exists
 	if u.phandler.GetPermissionGroupByName(permissionGroupName) == nil {

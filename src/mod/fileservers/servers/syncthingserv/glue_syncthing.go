@@ -34,10 +34,14 @@ type noSymlinkFS struct {
 }
 
 func (f *noSymlinkFS) CreateSymlink(target, name string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncthingserv", "noSymlinkFS.CreateSymlink: target=%.120q name=%.120q", target, name)
+	}
 	return errSymlink
 }
 
 func registerNoSymlinkFS() {
+	logger.DebugTrace("fileservers/servers/syncthingserv", "registerNoSymlinkFS")
 	stfs.RegisterFilesystemType(fsTypeArozOS, func(root string, opts ...stfs.Option) (stfs.Filesystem, error) {
 		return &noSymlinkFS{Filesystem: stfs.NewFilesystem(stfs.FilesystemTypeBasic, root, opts...)}, nil
 	})
@@ -49,6 +53,7 @@ func registerNoSymlinkFS() {
 // The handler below puts slog records into the system log, and the log
 // package gets its own output back (os.Stderr, as before Syncthing loaded).
 func installLogBridge() {
+	logger.Debug("fileservers/servers/syncthingserv", "installLogBridge")
 	slog.SetDefault(slog.New(&slogBridge{}))
 	log.SetOutput(os.Stderr)
 	log.SetFlags(log.LstdFlags)
@@ -61,10 +66,12 @@ type slogBridge struct {
 }
 
 func (h *slogBridge) Enabled(_ context.Context, level slog.Level) bool {
+	logger.DebugTrace("fileservers/servers/syncthingserv", "slogBridge.Enabled")
 	return level >= slog.LevelInfo
 }
 
 func (h *slogBridge) Handle(_ context.Context, r slog.Record) error {
+	logger.DebugTrace("fileservers/servers/syncthingserv", "slogBridge.Handle")
 	var b strings.Builder
 	switch {
 	case r.Level >= slog.LevelError:
@@ -99,12 +106,18 @@ func (h *slogBridge) Handle(_ context.Context, r slog.Record) error {
 }
 
 func (h *slogBridge) WithAttrs(attrs []slog.Attr) slog.Handler {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncthingserv", "slogBridge.WithAttrs: len(attrs)=%d", len(attrs))
+	}
 	next := &slogBridge{groups: h.groups}
 	next.attrs = append(append([]slog.Attr{}, h.attrs...), attrs...)
 	return next
 }
 
 func (h *slogBridge) WithGroup(name string) slog.Handler {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncthingserv", "slogBridge.WithGroup: name=%.120q", name)
+	}
 	if name == "" {
 		return h
 	}

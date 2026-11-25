@@ -30,21 +30,29 @@ import (
 */
 //Send text response with given w and message as string
 func sendTextResponse(w http.ResponseWriter, msg string) {
+	logger.DebugTrace("storage/webdav", "sendTextResponse")
 	w.Write([]byte(msg))
 }
 
 // Send JSON response, with an extra json header
 func sendJSONResponse(w http.ResponseWriter, json string) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "sendJSONResponse: json=%.120q", json)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(json))
 }
 
 func sendErrorResponse(w http.ResponseWriter, errMsg string) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "sendErrorResponse: errMsg=%.120q", errMsg)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("{\"error\":\"" + errMsg + "\"}"))
 }
 
 func sendOK(w http.ResponseWriter) {
+	logger.Debug("storage/webdav", "sendOK")
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("\"OK\""))
 }
@@ -61,6 +69,9 @@ Paramter string (if any)
 Error (if error)
 */
 func mv(r *http.Request, getParamter string, postMode bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "mv: r=%s getParamter=%.120q postMode=%t", logger.RequestSummary(r), getParamter, postMode)
+	}
 	if postMode == false {
 		//Access the paramter via GET
 		keys, ok := r.URL.Query()[getParamter]
@@ -87,6 +98,9 @@ func mv(r *http.Request, getParamter string, postMode bool) (string, error) {
 }
 
 func stringInSlice(a string, list []string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "stringInSlice: a=%.120q len(list)=%d", a, len(list))
+	}
 	for _, b := range list {
 		if b == a {
 			return true
@@ -96,6 +110,9 @@ func stringInSlice(a string, list []string) bool {
 }
 
 func fileExists(filename string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "fileExists: filename=%.120q", filename)
+	}
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false
@@ -104,6 +121,9 @@ func fileExists(filename string) bool {
 }
 
 func isDir(path string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "isDir: path=%.120q", path)
+	}
 	if fileExists(path) == false {
 		return false
 	}
@@ -123,6 +143,9 @@ func isDir(path string) bool {
 }
 
 func inArray(arr []string, str string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "inArray: len(arr)=%d str=%.120q", len(arr), str)
+	}
 	for _, a := range arr {
 		if a == str {
 			return true
@@ -132,10 +155,14 @@ func inArray(arr []string, str string) bool {
 }
 
 func timeToString(targetTime time.Time) string {
+	logger.DebugTrace("storage/webdav", "timeToString")
 	return targetTime.Format("2006-01-02 15:04:05")
 }
 
 func loadImageAsBase64(filepath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "loadImageAsBase64: filepath=%.120q", filepath)
+	}
 	if !fileExists(filepath) {
 		return "", errors.New("File not exists")
 	}
@@ -147,6 +174,9 @@ func loadImageAsBase64(filepath string) (string, error) {
 }
 
 func pushToSliceIfNotExist(slice []string, newItem string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "pushToSliceIfNotExist: len(slice)=%d newItem=%.120q", len(slice), newItem)
+	}
 	itemExists := false
 	for _, item := range slice {
 		if item == newItem {
@@ -162,6 +192,9 @@ func pushToSliceIfNotExist(slice []string, newItem string) []string {
 }
 
 func removeFromSliceIfExists(slice []string, target string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "removeFromSliceIfExists: len(slice)=%d target=%.120q", len(slice), target)
+	}
 	newSlice := []string{}
 	for _, item := range slice {
 		if item != target {

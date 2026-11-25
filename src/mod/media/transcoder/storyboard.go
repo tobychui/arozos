@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // StoryboardCacheFolder returns the folder holding the storyboard sheet for a
@@ -34,6 +36,9 @@ import (
 // to. The trailing separator matches how the metadata package builds its own
 // cache paths, so callers can concatenate a filename directly.
 func StoryboardCacheFolder(videoRealPath string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("media/transcoder", "StoryboardCacheFolder: videoRealPath=%.120q", videoRealPath)
+	}
 	return filepath.ToSlash(
 		filepath.Join(filepath.Clean(filepath.Dir(videoRealPath)), "/.metadata/.storyboard/")) + "/"
 }
@@ -76,6 +81,9 @@ type StoryboardLayout struct {
 //
 // Kept free of ffmpeg so the sizing rules can be unit-tested directly.
 func PlanStoryboard(duration float64) (StoryboardLayout, error) {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "PlanStoryboard: duration=%g", duration)
+	}
 	if duration <= 0 || math.IsNaN(duration) || math.IsInf(duration, 0) {
 		return StoryboardLayout{}, errors.New("invalid duration")
 	}
@@ -128,6 +136,9 @@ func PlanStoryboard(duration float64) (StoryboardLayout, error) {
 // take many minutes, while a keyframe-only pass runs an order of magnitude
 // faster and is more than accurate enough for thumbnails.
 func GenerateStoryboard(inputFile string, workDir string, duration float64) ([]byte, StoryboardLayout, error) {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "GenerateStoryboard: inputFile=%.120q workDir=%.120q duration=%g", inputFile, workDir, duration)
+	}
 	layout, err := PlanStoryboard(duration)
 	if err != nil {
 		return nil, StoryboardLayout{}, err
@@ -203,6 +214,9 @@ func GenerateStoryboard(inputFile string, workDir string, duration float64) ([]b
 // lastLines trims ffmpeg's very verbose output down to the tail, which is where
 // the actual failure reason lives.
 func lastLines(s string, n int) string {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "lastLines: s=%.120q n=%d", s, n)
+	}
 	if s == "" {
 		return ""
 	}

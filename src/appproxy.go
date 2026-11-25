@@ -24,6 +24,7 @@ import (
 
 	"imuslab.com/arozos/mod/appproxy"
 	"imuslab.com/arozos/mod/docker"
+	"imuslab.com/arozos/mod/info/logger"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
@@ -33,10 +34,14 @@ var appProxyManager *appproxy.Manager
 
 // appProxyIdentity converts an ArozOS user into the proxy's identity
 func appProxyIdentity(username string, groups []string, isAdmin bool) *appproxy.Identity {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("Core", "appProxyIdentity: username=%.120q len(groups)=%d isAdmin=%t", username, len(groups), isAdmin)
+	}
 	return &appproxy.Identity{Username: username, Groups: groups, IsAdmin: isAdmin}
 }
 
 func AppProxyInit() {
+	logger.Debug("Core", "AppProxyInit")
 	manager, err := appproxy.NewManager(appproxy.Options{
 		Store:    sysdb,
 		SelfPort: *listen_port,
@@ -135,6 +140,9 @@ type appProxyContainer struct {
 
 // handleAppProxyContainers lists Docker containers with their published web ports
 func handleAppProxyContainers(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleAppProxyContainers: r=%s", logger.RequestSummary(r))
+	}
 	if dockerManager == nil {
 		utils.SendJSONResponse(w, "[]")
 		return

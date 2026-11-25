@@ -79,6 +79,7 @@ type Manager struct {
 
 // NewManager prepares the manager and starts Syncthing if it was left on.
 func NewManager(opt *ManagerOption) (*Manager, error) {
+	logger.Debug("fileservers/servers/syncthingserv", "NewManager")
 	eng := opt.engine
 	if eng == nil {
 		if newEngine == nil {
@@ -114,6 +115,7 @@ func NewManager(opt *ManagerOption) (*Manager, error) {
 }
 
 func (m *Manager) engineConfig() engineConfig {
+	logger.DebugTrace("fileservers/servers/syncthingserv", "Manager.engineConfig")
 	return engineConfig{
 		Dir:      m.opt.StateDir,
 		Name:     m.opt.DeviceName,
@@ -124,6 +126,9 @@ func (m *Manager) engineConfig() engineConfig {
 // allowed reports whether a user may use Syncthing: admins always, others
 // when they are in one of the groups the admin picked.
 func (m *Manager) allowed(username string, settings Settings) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.allowed: username=%.120q", username)
+	}
 	if username == "" || !m.opt.UserExists(username) {
 		return false
 	}
@@ -135,11 +140,17 @@ func (m *Manager) allowed(username string, settings Settings) bool {
 
 // Allowed reports whether a user may use Syncthing.
 func (m *Manager) Allowed(username string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncthingserv", "Manager.Allowed: username=%.120q", username)
+	}
 	return m.allowed(username, m.store.settings())
 }
 
 // ServerToggle implements fileservers.Server.
 func (m *Manager) ServerToggle(enabled bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.ServerToggle: enabled=%t", enabled)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if enabled == m.running {
@@ -161,6 +172,7 @@ func (m *Manager) ServerToggle(enabled bool) error {
 
 // IsEnabled implements fileservers.Server.
 func (m *Manager) IsEnabled() bool {
+	logger.Debug("fileservers/servers/syncthingserv", "Manager.IsEnabled")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.running
@@ -169,6 +181,7 @@ func (m *Manager) IsEnabled() bool {
 // GetEndpoints implements fileservers.Server. Syncthing finds the server by
 // its device ID, the address is for devices that cannot use discovery.
 func (m *Manager) GetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
+	logger.Debug("fileservers/servers/syncthingserv", "Manager.GetEndpoints")
 	if userinfo == nil || !m.IsEnabled() || !m.Allowed(userinfo.Username) {
 		return []*fileservers.Endpoint{}
 	}
@@ -177,6 +190,7 @@ func (m *Manager) GetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
 
 // Close stops Syncthing without changing the setting.
 func (m *Manager) Close() {
+	logger.Debug("fileservers/servers/syncthingserv", "Manager.Close")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stopLocked()
@@ -184,6 +198,7 @@ func (m *Manager) Close() {
 
 // startLocked starts Syncthing with the current plan. The caller holds m.mu.
 func (m *Manager) startLocked() error {
+	logger.Debug("fileservers/servers/syncthingserv", "Manager.startLocked")
 	cfg := m.engineConfig()
 	result := m.planLocked(cfg.Settings)
 	if err := m.eng.Start(cfg, result.Plan); err != nil {
@@ -201,6 +216,7 @@ func (m *Manager) startLocked() error {
 
 // stopLocked stops Syncthing. The caller holds m.mu.
 func (m *Manager) stopLocked() {
+	logger.Debug("fileservers/servers/syncthingserv", "Manager.stopLocked")
 	if !m.running {
 		return
 	}
@@ -214,6 +230,9 @@ func (m *Manager) stopLocked() {
 // lost their access, full quotas, and drives that went away, and restarts
 // folders that stopped receiving while syncing (watchdog.go).
 func (m *Manager) loop(gen int, quit chan struct{}) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.loop: gen=%d", gen)
+	}
 	ticker := time.NewTicker(reconcileInterval)
 	defer ticker.Stop()
 	stalls := time.NewTicker(stallCheckInterval)
@@ -240,6 +259,7 @@ func (m *Manager) loop(gen int, quit chan struct{}) {
 
 // changed applies the records after a page changed them.
 func (m *Manager) changed() error {
+	logger.Debug("fileservers/servers/syncthingserv", "Manager.changed")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if !m.running {
@@ -250,6 +270,7 @@ func (m *Manager) changed() error {
 
 // applyLocked hands the current plan to Syncthing. The caller holds m.mu.
 func (m *Manager) applyLocked() error {
+	logger.Debug("fileservers/servers/syncthingserv", "Manager.applyLocked")
 	cfg := m.engineConfig()
 	result := m.planLocked(cfg.Settings)
 	m.result = result
@@ -263,6 +284,7 @@ func (m *Manager) applyLocked() error {
 
 // planLocked builds the plan from the records. The caller holds m.mu.
 func (m *Manager) planLocked(settings Settings) planResult {
+	logger.Debug("fileservers/servers/syncthingserv", "Manager.planLocked")
 	devices := m.store.devices()
 	folders := m.store.folders()
 	foldersOf := map[string][]string{}
@@ -301,6 +323,9 @@ func (m *Manager) planLocked(settings Settings) planResult {
 // forgetOwnerLocked removes the records of an account that was deleted, so a
 // new account of the same name does not inherit its devices. The files stay.
 func (m *Manager) forgetOwnerLocked(owner string) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.forgetOwnerLocked: owner=%.120q", owner)
+	}
 	removed := 0
 	for _, d := range m.store.devices() {
 		if d.Owner == owner {
@@ -338,6 +363,9 @@ const (
 // the last measurement is added on top, and the usage is measured again from
 // the disk when that looks full. The caller holds m.mu.
 func (m *Manager) quotaFullLocked(owner string, q Quota, folderIDs []string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "Manager.quotaFullLocked: owner=%.120q len(folderIDs)=%d", owner, len(folderIDs))
+	}
 	used, total := q.Usage()
 	if total < 0 {
 		return false

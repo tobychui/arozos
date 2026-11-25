@@ -34,6 +34,7 @@ type SMARTListener struct {
 
 // DiskSmartInit Desktop script initiation
 func NewSmartListener() (*SMARTListener, error) {
+	logger.Debug("disk/smart", "NewSmartListener")
 	smartExec := getBinary()
 
 	logger.PrintAndLog("Smart", "Starting SMART mointoring", nil)
@@ -65,6 +66,9 @@ func NewSmartListener() (*SMARTListener, error) {
 
 // this function used for fetch available devices by using smartctl
 func scanAvailableDevices(smartExec string) DevicesList {
+	if logger.IsDebug() {
+		logger.Debugf("disk/smart", "scanAvailableDevices: smartExec=%.120q", smartExec)
+	}
 	rawInfo := execCommand(smartExec, "--scan", "--json=c")
 	devicesList := new(DevicesList)
 	json.Unmarshal([]byte(rawInfo), &devicesList)
@@ -81,6 +85,9 @@ func scanAvailableDevices(smartExec string) DevicesList {
 
 // this function used for merge SMART Information into devicesList
 func readSMARTDevices(smartExec string, devicesList *DevicesList) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/smart", "readSMARTDevices: smartExec=%.120q", smartExec)
+	}
 	for i, device := range devicesList.Devices {
 		rawInfo := execCommand(smartExec, device.Name, "--info", "--all", "--json=c")
 		deviceSMART := new(DeviceSMART)
@@ -91,6 +98,7 @@ func readSMARTDevices(smartExec string, devicesList *DevicesList) {
 
 // used for fill the healthy status to the array
 func fillHealthyStatus(devicesList *DevicesList) {
+	logger.Debug("disk/smart", "fillHealthyStatus")
 	devicesList.Healthy = "Normal"
 	for i, device := range devicesList.Devices {
 		for j, smartTableElement := range device.Smart.AtaSmartAttributes.Table {
@@ -115,6 +123,7 @@ func fillHealthyStatus(devicesList *DevicesList) {
 // fillCapacity fills the capacity smartctl left at zero on Windows from the
 // disk drives Windows reports (mod/info/wininfo, no wmic or PowerShell)
 func fillCapacity(devicesList *DevicesList) {
+	logger.Debug("disk/smart", "fillCapacity")
 	if runtime.GOOS != "windows" {
 		return
 	}
@@ -128,6 +137,9 @@ func fillCapacity(devicesList *DevicesList) {
 // applyDiskCapacities gives each device without a capacity the size of the
 // disk with the same model name
 func applyDiskCapacities(devicesList *DevicesList, disks []wininfo.PhysicalDisk) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/smart", "applyDiskCapacities: len(disks)=%d", len(disks))
+	}
 	for i, device := range devicesList.Devices {
 		if device.Smart.UserCapacity.Bytes != 0 {
 			continue
@@ -145,11 +157,15 @@ func applyDiskCapacities(devicesList *DevicesList, disks []wininfo.PhysicalDisk)
 }
 
 func (s *SMARTListener) GetSMART(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/smart", "SMARTListener.GetSMART: r=%s", logger.RequestSummary(r))
+	}
 	jsonText, _ := json.Marshal(s.DriveList)
 	utils.SendJSONResponse(w, string(jsonText))
 }
 
 func getBinary() string {
+	logger.Debug("disk/smart", "getBinary")
 	// Prefer system-installed smartctl (more up-to-date, supports newer drives).
 	if path, err := exec.LookPath("smartctl"); err == nil {
 		logger.PrintAndLog("Smart", fmt.Sprint("[SMART] Using system-installed smartctl:", path), nil)

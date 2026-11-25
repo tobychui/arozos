@@ -21,6 +21,8 @@ import (
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const folderCacheTTL = 10 * time.Minute
@@ -73,6 +75,9 @@ var roleOrder = map[string]int{
 
 // Folders lists the mailboxes of an account with message counts.
 func (m *Manager) Folders(ctx context.Context, p Principal, accountID string, refresh bool) ([]Folder, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.Folders: accountID=%.120q refresh=%t", accountID, refresh)
+	}
 	account, err := m.account(p, accountID)
 	if err != nil {
 		return nil, err
@@ -101,6 +106,7 @@ func (m *Manager) Folders(ctx context.Context, p Principal, accountID string, re
 // foldersQuick returns the cached folder list or lists without counts, for
 // operations that only need to find a role folder.
 func (m *Manager) foldersQuick(c *imapclient.Client, key string) ([]Folder, error) {
+	logger.Debug("email", "Manager.foldersQuick")
 	if cached, ok := m.cachedFolders(key); ok {
 		return cached, nil
 	}
@@ -113,6 +119,7 @@ func (m *Manager) foldersQuick(c *imapclient.Client, key string) ([]Folder, erro
 }
 
 func (m *Manager) cachedFolders(key string) ([]Folder, bool) {
+	logger.Debug("email", "Manager.cachedFolders")
 	m.folders.mutex.Lock()
 	defer m.folders.mutex.Unlock()
 	entry, ok := m.folders.entries[key]
@@ -123,6 +130,9 @@ func (m *Manager) cachedFolders(key string) ([]Folder, bool) {
 }
 
 func (m *Manager) storeFolders(key string, folders []Folder) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.storeFolders: len(folders)=%d", len(folders))
+	}
 	m.folders.mutex.Lock()
 	defer m.folders.mutex.Unlock()
 	if m.folders.entries == nil {
@@ -132,6 +142,7 @@ func (m *Manager) storeFolders(key string, folders []Folder) {
 }
 
 func (m *Manager) dropFolderCache(key string) {
+	logger.Debug("email", "Manager.dropFolderCache")
 	m.folders.mutex.Lock()
 	defer m.folders.mutex.Unlock()
 	delete(m.folders.entries, key)
@@ -139,6 +150,9 @@ func (m *Manager) dropFolderCache(key string) {
 
 // listFolders runs LIST (and STATUS where needed) on a connection.
 func listFolders(c *imapclient.Client, withCounts bool) ([]Folder, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "listFolders: withCounts=%t", withCounts)
+	}
 	caps := c.Caps()
 	options := &imap.ListOptions{}
 	if caps.Has(imap.CapSpecialUse) && (caps.Has(imap.CapListExtended) || caps.Has(imap.CapIMAP4rev2)) {
@@ -220,6 +234,9 @@ func listFolders(c *imapclient.Client, withCounts bool) ([]Folder, error) {
 // assignWellKnownRoles names folders for servers without SPECIAL-USE. A role
 // is only assigned when no folder carries it yet, preferring shallow folders.
 func assignWellKnownRoles(folders []Folder) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "assignWellKnownRoles: len(folders)=%d", len(folders))
+	}
 	taken := map[string]bool{}
 	for _, folder := range folders {
 		if folder.Role != "" {
@@ -249,6 +266,9 @@ func assignWellKnownRoles(folders []Folder) {
 
 // fillFolderCounts pipelines STATUS for every selectable folder.
 func fillFolderCounts(c *imapclient.Client, folders []Folder) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "fillFolderCounts: len(folders)=%d", len(folders))
+	}
 	type pending struct {
 		index   int
 		command *imapclient.StatusCommand
@@ -276,6 +296,9 @@ func fillFolderCounts(c *imapclient.Client, folders []Folder) {
 
 // sortFolders puts special folders first and keeps children under parents.
 func sortFolders(folders []Folder) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "sortFolders: len(folders)=%d", len(folders))
+	}
 	rank := func(folder Folder) int {
 		if order, ok := roleOrder[folder.Role]; ok {
 			return order
@@ -293,6 +316,9 @@ func sortFolders(folders []Folder) {
 
 // folderByRole finds the folder playing a role.
 func folderByRole(folders []Folder, role string) (Folder, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "folderByRole: len(folders)=%d role=%.120q", len(folders), role)
+	}
 	for _, folder := range folders {
 		if folder.Role == role && folder.Selectable {
 			return folder, true
@@ -303,6 +329,9 @@ func folderByRole(folders []Folder, role string) (Folder, bool) {
 
 // roleOf returns the role of a folder by name.
 func roleOf(folders []Folder, name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "roleOf: len(folders)=%d name=%.120q", len(folders), name)
+	}
 	for _, folder := range folders {
 		if folder.Name == name {
 			return folder.Role
@@ -317,6 +346,9 @@ func roleOf(folders []Folder, name string) string {
 // ensureRoleFolder finds the folder of a role, creating a top-level one with
 // a conventional name when the server has none.
 func (m *Manager) ensureRoleFolder(c *imapclient.Client, key string, role string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.ensureRoleFolder: role=%.120q", role)
+	}
 	folders, err := m.foldersQuick(c, key)
 	if err != nil {
 		return "", err
@@ -355,6 +387,9 @@ func (m *Manager) ensureRoleFolder(c *imapclient.Client, key string, role string
 
 // CreateFolder makes a new mailbox, optionally inside parent.
 func (m *Manager) CreateFolder(ctx context.Context, p Principal, accountID string, parent string, name string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.CreateFolder: accountID=%.120q parent=%.120q name=%.120q", accountID, parent, name)
+	}
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return "", errors.New("folder name is empty")
@@ -394,6 +429,9 @@ func (m *Manager) CreateFolder(ctx context.Context, p Principal, accountID strin
 
 // RenameFolder renames a mailbox (keeping it under the same parent).
 func (m *Manager) RenameFolder(ctx context.Context, p Principal, accountID string, folder string, newName string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.RenameFolder: accountID=%.120q folder=%.120q newName=%.120q", accountID, folder, newName)
+	}
 	newName = strings.TrimSpace(newName)
 	if newName == "" {
 		return "", errors.New("folder name is empty")
@@ -432,6 +470,9 @@ func (m *Manager) RenameFolder(ctx context.Context, p Principal, accountID strin
 
 // DeleteFolder removes a mailbox and its messages.
 func (m *Manager) DeleteFolder(ctx context.Context, p Principal, accountID string, folder string) error {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.DeleteFolder: accountID=%.120q folder=%.120q", accountID, folder)
+	}
 	account, err := m.account(p, accountID)
 	if err != nil {
 		return err

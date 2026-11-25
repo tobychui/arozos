@@ -37,6 +37,9 @@ const (
 // of libx264 to keep CPU load down (probed once and cached by
 // getHWEncoderProfile); otherwise this falls back to the original software path.
 func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string, resolution TranscodeOutputResolution, startTime float64) {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "TranscodeAndStream: r=%s inputFile=%.120q startTime=%g", logger.RequestSummary(r), inputFile, startTime)
+	}
 	// Build the FFmpeg command based on the resolution parameter
 	var cmd *exec.Cmd
 
@@ -164,6 +167,9 @@ const (
 // TranscodeAndStreamAudio transcodes an audio file to MP3 and streams it.
 // startTime is the seek offset in seconds; pass 0 to start from the beginning.
 func TranscodeAndStreamAudio(w http.ResponseWriter, r *http.Request, inputFile string, sampleRate TranscodeAudioSampleRate, startTime float64) {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "TranscodeAndStreamAudio: r=%s inputFile=%.120q startTime=%g", logger.RequestSummary(r), inputFile, startTime)
+	}
 	var args []string
 	if startTime > 0.001 {
 		args = append(args, "-ss", fmt.Sprintf("%.3f", startTime))
@@ -240,6 +246,9 @@ func TranscodeAndStreamAudio(w http.ResponseWriter, r *http.Request, inputFile s
 
 // GetAudioDuration returns the duration of a local audio file in seconds using ffprobe.
 func GetAudioDuration(inputFile string) (float64, error) {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "GetAudioDuration: inputFile=%.120q", inputFile)
+	}
 	cmd := exec.Command("ffprobe",
 		"-v", "quiet",
 		"-print_format", "json",

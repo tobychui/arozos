@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/htmlutil"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 	"imuslab.com/arozos/mod/office/model"
@@ -26,6 +27,9 @@ var odsRefRe = regexp.MustCompile(`(\$?[A-Za-z]{1,3}\$?\d+)(:(\$?[A-Za-z]{1,3}\$
 
 // formulaToOdf rewrites "=SUM(A1:B2)+C3" into `of:=SUM([.A1:.B2])+[.C3]`
 func formulaToOdf(f string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "formulaToOdf: f=%.120q", f)
+	}
 	f = strings.TrimPrefix(f, "=")
 	var out strings.Builder
 	inStr := false
@@ -66,6 +70,9 @@ var odfBracketRe = regexp.MustCompile(`\[([^\]]+)\]`)
 
 // formulaFromOdf rewrites `of:=SUM([.A1:.B2])` back into "=SUM(A1:B2)"
 func formulaFromOdf(f string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "formulaFromOdf: f=%.120q", f)
+	}
 	f = strings.TrimPrefix(f, "of:")
 	f = strings.TrimPrefix(f, "=")
 	f = odfBracketRe.ReplaceAllStringFunc(f, func(m string) string {
@@ -84,6 +91,7 @@ func formulaFromOdf(f string) string {
 
 // BuildOds serializes a Workbook into a complete .ods file
 func BuildOds(wb *model.Workbook) ([]byte, error) {
+	logger.Debug("office/odf", "BuildOds")
 	var body strings.Builder
 	var styles strings.Builder
 	styleSeq := 0

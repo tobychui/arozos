@@ -36,6 +36,9 @@ type RAIDDevice struct {
 
 // Return the uuid of the disk by its path name (e.g. /dev/sda)
 func (m *Manager) GetDiskUUIDByPath(devicePath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.GetDiskUUIDByPath: devicePath=%.120q", devicePath)
+	}
 	cmd := exec.Command("sudo", "blkid", devicePath)
 
 	output, err := cmd.CombinedOutput()
@@ -58,6 +61,9 @@ func (m *Manager) GetDiskUUIDByPath(devicePath string) (string, error) {
 
 // CreateRAIDDevice creates a RAID device using the mdadm command.
 func (m *Manager) CreateRAIDDevice(devName string, raidName string, raidLevel int, raidDeviceIds []string, spareDeviceIds []string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.CreateRAIDDevice: devName=%.120q raidName=%.120q raidLevel=%d len(raidDeviceIds)=%d len(spareDeviceIds)=%d", devName, raidName, raidLevel, len(raidDeviceIds), len(spareDeviceIds))
+	}
 	//Calculate the size of the raid devices
 	raidDev := len(raidDeviceIds)
 	spareDevice := len(spareDeviceIds)
@@ -125,6 +131,7 @@ func (m *Manager) CreateRAIDDevice(devName string, raidName string, raidLevel in
 // GetRAIDDevicesFromProcMDStat retrieves information about RAID devices from /proc/mdstat.
 // if your RAID array is in auto-read-only mode, it is (usually) brand new
 func (m *Manager) GetRAIDDevicesFromProcMDStat() ([]RAIDDevice, error) {
+	logger.Debug("disk/raid", "Manager.GetRAIDDevicesFromProcMDStat")
 	// Execute the cat command to read /proc/mdstat
 	cmd := exec.Command("cat", "/proc/mdstat")
 
@@ -231,6 +238,9 @@ func (m *Manager) GetRAIDDevicesFromProcMDStat() ([]RAIDDevice, error) {
 
 // Check if a disk is failed in given array
 func (m *Manager) DiskIsFailed(mdDevice, diskPath string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.DiskIsFailed: mdDevice=%.120q diskPath=%.120q", mdDevice, diskPath)
+	}
 	raidDevices, err := m.GetRAIDDeviceByDevicePath(mdDevice)
 	if err != nil {
 		return false, err
@@ -249,6 +259,9 @@ func (m *Manager) DiskIsFailed(mdDevice, diskPath string) (bool, error) {
 
 // FailDisk label a disk as failed
 func (m *Manager) FailDisk(mdDevice, diskPath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.FailDisk: mdDevice=%.120q diskPath=%.120q", mdDevice, diskPath)
+	}
 	//mdadm commands require full path
 	if !strings.HasPrefix(diskPath, "/dev/") {
 		diskPath = filepath.Join("/dev/", diskPath)
@@ -267,6 +280,9 @@ func (m *Manager) FailDisk(mdDevice, diskPath string) error {
 // RemoveDisk removes a failed disk from the specified RAID array using mdadm.
 // must be failed before remove
 func (m *Manager) RemoveDisk(mdDevice, diskPath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.RemoveDisk: mdDevice=%.120q diskPath=%.120q", mdDevice, diskPath)
+	}
 	//mdadm commands require full path
 	if !strings.HasPrefix(diskPath, "/dev/") {
 		diskPath = filepath.Join("/dev/", diskPath)
@@ -284,6 +300,9 @@ func (m *Manager) RemoveDisk(mdDevice, diskPath string) error {
 
 // Add disk to a given RAID array, must be unmounted and not in-use
 func (m *Manager) AddDisk(mdDevice, diskPath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.AddDisk: mdDevice=%.120q diskPath=%.120q", mdDevice, diskPath)
+	}
 	//mdadm commands require full path
 	if !strings.HasPrefix(diskPath, "/dev/") {
 		diskPath = filepath.Join("/dev/", diskPath)
@@ -301,6 +320,9 @@ func (m *Manager) AddDisk(mdDevice, diskPath string) error {
 
 // GrowRAIDDevice grows the specified RAID device to its maximum size
 func (m *Manager) GrowRAIDDevice(deviceName string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.GrowRAIDDevice: deviceName=%.120q", deviceName)
+	}
 	//Prevent anyone passing /dev/md0 into the deviceName field
 	deviceName = strings.TrimPrefix(deviceName, "/dev/")
 

@@ -22,6 +22,8 @@ import (
 	"errors"
 	"strings"
 	"unicode/utf16"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -42,6 +44,9 @@ const (
 // Microsoft platform records (UTF-16BE) are preferred because they are the ones
 // Windows-oriented tooling writes; a Macintosh record is accepted as fallback.
 func FontFamilyName(font []byte) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "FontFamilyName: len(font)=%d", len(font))
+	}
 	nameTable, err := findSfntTable(font, "name")
 	if err != nil {
 		return "", err
@@ -93,6 +98,9 @@ func FontFamilyName(font []byte) (string, error) {
 
 // findSfntTable locates a table by tag inside an sfnt container.
 func findSfntTable(font []byte, wantTag string) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "findSfntTable: len(font)=%d wantTag=%.120q", len(font), wantTag)
+	}
 	if len(font) < sfntTableDirOffset {
 		return nil, errors.New("not a font file")
 	}
@@ -125,6 +133,7 @@ func findSfntTable(font []byte, wantTag string) ([]byte, error) {
 
 // decodeUTF16BE converts a big-endian UTF-16 name record to a Go string.
 func decodeUTF16BE(raw []byte) string {
+	logger.Debug("media/transcoder", "decodeUTF16BE")
 	if len(raw)%2 != 0 {
 		raw = raw[:len(raw)-1]
 	}

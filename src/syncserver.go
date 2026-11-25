@@ -12,6 +12,7 @@ import (
 	"imuslab.com/arozos/mod/fileservers/servers/syncserv"
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network"
 	prout "imuslab.com/arozos/mod/prouter"
 	user "imuslab.com/arozos/mod/user"
@@ -33,6 +34,7 @@ var SyncServerManager *syncserv.Manager
 
 // SyncServerInit sets up the manager, its endpoints and its list entry.
 func SyncServerInit(router, adminRouter *prout.RouterDef) {
+	logger.Debug("Core", "SyncServerInit")
 	var err error
 	SyncServerManager, err = syncserv.NewManager(&syncserv.ManagerOption{
 		Sysdb: sysdb,
@@ -133,6 +135,9 @@ type syncFolder struct {
 // syncServerOpenFolder checks a folder a user picked for uploads: the drive
 // is there and mounted, and the user can write to the folder.
 func syncServerOpenFolder(username, vpath string) (syncserv.Folder, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "syncServerOpenFolder: username=%.120q vpath=%.120q", username, vpath)
+	}
 	userinfo, err := userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
 		return nil, err
@@ -164,14 +169,23 @@ func syncServerOpenFolder(username, vpath string) (syncserv.Folder, error) {
 }
 
 func (f *syncFolder) VirtualPath(rel string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("Core", "syncFolder.VirtualPath: rel=%.120q", rel)
+	}
 	return strings.TrimSuffix(f.base, "/") + "/" + rel
 }
 
 func (f *syncFolder) realPath(rel string) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("Core", "syncFolder.realPath: rel=%.120q", rel)
+	}
 	return f.fsh.FileSystemAbstraction.VirtualPathToRealPath(f.VirtualPath(rel), f.userinfo.Username)
 }
 
 func (f *syncFolder) Stat(rel string) (bool, bool, int64) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "syncFolder.Stat: rel=%.120q", rel)
+	}
 	rpath, err := f.realPath(rel)
 	if err != nil {
 		return false, false, 0
@@ -184,6 +198,9 @@ func (f *syncFolder) Stat(rel string) (bool, bool, int64) {
 }
 
 func (f *syncFolder) Open(rel string) (io.ReadCloser, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "syncFolder.Open: rel=%.120q", rel)
+	}
 	rpath, err := f.realPath(rel)
 	if err != nil {
 		return nil, err
@@ -192,6 +209,9 @@ func (f *syncFolder) Open(rel string) (io.ReadCloser, error) {
 }
 
 func (f *syncFolder) HaveSpace(size int64) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "syncFolder.HaveSpace: size=%d", size)
+	}
 	if size <= 0 || f.fsh.Hierarchy != "user" || f.userinfo.StorageQuota == nil {
 		return true
 	}
@@ -199,6 +219,9 @@ func (f *syncFolder) HaveSpace(size int64) bool {
 }
 
 func (f *syncFolder) Place(spool string, rel string) error {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "syncFolder.Place: spool=%.120q rel=%.120q", spool, rel)
+	}
 	vpath := f.VirtualPath(rel)
 	//Access is asked on every write: a group or drive rule may have changed
 	//since the folder was picked

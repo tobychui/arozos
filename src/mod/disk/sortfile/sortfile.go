@@ -11,6 +11,7 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -20,12 +21,16 @@ type LargeFileScanner struct {
 }
 
 func NewLargeFileScanner(u *user.UserHandler) *LargeFileScanner {
+	logger.DebugTrace("disk/sortfile", "NewLargeFileScanner")
 	return &LargeFileScanner{
 		userHandler: u,
 	}
 }
 
 func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/sortfile", "LargeFileScanner.HandleLargeFileList: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := s.userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())

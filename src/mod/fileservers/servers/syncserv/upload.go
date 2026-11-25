@@ -90,6 +90,9 @@ type incoming struct {
 // reply answers with JSON. < > & stay as they are: the answer is read by
 // people in the result view of a shortcut, never put into a page.
 func reply(w http.ResponseWriter, status int, value interface{}) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "reply: status=%d", status)
+	}
 	buf := &bytes.Buffer{}
 	encoder := json.NewEncoder(buf)
 	encoder.SetEscapeHTML(false)
@@ -101,10 +104,16 @@ func reply(w http.ResponseWriter, status int, value interface{}) {
 }
 
 func replyError(w http.ResponseWriter, status int, text string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncserv", "replyError: status=%d", status)
+	}
 	reply(w, status, map[string]string{"error": text})
 }
 
 func askForPassword(w http.ResponseWriter, status int, text string) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "askForPassword: status=%d", status)
+	}
 	w.Header().Set("WWW-Authenticate", `Basic realm="ArozOS Sync Server", charset="UTF-8"`)
 	replyError(w, status, text)
 }
@@ -112,6 +121,9 @@ func askForPassword(w http.ResponseWriter, status int, text string) {
 // HandleUpload is the upload endpoint. It signs requests in itself, so it
 // is registered outside the session router (syncserver.go).
 func (m *Manager) HandleUpload(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.HandleUpload: r=%s", logger.RequestSummary(r))
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	if !m.IsEnabled() {
 		replyError(w, http.StatusServiceUnavailable, "The sync server is turned off")
@@ -249,6 +261,9 @@ func (m *Manager) HandleUpload(w http.ResponseWriter, r *http.Request) {
 // trailing slash still uploads; anything else says where uploads go, so a
 // typo in a shortcut shows up as such instead of as the login page.
 func (m *Manager) HandleOtherPath(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.HandleOtherPath: r=%s", logger.RequestSummary(r))
+	}
 	if strings.TrimRight(r.URL.Path, "/") == UploadPath {
 		m.HandleUpload(w, r)
 		return
@@ -260,6 +275,9 @@ func (m *Manager) HandleOtherPath(w http.ResponseWriter, r *http.Request) {
 // receive reads the files and fields of an upload into the spool folder.
 // The files received are returned even with an error, so they are removed.
 func (m *Manager) receive(r *http.Request, limit int64) ([]incoming, map[string]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.receive: r=%s limit=%d", logger.RequestSummary(r), limit)
+	}
 	files := []incoming{}
 	fields := map[string]string{}
 	mediaType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
@@ -329,6 +347,9 @@ func (m *Manager) receive(r *http.Request, limit int64) ([]incoming, map[string]
 
 // spool copies an upload into a file of the spool folder.
 func (m *Manager) spool(src io.Reader, limit int64) (incoming, error) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.spool: limit=%d", limit)
+	}
 	if err := os.MkdirAll(m.opt.SpoolDir, 0755); err != nil {
 		return incoming{}, err
 	}
@@ -355,6 +376,9 @@ func (m *Manager) spool(src io.Reader, limit int64) (incoming, error) {
 }
 
 func readHead(name string, n int) []byte {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "readHead: name=%.120q n=%d", name, n)
+	}
 	f, err := os.Open(name)
 	if err != nil {
 		return nil
@@ -368,6 +392,9 @@ func readHead(name string, n int) []byte {
 // fileMediaDate reads the date of a received file. A file that trips the
 // reader costs its date, never the upload.
 func fileMediaDate(name string, size int64) (when time.Time, ok bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "fileMediaDate: name=%.120q size=%d", name, size)
+	}
 	defer func() {
 		if recover() != nil {
 			when, ok = time.Time{}, false
@@ -396,6 +423,9 @@ var genericStems = map[string]bool{
 
 // GenericName tells whether a file name says nothing about the file.
 func GenericName(name string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "GenericName: name=%.120q", name)
+	}
 	stem := strings.ToLower(strings.TrimSuffix(name, path.Ext(name)))
 	return genericStems[stem] || strings.HasPrefix(stem, "fullsizerender")
 }
@@ -403,6 +433,9 @@ func GenericName(name string) bool {
 // distinctName adds the date taken, else the start of the content's hash,
 // to a generic name.
 func distinctName(name string, taken time.Time, haveTaken bool, spool string) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "distinctName: name=%.120q haveTaken=%t spool=%.120q", name, haveTaken, spool)
+	}
 	ext := path.Ext(name)
 	stem := strings.TrimSuffix(name, ext)
 	if haveTaken {
@@ -418,6 +451,9 @@ func distinctName(name string, taken time.Time, haveTaken bool, spool string) st
 
 // store decides where a received file goes and puts it there.
 func (m *Manager) store(username string, settings UserSettings, folder Folder, f incoming, dateText string, now time.Time) FileResult {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.store: username=%.120q dateText=%.120q", username, dateText)
+	}
 	name := CleanName(f.name)
 	if name == "" || path.Ext(name) == "" {
 		ext := sniffExt(readHead(f.spool, 512), f.contentType)
@@ -459,6 +495,9 @@ func (m *Manager) store(username string, settings UserSettings, folder Folder, f
 }
 
 func numberedRel(rel string, n int) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "numberedRel: rel=%.120q n=%d", rel, n)
+	}
 	dir, file := path.Split(rel)
 	return dir + Numbered(file, n)
 }
@@ -468,6 +507,9 @@ func numberedRel(rel string, n int) string {
 // and size in the folder. A different file of the same name is kept as well,
 // as "name (1).ext".
 func (m *Manager) storeSkipping(username string, folder Folder, f incoming, name, rel string, now time.Time) FileResult {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.storeSkipping: username=%.120q name=%.120q rel=%.120q", username, name, rel)
+	}
 	if entry, ok := m.seen(username, name, now); ok {
 		return FileResult{Name: name, Result: ResultSkipped, Reason: ReasonReceived, Path: folder.VirtualPath(entry.P)}
 	}
@@ -493,6 +535,9 @@ func (m *Manager) storeSkipping(username string, folder Folder, f incoming, name
 // the last 30 days replaces that copy, wherever it went, so a date folder
 // that changed (by upload date, around midnight) does not leave two.
 func (m *Manager) storeReplacing(username string, folder Folder, f incoming, name, rel string, now time.Time) FileResult {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.storeReplacing: username=%.120q name=%.120q rel=%.120q", username, name, rel)
+	}
 	target := rel
 	if entry, ok := m.seen(username, name, now); ok && entry.P != rel {
 		if exists, isDir, _ := folder.Stat(entry.P); exists && !isDir {
@@ -514,6 +559,9 @@ func (m *Manager) storeReplacing(username string, folder Folder, f incoming, nam
 }
 
 func (m *Manager) place(username string, folder Folder, f incoming, name, target string, freed int64, now time.Time, result string) FileResult {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.place: username=%.120q name=%.120q target=%.120q freed=%d result=%.120q", username, name, target, freed, result)
+	}
 	if !folder.HaveSpace(f.size - freed) {
 		return FileResult{Name: name, Result: ResultFailed, Reason: ReasonQuota, Error: "Your storage quota is full"}
 	}
@@ -527,6 +575,9 @@ func (m *Manager) place(username string, folder Folder, f incoming, name, target
 
 // sameContent compares a file in the folder with a received one.
 func sameContent(folder Folder, rel, spool string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "sameContent: rel=%.120q spool=%.120q", rel, spool)
+	}
 	a, err := folder.Open(rel)
 	if err != nil {
 		return false
@@ -561,6 +612,9 @@ func sameContent(folder Folder, rel, spool string) bool {
 */
 
 func (m *Manager) noteResult(username, remote string, now time.Time, result UploadResult) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.noteResult: username=%.120q remote=%.120q", username, remote)
+	}
 	lock := m.userLock(username)
 	lock.Lock()
 	defer lock.Unlock()
@@ -584,6 +638,9 @@ func (m *Manager) noteResult(username, remote string, now time.Time, result Uplo
 }
 
 func (m *Manager) noteFailure(username, remote string, now time.Time, text string) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.noteFailure: username=%.120q remote=%.120q", username, remote)
+	}
 	lock := m.userLock(username)
 	lock.Lock()
 	defer lock.Unlock()

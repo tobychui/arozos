@@ -9,6 +9,7 @@ import (
 
 	"imuslab.com/arozos/mod/cluster/metadata"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/storage/access"
 )
 
@@ -33,6 +34,9 @@ var driveAccessStore *access.Store
 type driveRuleSource struct{}
 
 func (driveRuleSource) Rule(uuid string) (access.Rule, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "driveRuleSource.Rule: uuid=%.120q", uuid)
+	}
 	if uuid == access.ClusterDriveID {
 		return clusterDriveRule()
 	}
@@ -42,6 +46,7 @@ func (driveRuleSource) Rule(uuid string) (access.Rule, bool) {
 // DriveAccessInit opens the rules. It runs once every pool is loaded, since
 // converting the old bridges needs to know where each drive lives.
 func DriveAccessInit() {
+	logger.Debug("Core", "DriveAccessInit")
 	driveAccessStore = access.NewStore(filepath.Join("system", driveAccessRuleFile))
 	if err := driveAccessStore.Err(); err != nil {
 		systemWideLogger.PrintAndLog("Storage", "Unable to read the drive access rules, every drive is closed to non admins until "+driveAccessRuleFile+" is repaired", err)
@@ -69,6 +74,9 @@ func DriveAccessInit() {
 // drivePoolHome returns the home group of a drive, empty for the system pool,
 // and whether any pool holds or configures it
 func drivePoolHome(uuid string) (string, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "drivePoolHome: uuid=%.120q", uuid)
+	}
 	for _, pool := range collectPoolStates() {
 		if pool.holds(uuid) {
 			if pool.owner == storagePoolSystem {
@@ -84,6 +92,7 @@ func drivePoolHome(uuid string) (string, bool) {
 // drive. Requests read the rules directly; these are the parts that keep a
 // copy of the outcome.
 func driveAccessChanged() {
+	logger.Debug("Core", "driveAccessChanged")
 	userHandler.ResetQuotaManagers()
 	if SambaShareManager != nil {
 		go func() {
@@ -96,6 +105,9 @@ func driveAccessChanged() {
 
 // setDriveRule saves the rule of a drive where that drive keeps it
 func setDriveRule(uuid string, rule access.Rule) error {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "setDriveRule: uuid=%.120q", uuid)
+	}
 	if uuid == access.ClusterDriveID {
 		return clusterSetDriveRule(rule)
 	}
@@ -104,6 +116,9 @@ func setDriveRule(uuid string, rule access.Rule) error {
 
 // effectiveDriveRule returns the rule a drive has right now, saved or default
 func effectiveDriveRule(rules access.Source, uuid string, home string) access.Rule {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "effectiveDriveRule: uuid=%.120q home=%.120q", uuid, home)
+	}
 	if rule, ok := rules.Rule(uuid); ok {
 		return rule
 	}
@@ -124,6 +139,7 @@ var (
 
 // clusterDriveRule returns the rule of cluster:/ this node knows
 func clusterDriveRule() (access.Rule, bool) {
+	logger.Debug("Core", "clusterDriveRule")
 	if clusterMetadata == nil {
 		return access.Rule{}, false
 	}
@@ -144,6 +160,7 @@ func clusterDriveRule() (access.Rule, bool) {
 // parseClusterDriveRule reads a replicated rule. One that cannot be read, say
 // from a newer member, closes the drive rather than opening it.
 func parseClusterDriveRule(raw []byte) access.Rule {
+	logger.Debug("Core", "parseClusterDriveRule")
 	rule := access.Rule{}
 	if err := json.Unmarshal(raw, &rule); err != nil || rule.Validate() != nil {
 		systemWideLogger.PrintAndLog("Cluster", "The cluster:/ access rule cannot be read, closing the drive to non admins", err)
@@ -154,6 +171,7 @@ func parseClusterDriveRule(raw []byte) access.Rule {
 
 // clusterSetDriveRule replicates a new rule of cluster:/ to every member
 func clusterSetDriveRule(rule access.Rule) error {
+	logger.Debug("Core", "clusterSetDriveRule")
 	if clusterMetadata == nil || clusterManager == nil || !clusterManager.InCluster() {
 		return errors.New("this node is not in a cluster")
 	}
@@ -166,6 +184,7 @@ func clusterSetDriveRule(rule access.Rule) error {
 
 // clusterSettingChanged follows a change of a replicated setting
 func clusterSettingChanged(payload []byte) {
+	logger.Debug("Core", "clusterSettingChanged")
 	setting := metadata.Setting{}
 	if err := json.Unmarshal(payload, &setting); err != nil || setting.Key != clusterDriveRuleKey {
 		return
@@ -177,6 +196,9 @@ func clusterSettingChanged(payload []byte) {
 // cluster:/, because the dataset pattern is expanded from the metadata index
 // and would hand the job the names of files the user may not see.
 func clusterDatasetAllowed(username string, dataset string) error {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterDatasetAllowed: username=%.120q dataset=%.120q", username, dataset)
+	}
 	if dataset == "" {
 		return nil
 	}
@@ -193,5 +215,6 @@ func clusterDatasetAllowed(username string, dataset string) error {
 // isClusterOrShareDrive reports whether a drive is built by code rather than
 // from a config row, so it cannot be rebuilt from its start options
 func isClusterOrShareDrive(fsh *fs.FileSystemHandler) bool {
+	logger.DebugTrace("Core", "isClusterOrShareDrive")
 	return fsh.UUID == access.ClusterDriveID || fsh.UUID == access.ShareDriveID
 }

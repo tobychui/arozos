@@ -16,6 +16,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf16"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Info describes one font file
@@ -41,6 +43,7 @@ type Info struct {
 // Inspect validates a decoded font and reads its description and character
 // map. It fails for fonts a browser could not use.
 func Inspect(font *Font) (Info, map[uint32]uint16, error) {
+	logger.Debug("locale/fonts", "Inspect")
 	var info Info
 	for _, tag := range []string{"cmap", "head", "hhea", "maxp", "name"} {
 		if font.Table(tag) == nil {
@@ -147,11 +150,17 @@ func Inspect(font *Font) (Info, map[uint32]uint16, error) {
 // alone, must not be embedded in a document. Old fonts may set several
 // usage bits; the least restrictive one applies.
 func noEmbed(fsType uint16) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "noEmbed: fsType=%d", fsType)
+	}
 	return fsType&0x000F == 0x0002 || fsType&0x0200 != 0
 }
 
 // glyphOffsets reads loca: glyph i occupies glyf[offsets[i]:offsets[i+1]]
 func glyphOffsets(font *Font, numGlyphs int) ([]uint32, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "glyphOffsets: numGlyphs=%d", numGlyphs)
+	}
 	head, loca, glyf := font.Table("head"), font.Table("loca"), font.Table("glyf")
 	long := len(head) >= 52 && binary.BigEndian.Uint16(head[50:]) == 1
 	size := 2
@@ -179,6 +188,9 @@ func glyphOffsets(font *Font, numGlyphs int) ([]uint32, error) {
 }
 
 func weightAxis(fvar []byte) (int, int, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "weightAxis: len(fvar)=%d", len(fvar))
+	}
 	axesOffset, err1 := u16(fvar, 4)
 	count, err2 := u16(fvar, 8)
 	size, err3 := u16(fvar, 10)
@@ -205,6 +217,9 @@ func weightAxis(fvar []byte) (int, int, bool) {
 
 // readNames returns the best English (or first) string for each name id
 func readNames(table []byte) (map[uint16]string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "readNames: len(table)=%d", len(table))
+	}
 	count, err1 := u16(table, 2)
 	strOffset, err2 := u16(table, 4)
 	if err1 != nil || err2 != nil {
@@ -259,6 +274,9 @@ func readNames(table []byte) (map[uint16]string, error) {
 }
 
 func decodeUTF16(b []byte) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "decodeUTF16: len(b)=%d", len(b))
+	}
 	units := make([]uint16, len(b)/2)
 	for i := range units {
 		units[i] = binary.BigEndian.Uint16(b[2*i:])
@@ -267,6 +285,9 @@ func decodeUTF16(b []byte) string {
 }
 
 func latin1(b []byte) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "latin1: len(b)=%d", len(b))
+	}
 	r := make([]rune, len(b))
 	for i, c := range b {
 		r[i] = rune(c)
@@ -276,6 +297,9 @@ func latin1(b []byte) string {
 
 // clean drops control characters and trims a name to a sane length
 func clean(s string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "clean: s=%.120q", s)
+	}
 	s = strings.Map(func(r rune) rune {
 		if unicode.IsControl(r) || r == unicode.ReplacementChar {
 			return -1
@@ -286,6 +310,9 @@ func clean(s string) string {
 }
 
 func clip(s string, n int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "clip: s=%.120q n=%d", s, n)
+	}
 	r := []rune(s)
 	if len(r) > n {
 		return string(r[:n]) + "…"
@@ -294,6 +321,9 @@ func clip(s string, n int) string {
 }
 
 func firstOf(values ...string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "firstOf: len(values)=%d", len(values))
+	}
 	for _, v := range values {
 		if v != "" {
 			return v
@@ -322,6 +352,9 @@ var scriptRanges = []struct {
 }
 
 func scriptsOf(cmap map[uint32]uint16) []string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "scriptsOf: len(cmap)=%d", len(cmap))
+	}
 	counts := make([]int, len(scriptRanges))
 	for cp := range cmap {
 		for i, s := range scriptRanges {
@@ -341,6 +374,9 @@ func scriptsOf(cmap map[uint32]uint16) []string {
 
 // sortedCodepoints returns the keys of a character map in ascending order
 func sortedCodepoints(cmap map[uint32]uint16) []uint32 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "sortedCodepoints: len(cmap)=%d", len(cmap))
+	}
 	cps := make([]uint32, 0, len(cmap))
 	for cp := range cmap {
 		cps = append(cps, cp)

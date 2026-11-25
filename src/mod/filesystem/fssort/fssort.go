@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type sortBufferedStructure struct {
@@ -20,6 +22,9 @@ var ValidSortModes = []string{"default", "reverse", "smallToLarge", "largeToSmal
 Quick utilties to sort file list according to different modes
 */
 func SortFileList(filelistRealpath []string, fileInfos []fs.FileInfo, sortMode string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/fssort", "SortFileList: len(filelistRealpath)=%d len(fileInfos)=%d sortMode=%.120q", len(filelistRealpath), len(fileInfos), sortMode)
+	}
 	//Build a filelist with information based on the given filelist
 	parsedFilelist := []*sortBufferedStructure{}
 	if len(filelistRealpath) != len(fileInfos) {
@@ -106,6 +111,9 @@ func SortFileList(filelistRealpath []string, fileInfos []fs.FileInfo, sortMode s
 }
 
 func SortDirEntryList(dirEntries []fs.DirEntry, sortMode string) []fs.DirEntry {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/fssort", "SortDirEntryList: len(dirEntries)=%d sortMode=%.120q", len(dirEntries), sortMode)
+	}
 	entries := map[string]fs.DirEntry{}
 	fnames := []string{}
 	fis := []fs.FileInfo{}
@@ -131,10 +139,16 @@ func SortDirEntryList(dirEntries []fs.DirEntry, sortMode string) []fs.DirEntry {
 }
 
 func SortModeIsSupported(sortMode string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/fssort", "SortModeIsSupported: sortMode=%.120q", sortMode)
+	}
 	return contains(sortMode, ValidSortModes)
 }
 
 func contains(item string, slice []string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/fssort", "contains: item=%.120q len(slice)=%d", item, len(slice))
+	}
 	set := make(map[string]struct{}, len(slice))
 	for _, s := range slice {
 		set[s] = struct{}{}

@@ -24,6 +24,7 @@ import (
 // Force mdadm to stop all RAID and load fresh from config file
 // on some Linux distro this is required as mdadm start too early
 func (m *Manager) FlushReload() error {
+	logger.Debug("disk/raid", "Manager.FlushReload")
 	//Get a list of currently running RAID devices
 	raidDevices, err := m.GetRAIDDevicesFromProcMDStat()
 	if err != nil {
@@ -64,6 +65,9 @@ func (m *Manager) FlushReload() error {
 
 // removeDevicesEntry remove device hardcode from mdadm config file
 func removeDevicesEntry(configLine string) string {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "removeDevicesEntry: configLine=%.120q", configLine)
+	}
 	// Split the config line by space character
 	tokens := strings.Fields(configLine)
 
@@ -86,6 +90,7 @@ func removeDevicesEntry(configLine string) string {
 // so the RAID drive will still be seen after a reboot (hopefully)
 // this will automatically add / remove config base on current runtime setup
 func (m *Manager) UpdateMDADMConfig() error {
+	logger.Debug("disk/raid", "Manager.UpdateMDADMConfig")
 	cmdMdadm := exec.Command("sudo", "mdadm", "--detail", "--scan", "--verbose")
 
 	// Run the command and capture its output
@@ -191,6 +196,9 @@ func (m *Manager) UpdateMDADMConfig() error {
 // Note that this only remove a single line of config. If your line consists of multiple lines
 // you might need to remove it manually
 func (m *Manager) RemoveVolumeFromMDADMConfig(volumeUUID string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.RemoveVolumeFromMDADMConfig: volumeUUID=%.120q", volumeUUID)
+	}
 	// Construct the sed command to remove the line containing the volume UUID from mdadm.conf
 	sedCommand := fmt.Sprintf(`sudo sed -i '/UUID=%s/d' /etc/mdadm/mdadm.conf`, volumeUUID)
 

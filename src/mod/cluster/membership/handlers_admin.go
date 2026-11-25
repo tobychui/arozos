@@ -15,21 +15,29 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/cluster/acn"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
 func sendJSON(w http.ResponseWriter, v interface{}) {
+	logger.Debug("cluster/membership", "sendJSON")
 	js, _ := json.Marshal(v)
 	utils.SendJSONResponse(w, string(js))
 }
 
 // HandleStatus returns the whole cluster picture for the settings page.
 func (m *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/membership", "Manager.HandleStatus: r=%s", logger.RequestSummary(r))
+	}
 	sendJSON(w, m.Status())
 }
 
 // HandleCreate creates a new cluster with this node as first member.
 func (m *Manager) HandleCreate(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.HandleCreate: r=%s", logger.RequestSummary(r))
+	}
 	name, err := utils.PostPara(r, "name")
 	if err != nil {
 		utils.SendErrorResponse(w, "cluster name required")
@@ -45,6 +53,9 @@ func (m *Manager) HandleCreate(w http.ResponseWriter, r *http.Request) {
 
 // HandleJoin joins the cluster described by a pasted join token.
 func (m *Manager) HandleJoin(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.HandleJoin: r=%s", logger.RequestSummary(r))
+	}
 	token, err := utils.PostPara(r, "token")
 	if err != nil {
 		utils.SendErrorResponse(w, "join token required")
@@ -60,6 +71,9 @@ func (m *Manager) HandleJoin(w http.ResponseWriter, r *http.Request) {
 
 // HandleLeave leaves the current cluster.
 func (m *Manager) HandleLeave(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.HandleLeave: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "POST required")
 		return
@@ -73,6 +87,9 @@ func (m *Manager) HandleLeave(w http.ResponseWriter, r *http.Request) {
 
 // HandleConfig reads (GET) or updates (POST) the local node configuration.
 func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.HandleConfig: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		sendJSON(w, m.Config())
 		return
@@ -104,6 +121,9 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 // HandleTestURL checks that a URL reaches THIS node's ACN endpoint, which is
 // how an admin validates the advertised URL before saving it.
 func (m *Manager) HandleTestURL(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.HandleTestURL: r=%s", logger.RequestSummary(r))
+	}
 	url, err := utils.PostPara(r, "url")
 	if err != nil {
 		utils.SendErrorResponse(w, "url required")
@@ -137,6 +157,9 @@ func (m *Manager) HandleTestURL(w http.ResponseWriter, r *http.Request) {
 
 // HandleTokenNew issues a join token. Optional ttl in hours (default 24).
 func (m *Manager) HandleTokenNew(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.HandleTokenNew: r=%s", logger.RequestSummary(r))
+	}
 	ttl := 24 * time.Hour
 	if hours, err := utils.PostInt(r, "ttl"); err == nil && hours > 0 && hours <= 24*30 {
 		ttl = time.Duration(hours) * time.Hour
@@ -151,11 +174,17 @@ func (m *Manager) HandleTokenNew(w http.ResponseWriter, r *http.Request) {
 
 // HandleTokenList lists active join tokens.
 func (m *Manager) HandleTokenList(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/membership", "Manager.HandleTokenList: r=%s", logger.RequestSummary(r))
+	}
 	sendJSON(w, m.ListJoinTokens())
 }
 
 // HandleTokenRevoke deletes a join token.
 func (m *Manager) HandleTokenRevoke(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.HandleTokenRevoke: r=%s", logger.RequestSummary(r))
+	}
 	id, err := utils.PostPara(r, "id")
 	if err != nil {
 		utils.SendErrorResponse(w, "token id required")
@@ -170,6 +199,9 @@ func (m *Manager) HandleTokenRevoke(w http.ResponseWriter, r *http.Request) {
 
 // HandleNodeRemove evicts a member.
 func (m *Manager) HandleNodeRemove(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.HandleNodeRemove: r=%s", logger.RequestSummary(r))
+	}
 	id, err := utils.PostPara(r, "id")
 	if err != nil {
 		utils.SendErrorResponse(w, "node id required")
@@ -184,6 +216,9 @@ func (m *Manager) HandleNodeRemove(w http.ResponseWriter, r *http.Request) {
 
 // HandleNodeState sets a member to normal / maintenance / draining.
 func (m *Manager) HandleNodeState(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.HandleNodeState: r=%s", logger.RequestSummary(r))
+	}
 	id, err := utils.PostPara(r, "id")
 	if err != nil {
 		utils.SendErrorResponse(w, "node id required")
@@ -199,6 +234,9 @@ func (m *Manager) HandleNodeState(w http.ResponseWriter, r *http.Request) {
 
 // HandleNodeProbe pings a member on demand.
 func (m *Manager) HandleNodeProbe(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.HandleNodeProbe: r=%s", logger.RequestSummary(r))
+	}
 	id, err := utils.GetPara(r, "id")
 	if err != nil {
 		utils.SendErrorResponse(w, "node id required")
@@ -209,6 +247,9 @@ func (m *Manager) HandleNodeProbe(w http.ResponseWriter, r *http.Request) {
 
 // HandleCapabilities returns (and with refresh=true re-detects) the local manifest.
 func (m *Manager) HandleCapabilities(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.HandleCapabilities: r=%s", logger.RequestSummary(r))
+	}
 	if refresh, _ := utils.GetBool(r, "refresh"); refresh {
 		sendJSON(w, m.RefreshCapabilities())
 		return
@@ -218,12 +259,16 @@ func (m *Manager) HandleCapabilities(w http.ResponseWriter, r *http.Request) {
 
 // HandleNodes returns just the member list, handy for other settings pages.
 func (m *Manager) HandleNodes(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/membership", "Manager.HandleNodes: r=%s", logger.RequestSummary(r))
+	}
 	sendJSON(w, m.NodeViews())
 }
 
 // RegisterAdminRoutes mounts every admin handler on the given register
 // function (typically a permission router's HandleFunc).
 func (m *Manager) RegisterAdminRoutes(register func(pattern string, handler func(http.ResponseWriter, *http.Request))) {
+	logger.Debug("cluster/membership", "Manager.RegisterAdminRoutes")
 	register("/system/cluster/status", m.HandleStatus)
 	register("/system/cluster/create", m.HandleCreate)
 	register("/system/cluster/join", m.HandleJoin)

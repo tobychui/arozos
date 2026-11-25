@@ -1,5 +1,6 @@
 package samba
 
+import "imuslab.com/arozos/mod/info/logger"
 import "encoding/json"
 
 /*
@@ -9,6 +10,7 @@ import "encoding/json"
 // Wrapper to save changes to file. Note that the name cannot be changed
 // or otherwise there will be save issue. Use rename instead for name change
 func (s *ShareConfig) SaveToConfig() error {
+	logger.Debug("fileservers/servers/samba", "ShareConfig.SaveToConfig")
 	//Deep copy of the current share config
 	newShareConfig := ShareConfig{}
 	originalConfigBytes, _ := json.Marshal(s)
@@ -29,10 +31,14 @@ func (s *ShareConfig) SaveToConfig() error {
 
 // Remove this share
 func (s *ShareConfig) Remove() error {
+	logger.DebugTrace("fileservers/servers/samba", "ShareConfig.Remove")
 	return s.parent.RemoveSambaShareConfig(s.Name)
 }
 
 func (s *ShareConfig) Rename(newName string) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareConfig.Rename: newName=%.120q", newName)
+	}
 	//Deep copy of the current share config
 	newShareConfig := ShareConfig{}
 	originalConfigBytes, _ := json.Marshal(s)

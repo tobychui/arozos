@@ -84,6 +84,7 @@ type docRecord struct {
 
 // initPersistenceTables creates the sharedspace tables when missing.
 func (m *Manager) initPersistenceTables() {
+	logger.Debug("sharedspace", "Manager.initPersistenceTables")
 	m.db.NewTable(dbTableSpaces)
 	m.db.NewTable(dbTableItems)
 	m.db.NewTable(dbTableDocs)
@@ -91,6 +92,7 @@ func (m *Manager) initPersistenceTables() {
 
 // record snapshots the space's persisted state.
 func (s *Space) record() *spaceRecord {
+	logger.Debug("sharedspace", "Space.record")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	metadata := make(map[string]string, len(s.metadata))
@@ -116,6 +118,7 @@ func (s *Space) record() *spaceRecord {
 // persistSpace writes the space record through to the database. No-op for
 // ephemeral spaces or persistence-less managers.
 func (m *Manager) persistSpace(s *Space) {
+	logger.Debug("sharedspace", "Manager.persistSpace")
 	if s == nil || !s.Persistent || m.db == nil {
 		return
 	}
@@ -128,6 +131,7 @@ func (m *Manager) persistSpace(s *Space) {
 // mgrPersistSpace lets Space methods write their record through without
 // holding any lock. Nil-safe for spaces built directly in tests.
 func (s *Space) mgrPersistSpace() {
+	logger.Debug("sharedspace", "Space.mgrPersistSpace")
 	if s.mgr != nil {
 		s.mgr.persistSpace(s)
 	}
@@ -135,6 +139,7 @@ func (s *Space) mgrPersistSpace() {
 
 // mgrPersistItem writes an item record through to the database.
 func (s *Space) mgrPersistItem(item *Item) {
+	logger.Debug("sharedspace", "Space.mgrPersistItem")
 	if s.mgr == nil || !s.Persistent || s.mgr.db == nil {
 		return
 	}
@@ -158,6 +163,9 @@ func (s *Space) mgrPersistItem(item *Item) {
 
 // mgrDeleteItemRecord removes an item record from the database.
 func (s *Space) mgrDeleteItemRecord(itemID string) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Space.mgrDeleteItemRecord: itemID=%.120q", itemID)
+	}
 	if s.mgr == nil || !s.Persistent || s.mgr.db == nil {
 		return
 	}
@@ -166,6 +174,7 @@ func (s *Space) mgrDeleteItemRecord(itemID string) {
 
 // mgrPersistDoc writes a document record through to the database.
 func (s *Space) mgrPersistDoc(snapshot *DocSnapshot) {
+	logger.Debug("sharedspace", "Space.mgrPersistDoc")
 	if s.mgr == nil || !s.Persistent || s.mgr.db == nil {
 		return
 	}
@@ -187,6 +196,9 @@ func (s *Space) mgrPersistDoc(snapshot *DocSnapshot) {
 
 // mgrDeleteDocRecord removes a document record from the database.
 func (s *Space) mgrDeleteDocRecord(docID string) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Space.mgrDeleteDocRecord: docID=%.120q", docID)
+	}
 	if s.mgr == nil || !s.Persistent || s.mgr.db == nil {
 		return
 	}
@@ -195,6 +207,9 @@ func (s *Space) mgrDeleteDocRecord(docID string) {
 
 // deleteSpaceRecords removes every database record belonging to a space.
 func (m *Manager) deleteSpaceRecords(spaceID string) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Manager.deleteSpaceRecords: spaceID=%.120q", spaceID)
+	}
 	if m.db == nil {
 		return
 	}
@@ -216,6 +231,7 @@ func (m *Manager) deleteSpaceRecords(spaceID string) {
 // loadPersistedSpaces rebuilds every persistent space from the database at
 // construction time, restoring items (with blobs) and documents.
 func (m *Manager) loadPersistedSpaces() {
+	logger.Debug("sharedspace", "Manager.loadPersistedSpaces")
 	entries, err := m.db.ListTable(dbTableSpaces)
 	if err != nil {
 		logger.PrintAndLog("SharedSpace", "Failed to list persisted spaces", err)
@@ -386,6 +402,7 @@ func (m *Manager) loadPersistedSpaces() {
 // and that have no live channel subscribers. It returns the IDs it deleted.
 // Ephemeral spaces are left to their owning subsystems (e.g. MeetRoom).
 func (m *Manager) SweepStaleSpaces(maxAge time.Duration) []string {
+	logger.Debug("sharedspace", "Manager.SweepStaleSpaces")
 	if maxAge <= 0 {
 		return nil
 	}

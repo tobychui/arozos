@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/opc"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 )
@@ -53,9 +54,15 @@ type relSet struct {
 	prefix string // path from the part's folder to word/
 }
 
-func newRelSet() *relSet { return &relSet{byKey: map[string]string{}} }
+func newRelSet() *relSet {
+	logger.DebugTrace("office/doc", "newRelSet")
+	return &relSet{byKey: map[string]string{}}
+}
 
 func (rs *relSet) add(typ, target string, external bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "relSet.add: typ=%.120q target=%.120q external=%t", typ, target, external)
+	}
 	key := typ + "|" + target
 	if id, ok := rs.byKey[key]; ok {
 		return id
@@ -84,12 +91,16 @@ type writer struct {
 }
 
 func newWriter(d *docFile) *writer {
+	logger.DebugTrace("office/doc", "newWriter")
 	return &writer{d: d, pkg: opc.New(), media: map[[32]byte]string{},
 		fnByCP: map[int]int{}, enByCP: map[int]int{}, cmByCP: map[int]int{}}
 }
 
 // mediaRel stores a picture once in the package and relates it to a part
 func (w *writer) mediaRel(data []byte, ext string, part *partCtx) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "writer.mediaRel: ext=%.120q", ext)
+	}
 	h := sha256.Sum256(data)
 	name, ok := w.media[h]
 	if !ok {
@@ -100,9 +111,17 @@ func (w *writer) mediaRel(data []byte, ext string, part *partCtx) string {
 	return part.rels.add(relImage, "media/"+name, false)
 }
 
-func emu(twips int) int { return twips * 635 }
+func emu(twips int) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "emu: twips=%d", twips)
+	}
+	return twips * 635
+}
 
 func (w *writer) graphicXML(pic *picture, rid string, cx, cy int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "writer.graphicXML: rid=%.120q cx=%d cy=%d", rid, cx, cy)
+	}
 	w.docPr++
 	id := itoa(w.docPr)
 	src := ""
@@ -120,6 +139,7 @@ func (w *writer) graphicXML(pic *picture, rid string, cx, cy int) string {
 // frameXML is a picture outline as DrawingML (widths in eighths of a
 // point become EMU)
 func frameXML(b *brc) string {
+	logger.DebugTrace("office/doc", "frameXML")
 	if b == nil {
 		return ""
 	}
@@ -131,6 +151,7 @@ func frameXML(b *brc) string {
 }
 
 func (w *writer) docPrXML(pic *picture) string {
+	logger.DebugTrace("office/doc", "writer.docPrXML")
 	s := `<wp:docPr id="` + itoa(w.docPr+1) + `" name="Picture ` + itoa(w.docPr+1) + `"`
 	if pic.descr != "" {
 		s += ` descr="` + xmltree.Escape(pic.descr) + `"`
@@ -139,6 +160,7 @@ func (w *writer) docPrXML(pic *picture) string {
 }
 
 func picSize(pic *picture) (int, int) {
+	logger.DebugTrace("office/doc", "picSize")
 	cx, cy := emu(pic.w), emu(pic.h)
 	if cx <= 0 || cy <= 0 {
 		cx, cy = emu(1440), emu(1440)
@@ -148,6 +170,7 @@ func picSize(pic *picture) (int, int) {
 
 // inlineDrawing is a w:drawing for an inline picture
 func (w *writer) inlineDrawing(pic *picture, part *partCtx) string {
+	logger.DebugTrace("office/doc", "writer.inlineDrawing")
 	rid := w.mediaRel(pic.data, pic.ext, part)
 	cx, cy := picSize(pic)
 	dp := w.docPrXML(pic)
@@ -158,6 +181,7 @@ func (w *writer) inlineDrawing(pic *picture, part *partCtx) string {
 
 // anchorDrawing is a w:drawing for a floating picture
 func (w *writer) anchorDrawing(fo *floatObj, part *partCtx) string {
+	logger.DebugTrace("office/doc", "writer.anchorDrawing")
 	pic := fo.pic
 	rid := w.mediaRel(pic.data, pic.ext, part)
 	cx, cy := picSize(pic)
@@ -183,6 +207,9 @@ func (w *writer) anchorDrawing(fo *floatObj, part *partCtx) string {
 
 // textboxXML writes a text box's story as paragraphs
 func (w *writer) textboxXML(idx int, header bool, part *partCtx) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "writer.textboxXML: idx=%d", idx)
+	}
 	span := w.d.fib.span(w.d.tbl, lcbPlcftxbxTxt)
 	base := w.d.fib.txbxStart()
 	if header {
@@ -207,6 +234,9 @@ func (w *writer) textboxXML(idx int, header bool, part *partCtx) string {
 
 // storyXML writes the paragraphs and tables of a CP range
 func (w *writer) storyXML(cp1, cp2 int, kind storyKind, part *partCtx, sections []section) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "writer.storyXML: cp1=%d cp2=%d len(sections)=%d", cp1, cp2, len(sections))
+	}
 	cp1, cp2 = w.d.clamp(cp1, cp2)
 	if cp2 <= cp1 {
 		return ""
@@ -245,6 +275,7 @@ type section struct {
 // sections reads PlcfSed and the SEPX of each section; the headers and
 // footers they reference are written here too
 func (w *writer) sections(docRels *relSet) []section {
+	logger.DebugTrace("office/doc", "writer.sections")
 	d := w.d
 	pl := parsePLC(d.fib.span(d.tbl, lcbPlcfSed), 12)
 	hdd := parsePLC(d.fib.span(d.tbl, lcbPlcfHdd), 0)
@@ -316,6 +347,9 @@ func (w *writer) sections(docRels *relSet) []section {
 
 // notes writes the footnotes or endnotes and maps their reference CPs
 func (w *writer) notes(refIdx, txtIdx int, start int, byCP map[int]int, kind storyKind, rels *relSet) []string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "writer.notes: refIdx=%d txtIdx=%d start=%d len(byCP)=%d", refIdx, txtIdx, start, len(byCP))
+	}
 	d := w.d
 	ref := parsePLC(d.fib.span(d.tbl, refIdx), 2)
 	txt := parsePLC(d.fib.span(d.tbl, txtIdx), 0)
@@ -341,6 +375,9 @@ func (w *writer) notes(refIdx, txtIdx int, start int, byCP map[int]int, kind sto
 }
 
 func notesPart(root, tag string, notes []string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "notesPart: root=%.120q tag=%.120q", root, tag)
+	}
 	return `<` + root + ` ` + partNS + `>` +
 		`<` + tag + ` w:type="separator" w:id="0"><w:p><w:r><w:separator/></w:r></w:p></` + tag + `>` +
 		`<` + tag + ` w:type="continuationSeparator" w:id="1"><w:p><w:r><w:continuationSeparator/></w:r></w:p></` + tag + `>` +
@@ -349,6 +386,7 @@ func notesPart(root, tag string, notes []string) string {
 
 // commentAuthors reads GrpXstAtnOwners
 func (w *writer) commentAuthors() []string {
+	logger.DebugTrace("office/doc", "writer.commentAuthors")
 	b := w.d.fib.span(w.d.tbl, lcbGrpXstAtnOwner)
 	var out []string
 	for p := 0; p < len(b); {
@@ -365,6 +403,7 @@ func (w *writer) commentAuthors() []string {
 // cmRanges finds where each comment's commented text starts and ends:
 // the annotation bookmarks, joined to the comments by their tag
 func (w *writer) cmRanges() (map[int][]int, map[int][]int) {
+	logger.DebugTrace("office/doc", "writer.cmRanges")
 	d := w.d
 	starts, ends := map[int][]int{}, map[int][]int{}
 	ref := parsePLC(d.fib.span(d.tbl, lcbPlcfandRef), 30)
@@ -403,6 +442,9 @@ func (w *writer) cmRanges() (map[int][]int, map[int][]int) {
 
 // markersFor collects the bookmarks and comment ranges inside [cp1, cp2]
 func (w *writer) markersFor(cp1, cp2 int, kind storyKind) *markers {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "writer.markersFor: cp1=%d cp2=%d", cp1, cp2)
+	}
 	m := &markers{starts: map[int][]string{}, ends: map[int][]string{}}
 	in := func(cp int) bool { return cp >= cp1 && cp <= cp2 }
 	for _, b := range w.bookmarks {
@@ -436,6 +478,7 @@ type bookmark struct {
 
 // readBookmarks reads SttbfBkmk, PlcfBkf and PlcfBkl
 func (w *writer) readBookmarks() {
+	logger.DebugTrace("office/doc", "writer.readBookmarks")
 	d := w.d
 	names := sttb(d.fib.span(d.tbl, lcbSttbfBkmk))
 	bkf := parsePLC(d.fib.span(d.tbl, lcbPlcfBkf), 4)
@@ -459,6 +502,9 @@ func (w *writer) readBookmarks() {
 
 // atnTags reads the tags of SttbfAtnBkmk's entries
 func atnTags(b []byte) []int32 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "atnTags: len(b)=%d", len(b))
+	}
 	le := binary.LittleEndian
 	if len(b) < 6 || le.Uint16(b) != 0xFFFF {
 		return nil
@@ -480,6 +526,7 @@ func atnTags(b []byte) []int32 {
 }
 
 func (w *writer) commentsXML() []string {
+	logger.DebugTrace("office/doc", "writer.commentsXML")
 	d := w.d
 	ref := parsePLC(d.fib.span(d.tbl, lcbPlcfandRef), 30)
 	txt := parsePLC(d.fib.span(d.tbl, lcbPlcfandTxt), 0)
@@ -510,6 +557,7 @@ func (w *writer) commentsXML() []string {
 /* ---------------- styles, numbering, settings ---------------- */
 
 func (w *writer) stylesXML() string {
+	logger.DebugTrace("office/doc", "writer.stylesXML")
 	d := w.d
 	var sb strings.Builder
 	sb.WriteString(`<w:styles ` + partNS + `><w:docDefaults><w:rPrDefault><w:rPr>`)
@@ -564,6 +612,7 @@ func (w *writer) stylesXML() string {
 }
 
 func (w *writer) numberingXML() string {
+	logger.DebugTrace("office/doc", "writer.numberingXML")
 	ls := w.d.lists
 	if len(ls.defs) == 0 {
 		return ""
@@ -638,6 +687,7 @@ func (w *writer) numberingXML() string {
 }
 
 func (w *writer) settingsXML() string {
+	logger.DebugTrace("office/doc", "writer.settingsXML")
 	tab := 720
 	facing := false
 	if dop := w.d.fib.span(w.d.tbl, lcbDop); len(dop) >= 12 {
@@ -656,6 +706,7 @@ func (w *writer) settingsXML() string {
 /* ---------------- the package ---------------- */
 
 func (w *writer) write() ([]byte, error) {
+	logger.DebugTrace("office/doc", "writer.write")
 	d := w.d
 	w.docRels, w.fnRels, w.enRels, w.cmRels = newRelSet(), newRelSet(), newRelSet(), newRelSet()
 	docPart := &partCtx{rels: w.docRels}

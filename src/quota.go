@@ -12,9 +12,11 @@ import (
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/utils"
 	//user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func DiskQuotaInit() {
+	logger.Debug("Core", "DiskQuotaInit")
 	//Register Endpoints
 	http.HandleFunc("/system/disk/quota/setQuota", system_disk_quota_setQuota)
 	http.HandleFunc("/system/disk/quota/quotaInfo", system_disk_quota_handleQuotaInfo)
@@ -35,6 +37,7 @@ func DiskQuotaInit() {
 
 // Register the handler for automatically updating all user storage quota
 func system_disk_quota_updateAllUserQuotaEstimation() {
+	logger.Debug("Core", "system_disk_quota_updateAllUserQuotaEstimation")
 	registeredUsers := authAgent.ListUsers()
 	for _, username := range registeredUsers {
 		//For each user, update their current quota usage
@@ -45,6 +48,9 @@ func system_disk_quota_updateAllUserQuotaEstimation() {
 
 // Set the storage quota of the particular user
 func system_disk_quota_setQuota(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_disk_quota_setQuota: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "Unknown User")
@@ -83,6 +89,9 @@ func system_disk_quota_setQuota(w http.ResponseWriter, r *http.Request) {
 }
 
 func system_disk_quota_handleQuotaInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_disk_quota_handleQuotaInfo: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "Unknown User")
@@ -134,6 +143,9 @@ var fileExtensions = map[string][]string{
 
 // Get all the users files and return size + count per category
 func system_disk_quota_handleFileDistributionView(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_disk_quota_handleFileDistributionView: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "Unknown User")

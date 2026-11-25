@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const storeVersion = 1
@@ -36,6 +38,9 @@ type Store struct {
 // NewStore opens the rule file. A file that does not exist yet is an empty
 // store; check Err for one that could not be read.
 func NewStore(filename string) *Store {
+	if logger.IsDebug() {
+		logger.Debugf("storage/access", "NewStore: filename=%.120q", filename)
+	}
 	s := &Store{filename: filename, drives: map[string]Rule{}}
 	content, err := os.ReadFile(filename)
 	if errors.Is(err, os.ErrNotExist) {
@@ -67,6 +72,7 @@ func NewStore(filename string) *Store {
 
 // Err returns why the rule file could not be read, or nil
 func (s *Store) Err() error {
+	logger.DebugTrace("storage/access", "Store.Err")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.loadErr
@@ -74,6 +80,9 @@ func (s *Store) Err() error {
 
 // Rule implements Source
 func (s *Store) Rule(uuid string) (Rule, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/access", "Store.Rule: uuid=%.120q", uuid)
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.loadErr != nil {
@@ -88,6 +97,9 @@ func (s *Store) Rule(uuid string) (Rule, bool) {
 
 // Set saves the rule of a drive
 func (s *Store) Set(uuid string, rule Rule) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/access", "Store.Set: uuid=%.120q", uuid)
+	}
 	if uuid == "" {
 		return errors.New("drive id is empty")
 	}
@@ -107,6 +119,9 @@ func (s *Store) Set(uuid string, rule Rule) error {
 
 // Remove forgets the rule of a drive, which goes back to its default
 func (s *Store) Remove(uuid string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/access", "Store.Remove: uuid=%.120q", uuid)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.drives[uuid]; !ok {
@@ -120,6 +135,9 @@ func (s *Store) Remove(uuid string) error {
 // RemoveGroup drops the rows of a deleted group, so that a new group of the
 // same name does not inherit them
 func (s *Store) RemoveGroup(group string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/access", "Store.RemoveGroup: group=%.120q", group)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.update(func(drives map[string]Rule) {
@@ -137,6 +155,7 @@ func (s *Store) RemoveGroup(group string) error {
 // update applies a change to a copy of the rules and only keeps it once it
 // is on disk. The caller holds the lock.
 func (s *Store) update(change func(drives map[string]Rule)) error {
+	logger.Debug("storage/access", "Store.update")
 	if s.loadErr != nil {
 		return fmt.Errorf("the rule file could not be read, repair or remove %s first: %w", s.filename, s.loadErr)
 	}
@@ -157,6 +176,9 @@ func (s *Store) update(change func(drives map[string]Rule)) error {
 // write replaces the rule file in one step, so a crash leaves the old or the
 // new file and never half of one
 func (s *Store) write(drives map[string]Rule) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/access", "Store.write: len(drives)=%d", len(drives))
+	}
 	content, err := json.MarshalIndent(storeFile{Version: storeVersion, Drives: drives}, "", "  ")
 	if err != nil {
 		return err
@@ -203,6 +225,9 @@ It returns how many records were converted. A file that does not exist is not
 an error.
 */
 func (s *Store) MigrateBridges(bridgeFile string, homeOf func(uuid string) (home string, known bool)) (int, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/access", "Store.MigrateBridges: bridgeFile=%.120q", bridgeFile)
+	}
 	content, err := os.ReadFile(bridgeFile)
 	if errors.Is(err, os.ErrNotExist) {
 		return 0, nil

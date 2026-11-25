@@ -108,6 +108,7 @@ type Service struct {
 
 // New creates the service and registers its node endpoints.
 func New(opt Option) (*Service, error) {
+	logger.Debug("cluster/storage", "New")
 	if opt.Membership == nil || opt.Metadata == nil || opt.LocalRoots == nil {
 		return nil, errors.New("membership, metadata and local roots are required")
 	}
@@ -146,16 +147,19 @@ func New(opt Option) (*Service, error) {
 
 // Close stops background work.
 func (s *Service) Close() {
+	logger.Debug("cluster/storage", "Service.Close")
 	s.once.Do(func() { close(s.stop) })
 	s.wg.Wait()
 }
 
 // Ready reports whether the cluster:/ drive can serve requests.
 func (s *Service) Ready() bool {
+	logger.DebugTrace("cluster/storage", "Service.Ready")
 	return s.m.InCluster()
 }
 
 func (s *Service) maintenanceLoop() {
+	logger.Debug("cluster/storage", "Service.maintenanceLoop")
 	defer s.wg.Done()
 	refresh := time.NewTicker(s.opt.RefreshInterval)
 	reconcile := time.NewTicker(s.opt.ReconcileInterval)
@@ -187,6 +191,9 @@ func (s *Service) maintenanceLoop() {
 */
 
 func (s *Service) nodeState(nodeID string) membership.NodeState {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.nodeState: nodeID=%.120q", nodeID)
+	}
 	for _, n := range s.m.NodeViews() {
 		if n.ID == nodeID {
 			return n.State
@@ -196,6 +203,7 @@ func (s *Service) nodeState(nodeID string) membership.NodeState {
 }
 
 func usable(state membership.NodeState) bool {
+	logger.DebugTrace("cluster/storage", "usable")
 	return state == membership.StateOnline || state == membership.StateDegraded
 }
 
@@ -204,6 +212,9 @@ func usable(state membership.NodeState) bool {
 // nearly full node loses), preferNode and preferVolume win ties, and the
 // roomiest writable volume of the winning node is used.
 func (s *Service) pickVolume(size int64, preferNode string, preferVolume string, exclude []string) (*metadata.Volume, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.pickVolume: size=%d preferNode=%.120q preferVolume=%.120q len(exclude)=%d", size, preferNode, preferVolume, len(exclude))
+	}
 	need := size + size/10 + placementHeadroom
 	excluded := map[string]bool{}
 	for _, id := range exclude {
@@ -285,6 +296,9 @@ type PlaceResponse struct {
 // place decides the volume for a write, consulting the leader when this
 // node is not the leader and the leader is reachable.
 func (s *Service) place(size int64, logical string, preferVolume string) (*metadata.Volume, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.place: size=%d logical=%.120q preferVolume=%.120q", size, logical, preferVolume)
+	}
 	me := s.m.NodeID()
 	if leader := s.meta.Leader(); leader != "" && leader != me {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -313,11 +327,15 @@ type Info struct {
 }
 
 func infoOf(rec *metadata.FileRecord) Info {
+	logger.DebugTrace("cluster/storage", "infoOf")
 	return Info{Path: rec.Path, IsDir: rec.IsDir, Size: rec.Size, ModTime: rec.ModTime}
 }
 
 // Stat returns the entry at a logical path.
 func (s *Service) Stat(logical string) (Info, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.Stat: logical=%.120q", logical)
+	}
 	logical = metadata.NormalizePath(logical)
 	if logical == "/" {
 		return Info{Path: "/", IsDir: true, ModTime: time.Now().Unix()}, nil
@@ -331,6 +349,9 @@ func (s *Service) Stat(logical string) (Info, error) {
 
 // List returns the children of a directory.
 func (s *Service) List(logical string) ([]Info, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.List: logical=%.120q", logical)
+	}
 	logical = metadata.NormalizePath(logical)
 	if logical != "/" {
 		rec, err := s.meta.Stat(logical)
@@ -354,6 +375,9 @@ func (s *Service) List(logical string) ([]Info, error) {
 
 // ensureDirs creates directory records for every missing parent of logical.
 func (s *Service) ensureDirs(logical string, owner string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/storage", "Service.ensureDirs: logical=%.120q owner=%.120q", logical, owner)
+	}
 	logical = metadata.NormalizePath(logical)
 	if logical == "/" {
 		return nil
@@ -379,6 +403,9 @@ func (s *Service) ensureDirs(logical string, owner string) error {
 
 // Mkdir creates a directory (and its parents) in the namespace.
 func (s *Service) Mkdir(logical string, owner string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.Mkdir: logical=%.120q owner=%.120q", logical, owner)
+	}
 	if !s.Ready() {
 		return metadata.ErrNotInCluster
 	}
@@ -395,6 +422,9 @@ func (s *Service) Mkdir(logical string, owner string) error {
 // Write stores a new version of a file: spool + hash locally, place, copy,
 // then publish the record.
 func (s *Service) Write(logical string, r io.Reader, owner string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/storage", "Service.Write: logical=%.120q owner=%.120q", logical, owner)
+	}
 	if !s.Ready() {
 		return metadata.ErrNotInCluster
 	}
@@ -479,6 +509,9 @@ func (s *Service) Write(logical string, r io.Reader, owner string) error {
 }
 
 func (s *Service) writeLocalFile(vol *metadata.Volume, logical string, spoolPath string, size int64, checksum string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.writeLocalFile: logical=%.120q spoolPath=%.120q size=%d checksum=%.120q", logical, spoolPath, size, checksum)
+	}
 	real, err := s.realPath(vol, logical)
 	if err != nil {
 		return err
@@ -499,6 +532,9 @@ func (s *Service) writeLocalFile(vol *metadata.Volume, logical string, spoolPath
 }
 
 func (s *Service) uploadRemote(vol *metadata.Volume, logical string, fileID string, spoolPath string, size int64, checksum string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.uploadRemote: logical=%.120q fileID=%.120q spoolPath=%.120q size=%d checksum=%.120q", logical, fileID, spoolPath, size, checksum)
+	}
 	f, err := os.Open(spoolPath)
 	if err != nil {
 		return err
@@ -511,6 +547,9 @@ func (s *Service) uploadRemote(vol *metadata.Volume, logical string, fileID stri
 
 // OpenRead returns a stream of the file from the best available copy.
 func (s *Service) OpenRead(logical string) (io.ReadCloser, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.OpenRead: logical=%.120q", logical)
+	}
 	if !s.Ready() {
 		return nil, metadata.ErrNotInCluster
 	}
@@ -560,6 +599,7 @@ func (s *Service) OpenRead(logical string) (io.ReadCloser, error) {
 // orderedLocations lists readable copies, local first, then online nodes in
 // membership order.
 func (s *Service) orderedLocations(rec *metadata.FileRecord) []metadata.Location {
+	logger.Debug("cluster/storage", "Service.orderedLocations")
 	me := s.m.NodeID()
 	out := []metadata.Location{}
 	for _, l := range rec.HealthyLocations() {
@@ -577,6 +617,9 @@ func (s *Service) orderedLocations(rec *metadata.FileRecord) []metadata.Location
 
 // Remove deletes a file or directory from the namespace and its copies.
 func (s *Service) Remove(logical string, recursive bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.Remove: logical=%.120q recursive=%t", logical, recursive)
+	}
 	if !s.Ready() {
 		return metadata.ErrNotInCluster
 	}
@@ -618,6 +661,9 @@ func (s *Service) Remove(logical string, recursive bool) error {
 
 // Rename moves a file or directory (and everything beneath it).
 func (s *Service) Rename(oldPath string, newPath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.Rename: oldPath=%.120q newPath=%.120q", oldPath, newPath)
+	}
 	if !s.Ready() {
 		return metadata.ErrNotInCluster
 	}
@@ -668,6 +714,9 @@ func (s *Service) Rename(oldPath string, newPath string) error {
 */
 
 func (s *Service) deletePhysical(loc metadata.Location, logical string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.deletePhysical: logical=%.120q", logical)
+	}
 	vol, ok := s.meta.Volume(loc.VolumeID)
 	if !ok {
 		return
@@ -687,6 +736,9 @@ func (s *Service) deletePhysical(loc metadata.Location, logical string) {
 
 // removePhysicalDir removes now-empty directories on every volume (best effort).
 func (s *Service) removePhysicalDir(logical string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.removePhysicalDir: logical=%.120q", logical)
+	}
 	for _, vol := range s.meta.Volumes() {
 		if vol.Removed {
 			continue
@@ -706,6 +758,9 @@ func (s *Service) removePhysicalDir(logical string) {
 }
 
 func (s *Service) renamePhysical(loc metadata.Location, from string, to string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.renamePhysical: from=%.120q to=%.120q", from, to)
+	}
 	vol, ok := s.meta.Volume(loc.VolumeID)
 	if !ok {
 		return ErrNotLocalVolume
@@ -730,6 +785,9 @@ func (s *Service) renamePhysical(loc metadata.Location, from string, to string) 
 }
 
 func copyFile(src string, dst string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "copyFile: src=%.120q dst=%.120q", src, dst)
+	}
 	in, err := os.Open(src)
 	if err != nil {
 		return err
@@ -747,6 +805,9 @@ func copyFile(src string, dst string) error {
 }
 
 func fileChecksum(path string) (string, int64, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "fileChecksum: path=%.120q", path)
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return "", 0, err

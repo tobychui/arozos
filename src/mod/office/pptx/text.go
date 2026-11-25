@@ -33,6 +33,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/fonts"
 	"imuslab.com/arozos/mod/office/internal/slidetext"
 	"imuslab.com/arozos/mod/office/internal/units"
@@ -89,6 +90,7 @@ var pptxDefaultPara = paraStyle{Align: "l", LnSpcPct: 1, BuSizePct: 1, DefTabSz:
 // applyRPr folds one <a:rPr> / <a:defRPr> / <a:endParaRPr> into dst,
 // touching only the properties that element actually states
 func applyRPr(dst *runStyle, n *xmltree.Node, cc *colorCtx) {
+	logger.DebugTrace("office/pptx", "applyRPr")
 	if n == nil {
 		return
 	}
@@ -150,6 +152,7 @@ func applyRPr(dst *runStyle, n *xmltree.Node, cc *colorCtx) {
 
 // applyPPr folds one <a:pPr> / <a:lvlNpPr> / <a:defPPr> into dst
 func applyPPr(dst *paraStyle, n *xmltree.Node, cc *colorCtx) {
+	logger.DebugTrace("office/pptx", "applyPPr")
 	if n == nil {
 		return
 	}
@@ -232,6 +235,9 @@ func applyPPr(dst *paraStyle, n *xmltree.Node, cc *colorCtx) {
 // <a:lstStyle> (or a <p:titleStyle> / <p:bodyStyle> / <p:otherStyle>,
 // which use the same child elements)
 func lvlPPr(lst *xmltree.Node, lvl int) *xmltree.Node {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "lvlPPr: lvl=%d", lvl)
+	}
 	if lst == nil {
 		return nil
 	}
@@ -252,6 +258,9 @@ func lvlPPr(lst *xmltree.Node, lvl int) *xmltree.Node {
 // resolveParaStyle walks the inheritance chain (lowest priority first) for
 // one outline level and folds the paragraph's own pPr on top
 func resolveParaStyle(chain []*xmltree.Node, pPr *xmltree.Node, lvl int, cc *colorCtx) paraStyle {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "resolveParaStyle: len(chain)=%d lvl=%d", len(chain), lvl)
+	}
 	st := pptxDefaultPara
 	for _, lst := range chain {
 		applyPPr(&st, lvlPPr(lst, lvl), cc)
@@ -262,6 +271,9 @@ func resolveParaStyle(chain []*xmltree.Node, pPr *xmltree.Node, lvl int, cc *col
 
 // runCSS renders the inline style for one text run
 func runCSS(rs runStyle, scale float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "runCSS: scale=%g", scale)
+	}
 	var sb strings.Builder
 	sb.WriteString("font-size:" + units.FmtPx(units.PtToPx(rs.SizePt)*scale) + ";")
 	sb.WriteString("font-family:" + fonts.StackFor(rs.Latin, rs.EastAsian) + ";")
@@ -317,12 +329,18 @@ func runCSS(rs runStyle, scale float64) string {
 // <br> with nothing after it adds no height at all - so a zero-width space
 // at the stated size stands in for the text that is not there.
 func lineSpacerFor(rs runStyle, scale float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "lineSpacerFor: scale=%g", scale)
+	}
 	return `<span style="font-size:` + units.FmtPx(units.PtToPx(rs.SizePt)*scale) +
 		`;font-family:` + fonts.StackFor(rs.Latin, rs.EastAsian) + `">&#8203;</span>`
 }
 
 // autoNumMarker renders the visible marker of an <a:buAutoNum> list
 func autoNumMarker(kind string, n int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "autoNumMarker: kind=%.120q n=%d", kind, n)
+	}
 	switch {
 	case strings.HasPrefix(kind, "alphaLc"):
 		return slidetext.AlphaMarker(n, 'a') + autoNumSuffix(kind)
@@ -337,6 +355,9 @@ func autoNumMarker(kind string, n int) string {
 }
 
 func autoNumSuffix(kind string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "autoNumSuffix: kind=%.120q", kind)
+	}
 	switch {
 	case strings.HasSuffix(kind, "ParenBoth"):
 		return ")"
@@ -350,6 +371,9 @@ func autoNumSuffix(kind string) string {
 
 // spanSizes folds one run size into a paragraph's running max and min
 func spanSizes(size, curMax, curMin float64) (float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "spanSizes: size=%g curMax=%g curMin=%g", size, curMax, curMin)
+	}
 	if size <= 0 {
 		return curMax, curMin
 	}
@@ -367,6 +391,7 @@ func spanSizes(size, curMax, curMin float64) (float64, float64) {
 // the symbols of a simple formula read the same set as text, in the run
 // properties (<a:rPr>) PowerPoint gives them.
 func paraItems(p *xmltree.Node) []*xmltree.Node {
+	logger.DebugTrace("office/pptx", "paraItems")
 	var out []*xmltree.Node
 	for i := range p.Nodes {
 		ch := &p.Nodes[i]
@@ -411,6 +436,7 @@ var mathStructures = map[string]bool{
 // mc:AlternateContent is one this reader shows as well as its fallback:
 // Office 2010 drawing content whose math, if any, is a line of symbols
 func choiceReadable(choice *xmltree.Node) bool {
+	logger.DebugTrace("office/pptx", "choiceReadable")
 	if choice.Attr("Requires") != "a14" {
 		return false
 	}
@@ -428,6 +454,7 @@ func choiceReadable(choice *xmltree.Node) bool {
 }
 
 func mathHasStructure(n *xmltree.Node) bool {
+	logger.DebugTrace("office/pptx", "mathHasStructure")
 	for i := range n.Nodes {
 		ch := &n.Nodes[i]
 		if strings.Contains(ch.XMLName.Space, "math") && mathStructures[ch.XMLName.Local] {

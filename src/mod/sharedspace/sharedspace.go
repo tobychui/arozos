@@ -50,6 +50,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var (
@@ -226,6 +227,9 @@ type SpaceOptions struct {
 // per-item blob size limit in bytes; pass 0 for DefaultMaxUpload. Any
 // leftover blob files from a previous run are removed.
 func NewManager(storageRoot string, maxUpload int64) *Manager {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("sharedspace", "NewManager: storageRoot=%.120q maxUpload=%d", storageRoot, maxUpload)
+	}
 	return NewManagerWithOptions(ManagerOptions{
 		EphemeralRoot: storageRoot,
 		MaxUpload:     maxUpload,
@@ -238,6 +242,7 @@ func NewManager(storageRoot string, maxUpload int64) *Manager {
 // blobs from the persistent root (which is never wiped). The ephemeral root
 // is always cleared at construction.
 func NewManagerWithOptions(opt ManagerOptions) *Manager {
+	logger.Debug("sharedspace", "NewManagerWithOptions")
 	ephemeralRoot := opt.EphemeralRoot
 	if ephemeralRoot == "" {
 		ephemeralRoot = filepath.Join(os.TempDir(), "arozos", "sharedspace")
@@ -275,6 +280,7 @@ func NewManagerWithOptions(opt ManagerOptions) *Manager {
 
 // MaxUpload returns the per-item blob size limit of this manager.
 func (m *Manager) MaxUpload() int64 {
+	logger.Debug("sharedspace", "Manager.MaxUpload")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.maxUpload
@@ -282,6 +288,9 @@ func (m *Manager) MaxUpload() int64 {
 
 // SetMaxUpload updates the per-item blob size limit (admin configuration).
 func (m *Manager) SetMaxUpload(limit int64) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Manager.SetMaxUpload: limit=%d", limit)
+	}
 	if limit <= 0 {
 		limit = DefaultMaxUpload
 	}
@@ -292,6 +301,7 @@ func (m *Manager) SetMaxUpload(limit int64) {
 
 // DefaultItemLimit returns the item cap applied to newly created spaces.
 func (m *Manager) DefaultItemLimit() int {
+	logger.Debug("sharedspace", "Manager.DefaultItemLimit")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.defaultMaxItems
@@ -299,6 +309,9 @@ func (m *Manager) DefaultItemLimit() int {
 
 // SetDefaultItemLimit updates the item cap for newly created spaces.
 func (m *Manager) SetDefaultItemLimit(limit int) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Manager.SetDefaultItemLimit: limit=%d", limit)
+	}
 	if limit <= 0 {
 		limit = DefaultMaxItems
 	}
@@ -310,6 +323,7 @@ func (m *Manager) SetDefaultItemLimit(limit int) {
 // PersistenceAvailable reports whether persistent spaces can currently be
 // created (persistence wired in and not disabled by an administrator).
 func (m *Manager) PersistenceAvailable() bool {
+	logger.Debug("sharedspace", "Manager.PersistenceAvailable")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.db != nil && m.persistRoot != "" && m.allowPersistent
@@ -318,6 +332,9 @@ func (m *Manager) PersistenceAvailable() bool {
 // SetAllowPersistent enables or disables the creation of new persistent
 // spaces (admin configuration). Existing persistent spaces are unaffected.
 func (m *Manager) SetAllowPersistent(allow bool) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Manager.SetAllowPersistent: allow=%t", allow)
+	}
 	m.mu.Lock()
 	m.allowPersistent = allow
 	m.mu.Unlock()
@@ -325,6 +342,9 @@ func (m *Manager) SetAllowPersistent(allow bool) {
 
 // randomID returns n random bytes hex encoded.
 func randomID(n int) string {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "randomID: n=%d", n)
+	}
 	idBytes := make([]byte, n)
 	rand.Read(idBytes)
 	return hex.EncodeToString(idBytes)
@@ -332,6 +352,9 @@ func randomID(n int) string {
 
 // clipString trims s to at most max runes.
 func clipString(s string, max int) string {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "clipString: s=%.120q max=%d", s, max)
+	}
 	runes := []rune(s)
 	if len(runes) > max {
 		return string(runes[:max])
@@ -342,6 +365,9 @@ func clipString(s string, max int) string {
 // IsImageName reports whether the display name looks like an inline-safe
 // raster image, used to classify uploads and to gate inline serving.
 func IsImageName(name string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "IsImageName: name=%.120q", name)
+	}
 	ext := strings.ToLower(filepath.Ext(name))
 	for _, imgExt := range imageExtensions {
 		if ext == imgExt {
@@ -353,12 +379,18 @@ func IsImageName(name string) bool {
 
 // validAccessMode reports whether access is a known space access mode.
 func validAccessMode(access string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("sharedspace", "validAccessMode: access=%.120q", access)
+	}
 	return access == AccessOpen || access == AccessPublic || access == AccessPrivate
 }
 
 // CreateSpace creates a new open, ephemeral space owned by owner - the
 // behaviour every pre-existing consumer (MeetRoom, AGI scripts) relies on.
 func (m *Manager) CreateSpace(owner string, name string) *Space {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Manager.CreateSpace: owner=%.120q name=%.120q", owner, name)
+	}
 	space, _ := m.CreateSpaceWithOptions(owner, name, SpaceOptions{})
 	return space
 }
@@ -367,6 +399,9 @@ func (m *Manager) CreateSpace(owner string, name string) *Space {
 // space ID is unique among live spaces. Persistent spaces require a
 // persistence-enabled manager (ErrPersistenceOff otherwise).
 func (m *Manager) CreateSpaceWithOptions(owner string, name string, opt SpaceOptions) (*Space, error) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Manager.CreateSpaceWithOptions: owner=%.120q name=%.120q", owner, name)
+	}
 	access := opt.Access
 	if access == "" {
 		access = AccessOpen
@@ -431,6 +466,9 @@ func (m *Manager) CreateSpaceWithOptions(owner string, name string, opt SpaceOpt
 
 // GetSpace returns the live space with the given ID.
 func (m *Manager) GetSpace(id string) (*Space, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Manager.GetSpace: id=%.120q", id)
+	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	space, ok := m.spaces[id]
@@ -439,6 +477,9 @@ func (m *Manager) GetSpace(id string) (*Space, bool) {
 
 // ListSpacesByOwner returns a snapshot of the spaces owned by owner.
 func (m *Manager) ListSpacesByOwner(owner string) []*Space {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Manager.ListSpacesByOwner: owner=%.120q", owner)
+	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	owned := []*Space{}
@@ -452,6 +493,7 @@ func (m *Manager) ListSpacesByOwner(owner string) []*Space {
 
 // SpaceCount returns the number of live spaces.
 func (m *Manager) SpaceCount() int {
+	logger.Debug("sharedspace", "Manager.SpaceCount")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return len(m.spaces)
@@ -461,6 +503,9 @@ func (m *Manager) SpaceCount() int {
 // persistent spaces) its database records. It reports whether the space
 // existed. Safe to call on an unknown ID.
 func (m *Manager) DeleteSpace(id string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Manager.DeleteSpace: id=%.120q", id)
+	}
 	m.mu.Lock()
 	space, exists := m.spaces[id]
 	if exists {
@@ -494,6 +539,7 @@ func (m *Manager) DeleteSpace(id string) bool {
 // Subscribe registers a listener invoked (synchronously) for every item
 // posted into the space. Re-using a key replaces the previous listener.
 func (s *Space) Subscribe(key string, fn func(*Item)) {
+	logger.Debug("sharedspace", "Space.Subscribe")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.listeners[key] = fn
@@ -501,6 +547,7 @@ func (s *Space) Subscribe(key string, fn func(*Item)) {
 
 // Unsubscribe removes a previously registered item listener.
 func (s *Space) Unsubscribe(key string) {
+	logger.Debug("sharedspace", "Space.Unsubscribe")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.listeners, key)
@@ -509,6 +556,7 @@ func (s *Space) Unsubscribe(key string) {
 // SubscribeEvents registers a listener invoked (synchronously) for every
 // space mutation event. Re-using a key replaces the previous listener.
 func (s *Space) SubscribeEvents(key string, fn func(*SpaceEvent)) {
+	logger.Debug("sharedspace", "Space.SubscribeEvents")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.evListeners[key] = fn
@@ -516,6 +564,7 @@ func (s *Space) SubscribeEvents(key string, fn func(*SpaceEvent)) {
 
 // UnsubscribeEvents removes a previously registered event listener.
 func (s *Space) UnsubscribeEvents(key string) {
+	logger.Debug("sharedspace", "Space.UnsubscribeEvents")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.evListeners, key)
@@ -524,6 +573,7 @@ func (s *Space) UnsubscribeEvents(key string) {
 // notify invokes every item listener with the freshly added item. Callers
 // must not hold s.mu.
 func (s *Space) notify(item *Item) {
+	logger.Debug("sharedspace", "Space.notify")
 	s.mu.Lock()
 	fns := make([]func(*Item), 0, len(s.listeners))
 	for _, fn := range s.listeners {
@@ -538,6 +588,7 @@ func (s *Space) notify(item *Item) {
 // emitEvent invokes every event listener with the given event. Callers must
 // not hold s.mu.
 func (s *Space) emitEvent(event *SpaceEvent) {
+	logger.Debug("sharedspace", "Space.emitEvent")
 	s.mu.Lock()
 	fns := make([]func(*SpaceEvent), 0, len(s.evListeners))
 	for _, fn := range s.evListeners {
@@ -553,6 +604,7 @@ func (s *Space) emitEvent(event *SpaceEvent) {
 // first when a trim-enabled space is at its cap. Callers must not hold s.mu.
 // Listeners and events fire after the item is registered.
 func (s *Space) register(item *Item) error {
+	logger.Debug("sharedspace", "Space.register")
 	var victim *Item
 	s.mu.Lock()
 	if s.closed {
@@ -591,6 +643,9 @@ func (s *Space) register(item *Item) error {
 // posted it (e.g. "agi", meetroom.OriginMeetRoom) so consumers can filter
 // their own echoes.
 func (s *Space) AddText(uploader string, text string, origin string) (*Item, error) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Space.AddText: uploader=%.120q origin=%.120q", uploader, origin)
+	}
 	if strings.TrimSpace(text) == "" {
 		return nil, ErrEmptyText
 	}
@@ -614,6 +669,9 @@ func (s *Space) AddText(uploader string, text string, origin string) (*Item, err
 // image / file item. name is display-only and never used as a filesystem
 // path. Pass maxSize 0 for DefaultMaxUpload.
 func (s *Space) SaveBlob(itemType string, name string, uploader string, origin string, src io.Reader, maxSize int64) (*Item, error) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Space.SaveBlob: itemType=%.120q name=%.120q uploader=%.120q origin=%.120q maxSize=%d", itemType, name, uploader, origin, maxSize)
+	}
 	if itemType != ItemTypeImage && itemType != ItemTypeFile {
 		return nil, ErrInvalidItemType
 	}
@@ -661,6 +719,9 @@ func (s *Space) SaveBlob(itemType string, name string, uploader string, origin s
 
 // GetItem looks up an item in the space by its ID.
 func (s *Space) GetItem(itemID string) (*Item, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Space.GetItem: itemID=%.120q", itemID)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	item, ok := s.itemIdx[itemID]
@@ -669,6 +730,7 @@ func (s *Space) GetItem(itemID string) (*Item, bool) {
 
 // Items returns a chronological snapshot of the current items.
 func (s *Space) Items() []*Item {
+	logger.Debug("sharedspace", "Space.Items")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	list := make([]*Item, len(s.items))
@@ -678,6 +740,7 @@ func (s *Space) Items() []*Item {
 
 // ItemCount returns the number of items in the space.
 func (s *Space) ItemCount() int {
+	logger.Debug("sharedspace", "Space.ItemCount")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return len(s.items)
@@ -687,6 +750,9 @@ func (s *Space) ItemCount() int {
 // item's uploader, the space owner, a space admin, or the system (empty
 // requester) may remove an item.
 func (s *Space) RemoveItem(itemID string, requester string) error {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Space.RemoveItem: itemID=%.120q requester=%.120q", itemID, requester)
+	}
 	s.mu.Lock()
 	item, ok := s.itemIdx[itemID]
 	if !ok {

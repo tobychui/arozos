@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/officeart"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 )
@@ -66,7 +67,12 @@ var presets = map[uint16]string{
 	198: "actionButtonDocument", 199: "actionButtonSound", 200: "actionButtonMovie", 202: "rect",
 }
 
-func isLineType(t uint16) bool { return t == 20 || (t >= 32 && t <= 40) }
+func isLineType(t uint16) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "isLineType: t=%d", t)
+	}
+	return t == 20 || (t >= 32 && t <= 40)
+}
 
 // slideCtx is the slide part being written
 type slideCtx struct {
@@ -81,9 +87,17 @@ type slideCtx struct {
 	notes  bool
 }
 
-func emu(v float64) string { return strconv.FormatInt(int64(math.Round(v)), 10) }
+func emu(v float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "emu: v=%g", v)
+	}
+	return strconv.FormatInt(int64(math.Round(v)), 10)
+}
 
 func hex6(c uint32) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "hex6: c=%d", c)
+	}
 	s := strings.ToUpper(strconv.FormatUint(uint64(c&0xFFFFFF), 16))
 	return strings.Repeat("0", 6-len(s)) + s
 }
@@ -91,6 +105,9 @@ func hex6(c uint32) string {
 // colorOf resolves an OfficeArtCOLORREF: RGB, scheme index or one of the
 // shape's own colours
 func (c *slideCtx) colorOf(v uint32, props officeart.Props) uint32 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideCtx.colorOf: v=%d", v)
+	}
 	cr := officeart.DecodeColor(v)
 	switch {
 	case cr.IsScheme():
@@ -119,6 +136,7 @@ func (c *slideCtx) colorOf(v uint32, props officeart.Props) uint32 {
 
 // textColor resolves a ColorIndexStruct
 func (c *slideCtx) textColor(ci colorIdx) uint32 {
+	logger.DebugTrace("office/ppt", "slideCtx.textColor")
 	switch {
 	case ci.index < 8:
 		return c.scheme[ci.index]
@@ -129,6 +147,9 @@ func (c *slideCtx) textColor(ci colorIdx) uint32 {
 }
 
 func alphaXML(props officeart.Props, id uint16) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "alphaXML: id=%d", id)
+	}
 	if a := props.Fixed(id, 1); a < 0.999 && a >= 0 {
 		return `<a:alpha val="` + strconv.Itoa(int(math.Round(a*100000))) + `"/>`
 	}
@@ -136,6 +157,9 @@ func alphaXML(props officeart.Props, id uint16) string {
 }
 
 func srgb(c uint32, mods string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "srgb: c=%d mods=%.120q", c, mods)
+	}
 	if mods == "" {
 		return `<a:srgbClr val="` + hex6(c) + `"/>`
 	}
@@ -144,6 +168,9 @@ func srgb(c uint32, mods string) string {
 
 // fillXML writes a shape's fill
 func (c *slideCtx) fillXML(sh *officeart.Shape, defFilled bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideCtx.fillXML: defFilled=%t", defFilled)
+	}
 	pr := sh.Props
 	if !pr.BoolDefault(officeart.PropFillBooleans, officeart.FillFilled, defFilled) {
 		return "<a:noFill/>"
@@ -194,6 +221,9 @@ var arrowNames = []string{"none", "triangle", "stealth", "diamond", "oval", "arr
 
 // lineXML writes a shape's outline
 func (c *slideCtx) lineXML(sh *officeart.Shape, defLine bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideCtx.lineXML: defLine=%t", defLine)
+	}
 	pr := sh.Props
 	if !pr.BoolDefault(officeart.PropLineBooleans, officeart.LineLine, defLine) {
 		return "<a:ln><a:noFill/></a:ln>"
@@ -221,6 +251,9 @@ func (c *slideCtx) lineXML(sh *officeart.Shape, defLine bool) string {
 // blip relates the picture a property names (pib or fillBlip) and returns
 // its relationship id
 func (c *slideCtx) blip(pr officeart.Props, id uint16) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideCtx.blip: id=%d", id)
+	}
 	v, ok := pr.Get(id)
 	if !ok || int(v) < 1 || int(v) > len(c.p.store) {
 		return ""
@@ -236,6 +269,9 @@ func (c *slideCtx) blip(pr officeart.Props, id uint16) string {
 // anchor reads a shape's rectangle: (x, y, w, h) in EMU for a top level
 // shape, in the group's space for a member
 func (c *slideCtx) anchor(sh *officeart.Shape, inGroup bool) (float64, float64, float64, float64, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideCtx.anchor: inGroup=%t", inGroup)
+	}
 	// a group's own space is in master units in practice: written in EMU
 	// like everything else, a member keeps its line widths unscaled
 	if sh.Child != nil && (inGroup || sh.ClientAnchor == nil) {
@@ -264,6 +300,9 @@ func (c *slideCtx) anchor(sh *officeart.Shape, inGroup bool) (float64, float64, 
 // degrees is stored with its frame turned too: swap it back about its
 // centre.
 func xfrmXML(tag string, sh *officeart.Shape, x, y, w, h float64, group string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "xfrmXML: tag=%.120q x=%g y=%g w=%g h=%g group=%.120q", tag, x, y, w, h, group)
+	}
 	rot := sh.Props.Fixed(officeart.PropRotation, 0)
 	rot = math.Mod(rot, 360)
 	if rot < 0 {
@@ -290,6 +329,7 @@ func xfrmXML(tag string, sh *officeart.Shape, x, y, w, h float64, group string) 
 
 // placeholder reads a shape's OEPlaceholderAtom (placementId), -1 if none
 func placeholder(sh *officeart.Shape) int {
+	logger.DebugTrace("office/ppt", "placeholder")
 	if sh.ClientData == nil {
 		return -1
 	}
@@ -304,6 +344,7 @@ func placeholder(sh *officeart.Shape) int {
 // shapeLink is the click action of a shape (InteractiveInfo in its client
 // data)
 func shapeLink(sh *officeart.Shape) string {
+	logger.DebugTrace("office/ppt", "shapeLink")
 	if sh.ClientData == nil {
 		return ""
 	}
@@ -318,6 +359,7 @@ func shapeLink(sh *officeart.Shape) string {
 // textOf gathers the text blocks of a shape: its client textbox, or the
 // slide's outline text it refers to
 func (c *slideCtx) textOf(sh *officeart.Shape) *textBlock {
+	logger.DebugTrace("office/ppt", "slideCtx.textOf")
 	if sh.ClientTextbox == nil {
 		return nil
 	}
@@ -344,12 +386,16 @@ func (c *slideCtx) textOf(sh *officeart.Shape) *textBlock {
 }
 
 func (c *slideCtx) id() string {
+	logger.DebugTrace("office/ppt", "slideCtx.id")
 	c.nextID++
 	return strconv.Itoa(c.nextID)
 }
 
 // shapesXML writes the members of a group (or a drawing's patriarch)
 func (c *slideCtx) shapesXML(g *officeart.Shape, inGroup bool, skipPlaceholders bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideCtx.shapesXML: inGroup=%t skipPlaceholders=%t", inGroup, skipPlaceholders)
+	}
 	var sb strings.Builder
 	for _, sh := range g.Children {
 		sb.WriteString(c.shapeXML(sh, inGroup, skipPlaceholders))
@@ -359,6 +405,9 @@ func (c *slideCtx) shapesXML(g *officeart.Shape, inGroup bool, skipPlaceholders 
 
 // shapeXML writes one shape
 func (c *slideCtx) shapeXML(sh *officeart.Shape, inGroup bool, skipPlaceholders bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideCtx.shapeXML: inGroup=%t skipPlaceholders=%t", inGroup, skipPlaceholders)
+	}
 	if sh.Deleted() || sh.Flags&officeart.SpBackground != 0 {
 		return ""
 	}
@@ -448,6 +497,9 @@ func (c *slideCtx) shapeXML(sh *officeart.Shape, inGroup bool, skipPlaceholders 
 
 // geometryXML writes preset geometry, or the path of a freeform
 func (c *slideCtx) geometryXML(sh *officeart.Shape, w, h float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideCtx.geometryXML: w=%g h=%g", w, h)
+	}
 	if sh.Type == 0 {
 		if g := freeformXML(sh.Props); g != "" {
 			return g
@@ -468,6 +520,7 @@ func (c *slideCtx) geometryXML(sh *officeart.Shape, w, h float64) string {
 
 // freeformXML writes a freeform's vertices and segments as custGeom
 func freeformXML(pr officeart.Props) string {
+	logger.DebugTrace("office/ppt", "freeformXML")
 	verts := pr.Array(officeart.PropVertices)
 	segs := pr.Array(officeart.PropSegmentInfo)
 	if len(verts) == 0 {
@@ -533,6 +586,9 @@ func freeformXML(pr officeart.Props) string {
 
 // linkXML writes an a:hlinkClick for a link target ("" for none)
 func (c *slideCtx) linkXML(target, tag string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideCtx.linkXML: target=%.120q tag=%.120q", target, tag)
+	}
 	switch {
 	case target == "":
 		return ""
@@ -570,6 +626,9 @@ var anchors = map[int32]string{0: `anchor="t"`, 1: `anchor="ctr"`, 2: `anchor="b
 
 // txBodyXML writes the text of a shape with every format resolved
 func (c *slideCtx) txBodyXML(sh *officeart.Shape, t *textBlock, ph int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideCtx.txBodyXML: ph=%d", ph)
+	}
 	pr := sh.Props
 	var body strings.Builder
 	body.WriteString(`<p:txBody><a:bodyPr lIns="` + strconv.Itoa(int(pr.Int(officeart.PropDxTextLeft, 91440))) +
@@ -704,6 +763,9 @@ var alignNames = []string{"l", "ctr", "r", "just", "dist", "thaiDist", "justLow"
 // spacing writes a PowerPoint spacing value: a percentage when positive,
 // master units when negative
 func spacing(tag string, v int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "spacing: tag=%.120q v=%d", tag, v)
+	}
 	if v >= 0 {
 		return `<a:` + tag + `><a:spcPct val="` + strconv.Itoa(v*1000) + `"/></a:` + tag + `>`
 	}
@@ -711,6 +773,9 @@ func spacing(tag string, v int) string {
 }
 
 func (c *slideCtx) font(i int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideCtx.font: i=%d", i)
+	}
 	if i >= 0 && i < len(c.p.fonts) {
 		return c.p.fonts[i]
 	}
@@ -718,6 +783,9 @@ func (c *slideCtx) font(i int) string {
 }
 
 func (c *slideCtx) pPrXML(p pf, firstCF cf, level int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideCtx.pPrXML: level=%d", level)
+	}
 	var sb strings.Builder
 	marL := float64(p.leftMargin) * emuPerMaster
 	indent := float64(p.indent-p.leftMargin) * emuPerMaster
@@ -762,6 +830,7 @@ func (c *slideCtx) pPrXML(p pf, firstCF cf, level int) string {
 
 // rPrAttrs is the attribute part of a run's properties
 func (c *slideCtx) rPrAttrs(f cf) string {
+	logger.DebugTrace("office/ppt", "slideCtx.rPrAttrs")
 	s := ` lang="en-US" sz="` + strconv.Itoa(f.size*100) + `"`
 	if f.style&cfBold != 0 {
 		s += ` b="1"`
@@ -783,6 +852,9 @@ func (c *slideCtx) rPrAttrs(f cf) string {
 }
 
 func (c *slideCtx) rPrXML(f cf, link string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideCtx.rPrXML: link=%.120q", link)
+	}
 	var sb strings.Builder
 	sb.WriteString(`<a:rPr` + c.rPrAttrs(f) + `>`)
 	sb.WriteString(`<a:solidFill>` + srgb(c.textColor(f.color), "") + `</a:solidFill>`)
@@ -809,6 +881,9 @@ func (c *slideCtx) rPrXML(f cf, link string) string {
 
 // xmlText escapes text for an a:t, dropping control characters
 func xmlText(u []uint16) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "xmlText: len(u)=%d", len(u))
+	}
 	var sb strings.Builder
 	for _, r := range decodeUTF16(u) {
 		switch {

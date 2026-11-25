@@ -21,6 +21,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	auth "imuslab.com/arozos/mod/auth"
+	"imuslab.com/arozos/mod/info/logger"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	user "imuslab.com/arozos/mod/user"
@@ -28,6 +29,7 @@ import (
 )
 
 func UserSystemInit() {
+	logger.Debug("Core", "UserSystemInit")
 	//Create a new User Handler
 	uh, err := user.NewUserHandler(sysdb, authAgent, permissionHandler, baseStoragePool, &shareEntryTable)
 	if err != nil {
@@ -117,6 +119,9 @@ func UserSystemInit() {
 
 // Remove a user from the system
 func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "user_handleUserRemove: r=%s", logger.RequestSummary(r))
+	}
 	// Check if multiple usernames are provided (new format)
 	usernamesJSON, err := utils.PostPara(r, "usernames")
 	var usernames []string
@@ -205,6 +210,9 @@ func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
 }
 
 func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "user_handleUserEdit: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		//This user has not logged in
@@ -358,6 +366,9 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 
 // Get the user interface info for the user to launch into
 func user_getInterfaceInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "user_getInterfaceInfo: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		//User not logged in
@@ -383,6 +394,9 @@ func user_getInterfaceInfo(w http.ResponseWriter, r *http.Request) {
 
 // return the user profile picture as image file
 func user_getProfilePic(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "user_getProfilePic: r=%s", logger.RequestSummary(r))
+	}
 	thisUsername, err := authAgent.GetUserName(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -439,6 +453,9 @@ func user_getProfilePic(w http.ResponseWriter, r *http.Request) {
 }
 
 func user_handleUserInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "user_handleUserInfo: r=%s", logger.RequestSummary(r))
+	}
 	username, err := authAgent.GetUserName(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -513,6 +530,9 @@ func user_handleUserInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func user_handleList(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "user_handleList: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		//This user has not logged in
@@ -552,12 +572,18 @@ func user_handleList(w http.ResponseWriter, r *http.Request) {
 }
 
 func getUserIcon(username string) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "getUserIcon: username=%.120q", username)
+	}
 	var userIconpath []byte
 	sysdb.Read("auth", "profilepic/"+username, &userIconpath)
 	return string(userIconpath)
 }
 
 func setUserIcon(username string, base64data string) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "setUserIcon: username=%.120q base64data=%.120q", username, base64data)
+	}
 	sysdb.Write("auth", "profilepic/"+username, []byte(base64data))
 	return
 }

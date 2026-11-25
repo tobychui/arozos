@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // RAIDInfo represents information about a RAID array.
@@ -43,6 +45,9 @@ type DeviceInfo struct {
 // GetRAIDInfo retrieves information about a RAID array using the mdadm command.
 // arrayName must be in full path (e.g. /dev/md0)
 func (m *Manager) GetRAIDInfo(arrayName string) (*RAIDInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.GetRAIDInfo: arrayName=%.120q", arrayName)
+	}
 	cmd := exec.Command("sudo", "mdadm", "--detail", arrayName)
 
 	output, err := cmd.Output()
@@ -59,6 +64,9 @@ func (m *Manager) GetRAIDInfo(arrayName string) (*RAIDInfo, error) {
 
 // parseRAIDInfo parses the output of mdadm --detail command and returns the RAIDInfo struct.
 func parseRAIDInfo(output string) *RAIDInfo {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "parseRAIDInfo: output=%.120q", output)
+	}
 	lines := strings.Split(output, "\n")
 
 	raidInfo := &RAIDInfo{}
@@ -148,6 +156,7 @@ func parseRAIDInfo(output string) *RAIDInfo {
 
 // PrettyPrintRAIDInfo pretty prints the RAIDInfo struct.
 func (info *RAIDInfo) PrettyPrintRAIDInfo() {
+	logger.Debug("disk/raid", "RAIDInfo.PrettyPrintRAIDInfo")
 	fmt.Println("RAID Array Information:")
 	fmt.Printf("  Version: %s\n", info.Version)
 	fmt.Printf("  Creation Time: %s\n", info.CreationTime.Format("Mon Jan 02 15:04:05 2006"))

@@ -59,6 +59,7 @@ type ClusterProvider interface {
 }
 
 func (g *Gateway) ClusterLibRegister() {
+	logger.Debug("agi", "Gateway.ClusterLibRegister")
 	err := g.RegisterLib("cluster", g.injectClusterLibFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -67,6 +68,7 @@ func (g *Gateway) ClusterLibRegister() {
 }
 
 func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectClusterLibFunctions")
 	vm := payload.VM
 	u := payload.User
 	p := g.Option.ClusterProvider

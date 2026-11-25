@@ -5,6 +5,8 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -100,6 +102,7 @@ type planResult struct {
 }
 
 func buildPlan(in planInput) planResult {
+	logger.Debug("fileservers/servers/syncthingserv", "buildPlan")
 	result := planResult{
 		DeviceReasons: map[string]Reason{},
 		FolderReasons: map[string]Reason{},
@@ -234,6 +237,9 @@ func buildPlan(in planInput) planResult {
 // overlapsAny reports a path that is one of the claimed paths, or inside or
 // around one of them.
 func overlapsAny(path string, claimed []string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "overlapsAny: path=%.120q len(claimed)=%d", path, len(claimed))
+	}
 	for _, other := range claimed {
 		if pathsOverlap(path, other) {
 			return true
@@ -243,6 +249,9 @@ func overlapsAny(path string, claimed []string) bool {
 }
 
 func pathsOverlap(a, b string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "pathsOverlap: a=%.120q b=%.120q", a, b)
+	}
 	a, b = comparablePath(a), comparablePath(b)
 	if a == "" || b == "" {
 		return false
@@ -255,6 +264,9 @@ func pathsOverlap(a, b string) bool {
 }
 
 func comparablePath(p string) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "comparablePath: p=%.120q", p)
+	}
 	if p == "" {
 		return ""
 	}

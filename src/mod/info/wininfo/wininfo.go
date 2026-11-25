@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -85,6 +87,7 @@ type CPUTimes struct {
 
 // CPULoad is the busy share of all CPUs between two samples, in percent
 func CPULoad(prev CPUTimes, cur CPUTimes) float64 {
+	logger.Debug("info/wininfo", "CPULoad")
 	if cur.Idle < prev.Idle || cur.Kernel < prev.Kernel || cur.User < prev.User {
 		return 0
 	}
@@ -100,6 +103,9 @@ func CPULoad(prev CPUTimes, cur CPUTimes) float64 {
 // The registry still says Windows 10 on Windows 11, which starts at build
 // 22000.
 func osDisplayName(product string, build int) string {
+	if logger.IsDebug() {
+		logger.Debugf("info/wininfo", "osDisplayName: product=%.120q build=%d", product, build)
+	}
 	name := strings.TrimSpace(product)
 	if name == "" {
 		return ""
@@ -117,6 +123,9 @@ func osDisplayName(product string, build int) string {
 // Get-NetAdapter does ("1 Gbps", "866.7 Mbps"). An unknown or zero speed,
 // as a disconnected adapter reports, is "N/A".
 func FormatLinkSpeed(bps uint64) string {
+	if logger.IsDebug() {
+		logger.Debugf("info/wininfo", "FormatLinkSpeed: bps=%d", bps)
+	}
 	if bps == 0 || bps == ^uint64(0) {
 		return "N/A"
 	}
@@ -138,6 +147,9 @@ func FormatLinkSpeed(bps uint64) string {
 // OperStateName maps an IF_OPER_STATUS to the state names the network page
 // uses on every platform: up, down, dormant, testing or unknown.
 func OperStateName(status uint32) string {
+	if logger.IsDebug() {
+		logger.Debugf("info/wininfo", "OperStateName: status=%d", status)
+	}
 	switch status {
 	case 1:
 		return "up"
@@ -153,6 +165,7 @@ func OperStateName(status uint32) string {
 
 // DuplexName is how the network page shows a duplex state
 func DuplexName(d Duplex) string {
+	logger.Debug("info/wininfo", "DuplexName")
 	switch d {
 	case DuplexFull:
 		return "Full"

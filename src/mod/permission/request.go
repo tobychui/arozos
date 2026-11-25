@@ -22,6 +22,9 @@ import (
 
 // Handle group editing operations
 func (h *PermissionHandler) HandleListGroup(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionHandler.HandleListGroup: r=%s", logger.RequestSummary(r))
+	}
 	listPermission, _ := utils.GetPara(r, "showper")
 	if listPermission == "" {
 		//Only show the user group name
@@ -48,6 +51,9 @@ func (h *PermissionHandler) HandleListGroup(w http.ResponseWriter, r *http.Reque
 
 // Listing a group's detail for editing or updating the group content
 func (h *PermissionHandler) HandleGroupEdit(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionHandler.HandleGroupEdit: r=%s", logger.RequestSummary(r))
+	}
 	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
 		utils.SendErrorResponse(w, "Group name not defined")
@@ -129,6 +135,9 @@ func (h *PermissionHandler) HandleGroupEdit(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *PermissionHandler) HandleGroupCreate(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionHandler.HandleGroupCreate: r=%s", logger.RequestSummary(r))
+	}
 	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
 		utils.SendErrorResponse(w, "Group name not defined")
@@ -190,6 +199,9 @@ func (h *PermissionHandler) HandleGroupCreate(w http.ResponseWriter, r *http.Req
 }
 
 func (h *PermissionHandler) HandleGroupRemove(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionHandler.HandleGroupRemove: r=%s", logger.RequestSummary(r))
+	}
 	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
 		utils.SendErrorResponse(w, "Group name not defined")

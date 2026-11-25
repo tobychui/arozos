@@ -32,6 +32,7 @@ type ReconcileResult struct {
 
 // ReconcileAll rescans every local volume.
 func (s *Service) ReconcileAll() []ReconcileResult {
+	logger.Debug("cluster/storage", "Service.ReconcileAll")
 	out := []ReconcileResult{}
 	if !s.Ready() {
 		return out
@@ -43,6 +44,7 @@ func (s *Service) ReconcileAll() []ReconcileResult {
 }
 
 func (s *Service) reconcileVolume(vol metadata.Volume) ReconcileResult {
+	logger.Debug("cluster/storage", "Service.reconcileVolume")
 	res := ReconcileResult{VolumeID: vol.ID, Time: time.Now().Unix()}
 	root, err := s.volumeRoot(&vol)
 	if err != nil {
@@ -175,6 +177,9 @@ func (s *Service) reconcileVolume(vol metadata.Volume) ReconcileResult {
 }
 
 func itoa(v int) string {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "itoa: v=%d", v)
+	}
 	if v == 0 {
 		return "0"
 	}

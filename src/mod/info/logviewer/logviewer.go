@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -30,6 +31,7 @@ type LogFile struct {
 }
 
 func NewLogViewer(option *ViewerOption) *Viewer {
+	logger.DebugTrace("info/logviewer", "NewLogViewer")
 	return &Viewer{option: option}
 }
 
@@ -38,6 +40,9 @@ func NewLogViewer(option *ViewerOption) *Viewer {
 */
 //List all the log files in the log folder. Return in map[string]LogFile format
 func (v *Viewer) HandleListLog(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/logviewer", "Viewer.HandleListLog: r=%s", logger.RequestSummary(r))
+	}
 	logFiles := v.ListLogFiles(false)
 	js, _ := json.Marshal(logFiles)
 	utils.SendJSONResponse(w, string(js))
@@ -46,6 +51,9 @@ func (v *Viewer) HandleListLog(w http.ResponseWriter, r *http.Request) {
 // Read log of a given catergory and filename
 // Require GET varaible: file and catergory
 func (v *Viewer) HandleReadLog(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/logviewer", "Viewer.HandleReadLog: r=%s", logger.RequestSummary(r))
+	}
 	filename, err := utils.GetPara(r, "file")
 	if err != nil {
 		utils.SendErrorResponse(w, "invalid filename given")
@@ -76,11 +84,17 @@ func (v *Viewer) HandleReadLog(w http.ResponseWriter, r *http.Request) {
 // Logs written straight into root by older versions, or nested deeper, are
 // skipped because LoadLogFile could never find them.
 func isCategoryLog(root string, path string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("info/logviewer", "isCategoryLog: root=%.120q path=%.120q", root, path)
+	}
 	catergoryDir := filepath.Dir(path)
 	return filepath.Clean(filepath.Dir(catergoryDir)) == filepath.Clean(root)
 }
 
 func (v *Viewer) ListLogFiles(showFullpath bool) map[string][]*LogFile {
+	if logger.IsDebug() {
+		logger.Debugf("info/logviewer", "Viewer.ListLogFiles: showFullpath=%t", showFullpath)
+	}
 	result := map[string][]*LogFile{}
 	filepath.WalkDir(v.option.RootFolder, func(path string, di fs.DirEntry, err error) error {
 		if filepath.Ext(path) == v.option.Extension && isCategoryLog(v.option.RootFolder, path) {
@@ -117,6 +131,9 @@ func (v *Viewer) ListLogFiles(showFullpath bool) map[string][]*LogFile {
 }
 
 func (v *Viewer) LoadLogFile(catergory string, filename string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("info/logviewer", "Viewer.LoadLogFile: catergory=%.120q filename=%.120q", catergory, filename)
+	}
 	logFilepath := filepath.Join(v.option.RootFolder, catergory, filename)
 	if utils.FileExists(logFilepath) {
 		//Load it

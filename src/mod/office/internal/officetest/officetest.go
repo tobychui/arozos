@@ -13,10 +13,15 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // tiny real PNG with a known non-4:3 aspect (100x25)
 func MakePngDataURL(t *testing.T, w, h int) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/officetest", "MakePngDataURL: w=%d h=%d", w, h)
+	}
 	t.Helper()
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 	for x := 0; x < w; x++ {
@@ -32,6 +37,7 @@ func MakePngDataURL(t *testing.T, w, h int) string {
 }
 
 func PngBytes(t *testing.T) []byte {
+	logger.Debug("office/internal/officetest", "PngBytes")
 	t.Helper()
 	b, err := base64.StdEncoding.DecodeString(strings.SplitN(PngDataURL, ",", 2)[1])
 	if err != nil {
@@ -45,6 +51,7 @@ const PngDataURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAA
 
 // unzipParts reads every text part of a docx/odt package
 func UnzipParts(t *testing.T, data []byte) map[string]string {
+	logger.Debug("office/internal/officetest", "UnzipParts")
 	t.Helper()
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
@@ -64,6 +71,9 @@ func UnzipParts(t *testing.T, data []byte) map[string]string {
 }
 
 func ZipPart(t *testing.T, data []byte, name string) []byte {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/officetest", "ZipPart: name=%.120q", name)
+	}
 	t.Helper()
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {

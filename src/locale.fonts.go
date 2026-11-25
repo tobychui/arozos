@@ -44,6 +44,7 @@ var (
 )
 
 func LocaleInit() {
+	logger.Debug("Core", "LocaleInit")
 	lib, err := fonts.NewLibrary(fonts.Options{
 		Root:     filepath.Join(localeRoot, "fonts"),
 		CacheDir: filepath.Join("system", "cache", "fonts"),
@@ -96,6 +97,9 @@ func LocaleInit() {
 
 // serveLocaleRequest answers /SystemAO/locale/* for a logged in user
 func serveLocaleRequest(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "serveLocaleRequest: r=%s", logger.RequestSummary(r))
+	}
 	username := ""
 	if userinfo, err := userHandler.GetUserInfoFromRequest(w, r); err == nil {
 		username = userinfo.Username
@@ -115,6 +119,9 @@ func serveLocaleRequest(w http.ResponseWriter, r *http.Request) {
 // handleFontFaces lists the installed families with the files of their
 // faces; the paths are relative to base
 func handleFontFaces(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleFontFaces: r=%s", logger.RequestSummary(r))
+	}
 	js, err := json.Marshal(map[string]interface{}{
 		"base":     locale.URLPrefix + "fonts/",
 		"families": fontLibrary.Sources(),
@@ -127,6 +134,9 @@ func handleFontFaces(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFontList(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleFontList: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -166,6 +176,9 @@ func handleFontList(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFontPreference(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleFontPreference: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "POST required")
 		return
@@ -189,6 +202,9 @@ func handleFontPreference(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFontDefault(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleFontDefault: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "POST required")
 		return
@@ -207,6 +223,9 @@ func handleFontDefault(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFontUpload(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleFontUpload: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "POST required")
 		return
@@ -261,6 +280,9 @@ func handleFontUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFontDelete(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleFontDelete: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "POST required")
 		return

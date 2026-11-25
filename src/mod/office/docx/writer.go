@@ -51,6 +51,7 @@ import (
 	"strings"
 
 	"golang.org/x/net/html"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/fonts"
 	"imuslab.com/arozos/mod/office/internal/htmlutil"
 	"imuslab.com/arozos/mod/office/internal/media"
@@ -69,6 +70,9 @@ const (
 
 // cssDecls parses an inline style attribute (later declarations win)
 func cssDecls(style string) map[string]string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "cssDecls: style=%.120q", style)
+	}
 	out := map[string]string{}
 	var cur strings.Builder
 	quote := byte(0)
@@ -110,6 +114,9 @@ func cssDecls(style string) map[string]string {
 // cssPt converts a CSS length to points; em is relative to emPt; ok=false
 // when the value is not a length
 func cssPt(v string, emPt float64) (float64, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "cssPt: v=%.120q emPt=%g", v, emPt)
+	}
 	v = strings.TrimSpace(strings.ToLower(v))
 	if v == "" || v == "auto" || v == "normal" {
 		return 0, false
@@ -141,6 +148,9 @@ func cssPt(v string, emPt float64) (float64, bool) {
 
 // cssFontSizePt resolves font-size (absolute, %, em, keywords)
 func cssFontSizePt(v string, parentPt float64) (float64, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "cssFontSizePt: v=%.120q parentPt=%g", v, parentPt)
+	}
 	v = strings.TrimSpace(strings.ToLower(v))
 	if strings.HasSuffix(v, "%") {
 		if n, err := strconv.ParseFloat(strings.TrimSuffix(v, "%"), 64); err == nil {
@@ -182,6 +192,9 @@ type wBorder struct {
 }
 
 func cssBorder(v string) (wBorder, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "cssBorder: v=%.120q", v)
+	}
 	v = strings.TrimSpace(strings.ToLower(v))
 	if v == "" {
 		return wBorder{}, false
@@ -234,6 +247,9 @@ the per-side ones. Only the sides the style mentions are returned; a side
 given a width or colour but never a style has none, as in CSS.
 */
 func cssBorderSides(css map[string]string) map[string]wBorder {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "cssBorderSides: len(css)=%d", len(css))
+	}
 	sides := []string{"top", "right", "bottom", "left"}
 	out := map[string]wBorder{}
 	if v, ok := css["border"]; ok {
@@ -322,11 +338,17 @@ func cssBorderSides(css map[string]string) map[string]wBorder {
 
 // borderSpace is a border's w:space: whole points, 0 to 31
 func borderSpace(pt float64) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "borderSpace: pt=%g", pt)
+	}
 	return int(math.Max(0, math.Min(31, math.Round(pt))))
 }
 
 // splitCSSValue splits a shorthand on spaces, keeping rgb(...) whole
 func splitCSSValue(v string) []string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "splitCSSValue: v=%.120q", v)
+	}
 	var out []string
 	depth := 0
 	var cur strings.Builder
@@ -355,6 +377,9 @@ func splitCSSValue(v string) []string {
 
 // boxSides expands a 1-4 value shorthand (padding, margin) into t r b l
 func boxSides(v string, emPt float64) ([4]float64, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "boxSides: v=%.120q emPt=%g", v, emPt)
+	}
 	var out [4]float64
 	toks := splitCSSValue(strings.TrimSpace(v))
 	var vals []float64
@@ -380,9 +405,17 @@ func boxSides(v string, emPt float64) ([4]float64, bool) {
 	return out, true
 }
 
-func twip(pt float64) int { return int(math.Round(pt * 20)) }
+func twip(pt float64) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "twip: pt=%g", pt)
+	}
+	return int(math.Round(pt * 20))
+}
 
 func hasClass(n *html.Node, cls string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "hasClass: cls=%.120q", cls)
+	}
 	return strings.Contains(" "+htmlutil.Attr(n, "class")+" ", " "+cls+" ")
 }
 
@@ -404,6 +437,9 @@ type wRunStyle struct {
 // applyBlockCSS folds a container's inline style into the run style; its
 // background belongs to the paragraph or cell, not to every run inside
 func (rs wRunStyle) applyBlockCSS(css map[string]string) wRunStyle {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "wRunStyle.applyBlockCSS: len(css)=%d", len(css))
+	}
 	if _, ok := css["background-color"]; !ok {
 		return rs.applyCSS(css)
 	}
@@ -418,6 +454,9 @@ func (rs wRunStyle) applyBlockCSS(css map[string]string) wRunStyle {
 
 // applyCSS folds an element's inline style into the inherited run style
 func (rs wRunStyle) applyCSS(css map[string]string) wRunStyle {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "wRunStyle.applyCSS: len(css)=%d", len(css))
+	}
 	if v, ok := css["font-family"]; ok {
 		if f := fonts.FirstFamily(v); f != "" {
 			rs.font = f
@@ -474,6 +513,7 @@ func (rs wRunStyle) applyCSS(css map[string]string) wRunStyle {
 }
 
 func (rs wRunStyle) rPr() string {
+	logger.DebugTrace("office/docx", "wRunStyle.rPr")
 	var sb strings.Builder
 	sb.WriteString("<w:rPr>")
 	if rs.font != "" {
@@ -571,6 +611,9 @@ var editorBlockCSS = map[string]map[string]string{
 // withDefaultCSS lays an element's inline declarations over defaults; a
 // shorthand ("margin", "border") replaces the defaults it covers
 func withDefaultCSS(defaults, inline map[string]string) map[string]string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "withDefaultCSS: len(defaults)=%d len(inline)=%d", len(defaults), len(inline))
+	}
 	out := make(map[string]string, len(defaults)+len(inline))
 	for k, v := range defaults {
 		out[k] = v
@@ -596,6 +639,9 @@ type docxPart struct {
 }
 
 func (p *docxPart) add(typ, target string, external bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxPart.add: typ=%.120q target=%.120q external=%t", typ, target, external)
+	}
 	p.next++
 	id := fmt.Sprintf("rId%d", 100+p.next)
 	mode := ""
@@ -607,6 +653,9 @@ func (p *docxPart) add(typ, target string, external bool) string {
 }
 
 func (p *docxPart) relsXML(fixed string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxPart.relsXML: fixed=%.120q", fixed)
+	}
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n" +
 		`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
 		fixed + strings.Join(p.rels, "") + `</Relationships>`
@@ -632,6 +681,7 @@ type docxNumbering struct {
 }
 
 func (nb *docxNumbering) instance(key string) *numInstance {
+	logger.DebugTrace("office/docx", "docxNumbering.instance")
 	if nb.byKey == nil {
 		nb.byKey = map[string]*numInstance{}
 	}
@@ -649,6 +699,7 @@ func (nb *docxNumbering) instance(key string) *numInstance {
 }
 
 func (nb *docxNumbering) xml() string {
+	logger.DebugTrace("office/docx", "docxNumbering.xml")
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n")
 	sb.WriteString(`<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">`)
@@ -685,6 +736,9 @@ var defaultBullets = []string{"\u25cf", "\u25cb", "\u25a0"}
 var defaultOrdered = []string{"decimal", "lowerLetter", "lowerRoman"}
 
 func defaultNumLevel(bullet bool, level int) numLevelDef {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "defaultNumLevel: bullet=%t level=%d", bullet, level)
+	}
 	d := numLevelDef{start: 1, leftPt: float64(level+1) * 36, hangPt: 18, set: true}
 	if bullet {
 		d.fmt = "bullet"
@@ -739,12 +793,14 @@ type docxBuilder struct {
 // Build serializes a Document into a complete .docx file; pictures
 // must be inline data URLs
 func Build(doc *model.Document) ([]byte, error) {
+	logger.DebugTrace("office/docx", "Build")
 	return BuildMedia(doc, nil)
 }
 
 // BuildMedia serializes a Document, reading pictures that are
 // media?file= links through readVpath
 func BuildMedia(doc *model.Document, readVpath func(string) ([]byte, error)) ([]byte, error) {
+	logger.Debug("office/docx", "BuildMedia")
 	if doc == nil {
 		return nil, errors.New("nil document")
 	}
@@ -943,6 +999,7 @@ func BuildMedia(doc *model.Document, readVpath func(string) ([]byte, error)) ([]
 
 // textWidthPt is the width of the text column for a page setup
 func textWidthPt(pc *model.PageConf) float64 {
+	logger.DebugTrace("office/docx", "textWidthPt")
 	size, orient := "A4", "portrait"
 	mL, mR := 25.4, 25.4
 	if pc != nil {
@@ -964,6 +1021,9 @@ func textWidthPt(pc *model.PageConf) float64 {
 
 // convertBlocks parses a fragment of editor HTML into body XML
 func (b *docxBuilder) convertBlocks(src string, part *docxPart, top bool) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxBuilder.convertBlocks: src=%.120q top=%t", src, top)
+	}
 	root, err := html.Parse(strings.NewReader("<body>" + src + "</body>"))
 	if err != nil {
 		return "", errors.New("cannot parse document HTML: " + err.Error())
@@ -991,6 +1051,9 @@ type hfResult struct {
 // hfBody renders a header/footer: rich HTML, else plain text, plus an
 // automatic centred page number
 func (b *docxBuilder) hfBody(richHTML, text string, pageNumbers bool) *hfResult {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxBuilder.hfBody: pageNumbers=%t", pageNumbers)
+	}
 	part := &docxPart{}
 	var sb strings.Builder
 	if strings.TrimSpace(richHTML) != "" {
@@ -1017,12 +1080,16 @@ func (b *docxBuilder) hfBody(richHTML, text string, pageNumbers bool) *hfResult 
 }
 
 func hfPartXML(root, inner string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "hfPartXML: root=%.120q inner=%.120q", root, inner)
+	}
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n" +
 		`<w:` + root + ` ` + docxNs + `>` + inner + `</w:` + root + `>`
 }
 
 // footnotesXML writes the separators and every referenced footnote
 func (b *docxBuilder) footnotesXML(part *docxPart) (string, error) {
+	logger.DebugTrace("office/docx", "docxBuilder.footnotesXML")
 	byID := map[string]string{}
 	for _, fn := range b.doc.Footnotes {
 		byID[fn.ID] = fn.HTML
@@ -1082,6 +1149,7 @@ type pProps struct {
 }
 
 func (pp pProps) xml() string {
+	logger.DebugTrace("office/docx", "pProps.xml")
 	var sb strings.Builder
 	sb.WriteString("<w:pPr>")
 	if pp.style != "" {
@@ -1149,6 +1217,7 @@ func (pp pProps) xml() string {
 
 // blockStyleOf reads one block element's paragraph and run formatting
 func (b *docxBuilder) blockStyleOf(n *html.Node, parent wRunStyle) (pProps, wRunStyle) {
+	logger.DebugTrace("office/docx", "docxBuilder.blockStyleOf")
 	css := withDefaultCSS(editorBlockCSS[n.Data], cssDecls(htmlutil.Attr(n, "style")))
 	pp := pProps{}
 	rs := parent
@@ -1320,6 +1389,9 @@ func (b *docxBuilder) blockStyleOf(n *html.Node, parent wRunStyle) (pProps, wRun
 
 // tabsXML turns data-tabs ("right:451.28:dot;left:36:none") into w:tabs
 func tabsXML(v string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "tabsXML: v=%.120q", v)
+	}
 	var sb strings.Builder
 	for _, t := range strings.Split(v, ";") {
 		f := strings.Split(t, ":")
@@ -1350,6 +1422,9 @@ func tabsXML(v string) string {
 
 // blocks emits the block-level children of an element
 func (b *docxBuilder) blocks(n *html.Node, part *docxPart, rs wRunStyle, sb *strings.Builder, top bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxBuilder.blocks: top=%t", top)
+	}
 	var toc tocRun
 	var pending *html.Node // first of a run of stray inline nodes
 	flushInline := func(stop *html.Node) {
@@ -1401,6 +1476,7 @@ func (b *docxBuilder) blocks(n *html.Node, part *docxPart, rs wRunStyle, sb *str
 }
 
 func isBlockElement(n *html.Node) bool {
+	logger.DebugTrace("office/docx", "isBlockElement")
 	if n.Type != html.ElementNode {
 		return false
 	}
@@ -1417,6 +1493,7 @@ func isBlockElement(n *html.Node) bool {
 
 // block emits one block element
 func (b *docxBuilder) block(c *html.Node, part *docxPart, rs wRunStyle, sb *strings.Builder) {
+	logger.DebugTrace("office/docx", "docxBuilder.block")
 	if hasClass(c, "doc-pagebreak") {
 		sb.WriteString(`<w:p><w:r><w:br w:type="page"/></w:r></w:p>`)
 		return
@@ -1458,6 +1535,7 @@ func (b *docxBuilder) block(c *html.Node, part *docxPart, rs wRunStyle, sb *stri
 // inContainer runs fn with the blocks it writes inside a container's
 // indent (a blockquote the browser's indent command made, a div)
 func (b *docxBuilder) inContainer(pp pProps, fn func()) {
+	logger.DebugTrace("office/docx", "docxBuilder.inContainer")
 	l, r := b.containerLeft, b.containerRight
 	b.containerLeft += pp.leftPt
 	b.containerRight += pp.rightPt
@@ -1467,6 +1545,7 @@ func (b *docxBuilder) inContainer(pp pProps, fn func()) {
 
 // containerWithStyle handles a div/p that holds nested blocks
 func (b *docxBuilder) containerWithStyle(c *html.Node, part *docxPart, pp pProps, rs wRunStyle, sb *strings.Builder) {
+	logger.DebugTrace("office/docx", "docxBuilder.containerWithStyle")
 	var pending *html.Node
 	flush := func(stop *html.Node) {
 		if pending != nil {
@@ -1496,6 +1575,7 @@ type runBuf struct {
 
 // paragraph writes the inline nodes from first up to (not including) stop
 func (b *docxBuilder) paragraph(first, stop *html.Node, pp pProps, rs wRunStyle, part *docxPart, sb *strings.Builder) {
+	logger.DebugTrace("office/docx", "docxBuilder.paragraph")
 	rb := &runBuf{}
 	for n := first; n != nil && n != stop; n = n.NextSibling {
 		b.inline(n, rs, part, rb)
@@ -1539,6 +1619,7 @@ func (b *docxBuilder) paragraph(first, stop *html.Node, pp pProps, rs wRunStyle,
 var wsRun = regexp.MustCompile(`[ \t\r\n\f]+`)
 
 func (b *docxBuilder) textRuns(text string, rs wRunStyle, rb *runBuf) {
+	logger.DebugTrace("office/docx", "docxBuilder.textRuns")
 	text = strings.ReplaceAll(text, "\u00a0", " ")
 	if !rs.preWrap {
 		text = wsRun.ReplaceAllString(text, " ")
@@ -1576,6 +1657,7 @@ func (b *docxBuilder) textRuns(text string, rs wRunStyle, rb *runBuf) {
 
 // inline writes one inline node (and its subtree) as runs
 func (b *docxBuilder) inline(n *html.Node, rs wRunStyle, part *docxPart, rb *runBuf) {
+	logger.DebugTrace("office/docx", "docxBuilder.inline")
 	if n.Type == html.TextNode {
 		b.textRuns(n.Data, rs, rb)
 		return
@@ -1707,6 +1789,7 @@ func (b *docxBuilder) inline(n *html.Node, rs wRunStyle, part *docxPart, rb *run
 var insetRe = regexp.MustCompile(`inset\(\s*([-\d.]+)%?\s*([-\d.]+)?%?\s*([-\d.]+)?%?\s*([-\d.]+)?%?\s*\)`)
 
 func (b *docxBuilder) image(n *html.Node, part *docxPart) string {
+	logger.DebugTrace("office/docx", "docxBuilder.image")
 	// data-export-src: the PNG the editor rendered for a picture Word cannot
 	// take as it is (an SVG chart, a WebP); src stays the original
 	src := htmlutil.Attr(n, "data-export-src")
@@ -1849,6 +1932,9 @@ func (b *docxBuilder) image(n *html.Node, part *docxPart) string {
 // list writes an ol/ul (depth = nesting level, leftPt = the indent its
 // parent list's text starts at)
 func (b *docxBuilder) list(l *html.Node, part *docxPart, rs wRunStyle, sb *strings.Builder, depth int, leftPt float64, key string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxBuilder.list: depth=%d leftPt=%g", depth, leftPt)
+	}
 	if depth > 8 {
 		depth = 8
 	}
@@ -1920,6 +2006,9 @@ func (b *docxBuilder) list(l *html.Node, part *docxPart, rs wRunStyle, sb *strin
 }
 
 func attrPresent(n *html.Node, name string) (string, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "attrPresent: name=%.120q", name)
+	}
 	for _, a := range n.Attr {
 		if a.Key == name {
 			return a.Val, true
@@ -1929,6 +2018,9 @@ func attrPresent(n *html.Node, name string) (string, bool) {
 }
 
 func (b *docxBuilder) listItem(li *html.Node, part *docxPart, rs wRunStyle, sb *strings.Builder, inst *numInstance, depth int, left, hang float64, key string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxBuilder.listItem: depth=%d left=%g hang=%g", depth, left, hang)
+	}
 	pp, prs := b.blockStyleOf(li, rs)
 	pp.numID, pp.ilvl = inst.id, depth
 	pp.leftPt, pp.firstPt, pp.hasInd = left, -hang, true
@@ -1988,6 +2080,7 @@ type tcell struct {
 }
 
 func (b *docxBuilder) table(t *html.Node, part *docxPart, rs wRunStyle, sb *strings.Builder) {
+	logger.DebugTrace("office/docx", "docxBuilder.table")
 	css := cssDecls(htmlutil.Attr(t, "style"))
 	rs = rs.applyBlockCSS(css)
 
@@ -2195,6 +2288,9 @@ func (b *docxBuilder) table(t *html.Node, part *docxPart, rs wRunStyle, sb *stri
 }
 
 func (b *docxBuilder) cell(c tcell, part *docxPart, rs wRunStyle, sb *strings.Builder, colW []float64, merge string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxBuilder.cell: len(colW)=%d merge=%.120q", len(colW), merge)
+	}
 	td := c.node
 	css := cssDecls(htmlutil.Attr(td, "style"))
 	w := 0.0
@@ -2286,6 +2382,9 @@ func (b *docxBuilder) cell(c tcell, part *docxPart, rs wRunStyle, sb *strings.Bu
 }
 
 func jcOf(css map[string]string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "jcOf: len(css)=%d", len(css))
+	}
 	switch css["text-align"] {
 	case "center":
 		return "center"
@@ -2301,6 +2400,7 @@ func jcOf(css map[string]string) string {
 
 // pgGeometry renders the pgSz + pgMar pair for a page config
 func pgGeometry(pc *model.PageConf) string {
+	logger.DebugTrace("office/docx", "pgGeometry")
 	size := "A4"
 	orient := "portrait"
 	mT, mR, mB, mL := 25.4, 25.4, 25.4, 25.4
@@ -2336,6 +2436,9 @@ func pgGeometry(pc *model.PageConf) string {
 }
 
 func buildSectPr(pc *model.PageConf, headerRef, footerRef string, continuous, titlePg bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "buildSectPr: footerRef=%.120q continuous=%t titlePg=%t", footerRef, continuous, titlePg)
+	}
 	typ := ""
 	if continuous {
 		// the columned body continues on the same page as the spanning
@@ -2366,6 +2469,7 @@ func buildSectPr(pc *model.PageConf, headerRef, footerRef string, continuous, ti
 // else than in the editor. Spacing units: half-points for sz, twentieths of
 // a point for spacing, 240ths of a line for w:line.
 func docxStylesXML(doc *model.Document) string {
+	logger.DebugTrace("office/docx", "docxStylesXML")
 	ls := 1.15
 	if doc != nil && doc.LineSpacing > 0 {
 		ls = doc.LineSpacing

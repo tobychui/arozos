@@ -61,6 +61,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/meetroom"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/sharedspace"
@@ -103,6 +104,7 @@ type mrRoomInfo struct {
 }
 
 func mrDescribeRoom(room *meetroom.Room) mrRoomInfo {
+	logger.DebugTrace("Core", "mrDescribeRoom")
 	return mrRoomInfo{
 		ID:        room.ID,
 		DisplayID: meetroom.FormatRoomID(room.ID),
@@ -116,6 +118,7 @@ func mrDescribeRoom(room *meetroom.Room) mrRoomInfo {
 // mrMarshalOrDrop marshals v, returning nil when marshalling fails (the
 // frame is simply not sent - all inputs are server-constructed).
 func mrMarshalOrDrop(v interface{}) []byte {
+	logger.Debug("Core", "mrMarshalOrDrop")
 	js, err := json.Marshal(v)
 	if err != nil {
 		return nil
@@ -125,6 +128,9 @@ func mrMarshalOrDrop(v interface{}) []byte {
 
 // mrEndMeeting broadcasts room-closed and tears the room down.
 func mrEndMeeting(roomID string) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "mrEndMeeting: roomID=%.120q", roomID)
+	}
 	room, ok := meetRoomManager.GetRoom(roomID)
 	if !ok {
 		return
@@ -136,6 +142,7 @@ func mrEndMeeting(roomID string) {
 // mrAttendanceList renders a room's join/leave log for the client. leftat is
 // 0 while the participant is still connected.
 func mrAttendanceList(room *meetroom.Room) []map[string]interface{} {
+	logger.Debug("Core", "mrAttendanceList")
 	records := room.Attendance()
 	list := make([]map[string]interface{}, 0, len(records))
 	for _, record := range records {
@@ -159,6 +166,7 @@ func mrAttendanceList(room *meetroom.Room) []map[string]interface{} {
 // file frames. Peer ID 0 marks server-side senders: real participants are
 // numbered from 1.
 func mrSpaceItemBroadcast(room *meetroom.Room, item *sharedspace.Item) {
+	logger.Debug("Core", "mrSpaceItemBroadcast")
 	if item.Type == sharedspace.ItemTypeText {
 		room.Broadcast(mrMarshalOrDrop(map[string]interface{}{
 			"type":     "chat",
@@ -182,6 +190,7 @@ func mrSpaceItemBroadcast(room *meetroom.Room, item *sharedspace.Item) {
 
 // MeetRoomInit wires up the MeetRoom video conferencing endpoints.
 func MeetRoomInit() {
+	logger.Debug("Core", "MeetRoomInit")
 	meetRoomManager = meetroom.NewManager("")
 
 	//Give every room a shared space (chat + files mirror into it, AGI
@@ -686,6 +695,9 @@ func MeetRoomInit() {
 // filepathExt returns the extension of a display file name (which never
 // contains a path separator by the time it reaches the server).
 func filepathExt(name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "filepathExt: name=%.120q", name)
+	}
 	if idx := strings.LastIndex(name, "."); idx >= 0 {
 		return name[idx:]
 	}

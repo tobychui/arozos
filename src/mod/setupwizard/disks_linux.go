@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Supported reports whether this platform can list, format and mount disks
@@ -28,6 +30,9 @@ var formatLock sync.Mutex
 
 // ListDisks lists the disks of this host
 func ListDisks(used []UsedDrive) ([]Disk, error) {
+	if logger.IsDebug() {
+		logger.Debugf("setupwizard", "ListDisks: len(used)=%d", len(used))
+	}
 	out, err := exec.Command("lsblk", "-b", "-J", "-o", "NAME,TYPE,SIZE,FSTYPE,UUID,LABEL,MOUNTPOINT,MODEL,RM").Output()
 	if err != nil {
 		return nil, fmt.Errorf("lsblk failed: %v", err)
@@ -38,6 +43,9 @@ func ListDisks(used []UsedDrive) ([]Disk, error) {
 // Format creates a file system on a partition, or on a disk with no
 // partitions, after checking on a fresh listing that nothing uses the disk
 func Format(device string, fstype string, label string, used []UsedDrive) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("setupwizard", "Format: device=%.120q fstype=%.120q label=%.120q len(used)=%d", device, fstype, label, len(used))
+	}
 	if !formatLock.TryLock() {
 		return errors.New("Another disk is being formatted, please wait")
 	}
@@ -79,6 +87,9 @@ func Format(device string, fstype string, label string, used []UsedDrive) error 
 
 // PrepareMountPoint returns an empty folder to mount a new drive on
 func PrepareMountPoint(id string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("setupwizard", "PrepareMountPoint: id=%.120q", id)
+	}
 	if !ValidDriveID(id) {
 		return "", errors.New("A drive id can only contain letters, numbers, - and _")
 	}

@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/units"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 	"imuslab.com/arozos/mod/office/model"
@@ -32,6 +33,9 @@ import (
 // shape's size (EMU) - the built-in names first, then <a:avLst> and
 // <a:gdLst> in order, each formula seeing the ones before it
 func geomGuides(geom *xmltree.Node, w, h float64) map[string]float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "geomGuides: w=%g h=%g", w, h)
+	}
 	g := map[string]float64{
 		"l": 0, "t": 0, "r": w, "b": h, "w": w, "h": h,
 		"hc": w / 2, "vc": h / 2, "ls": math.Max(w, h), "ss": math.Min(w, h),
@@ -55,6 +59,9 @@ func geomGuides(geom *xmltree.Node, w, h float64) map[string]float64 {
 
 // evalGuide computes one DrawingML guide formula ("*/ w adj 100000")
 func evalGuide(fmla string, g map[string]float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "evalGuide: fmla=%.120q len(g)=%d", fmla, len(g))
+	}
 	f := strings.Fields(fmla)
 	if len(f) == 0 {
 		return 0
@@ -113,6 +120,9 @@ func evalGuide(fmla string, g map[string]float64) float64 {
 }
 
 func geomValue(s string, g map[string]float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "geomValue: s=%.120q len(g)=%d", s, len(g))
+	}
 	if v, ok := g[s]; ok {
 		return v
 	}
@@ -122,6 +132,9 @@ func geomValue(s string, g map[string]float64) float64 {
 
 // parseCustGeom reads a <a:custGeom> for a shape of the given size (EMU)
 func parseCustGeom(cg *xmltree.Node, w, h float64) *model.CustomGeom {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "parseCustGeom: w=%g h=%g", w, h)
+	}
 	g := geomGuides(cg, w, h)
 	out := &model.CustomGeom{}
 	for _, p := range cg.Path("pathLst").All("path") {
@@ -154,6 +167,9 @@ func parseCustGeom(cg *xmltree.Node, w, h float64) *model.CustomGeom {
 
 // pathD turns one geometry path into SVG M / L / C / Z
 func pathD(p *xmltree.Node, g map[string]float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "pathD: len(g)=%d", len(g))
+	}
 	var sb strings.Builder
 	num := func(v float64) string { return strconv.FormatFloat(math.Round(v*100)/100, 'f', -1, 64) }
 	pt := func(n *xmltree.Node) (float64, float64) {
@@ -240,6 +256,7 @@ func pathD(p *xmltree.Node, g map[string]float64) string {
 
 // custGeomXML writes a custom outline back as <a:custGeom>
 func custGeomXML(geom *model.CustomGeom) string {
+	logger.DebugTrace("office/pptx", "custGeomXML")
 	var sb strings.Builder
 	sb.WriteString(`<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="l" t="t" r="r" b="b"/><a:pathLst>`)
 	for _, p := range geom.Paths {
@@ -260,6 +277,9 @@ func custGeomXML(geom *model.CustomGeom) string {
 
 // writeSvgPathAsDrawingML turns an M / L / C / Z path into path commands
 func writeSvgPathAsDrawingML(sb *strings.Builder, d string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "writeSvgPathAsDrawingML: d=%.120q", d)
+	}
 	ptXML := func(x, y float64) string {
 		return `<a:pt x="` + strconv.FormatInt(int64(math.Round(x)), 10) + `" y="` + strconv.FormatInt(int64(math.Round(y)), 10) + `"/>`
 	}

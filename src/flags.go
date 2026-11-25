@@ -112,6 +112,8 @@ var enable_beta_scanning_support = flag.Bool("beta_scan", false, "Allow compatib
 var enable_console = flag.Bool("console", false, "Enable the debugging console.")
 var enable_logging = flag.Bool("logging", true, "Enable logging to file for debug purpose")
 var log_format = flag.String("log_format", "text", "Console log output format: text or json")
+var enable_debug_log = flag.Bool("debug", false, "Print and log DEBUG level messages (very verbose, for troubleshooting)")
+var enable_debug_trace = flag.Bool("debug_trace", false, "Also print DEBUG lines of frequently called functions (helpers, parsers, io methods). Implies -debug")
 
 // Flags related to running on Cloud Environment or public domain
 var allow_public_registry = flag.Bool("public_reg", false, "Enable public register interface for account creation")

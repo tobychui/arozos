@@ -22,6 +22,9 @@ import (
 
 // Craete a new file or folder share, or return the existing first share of the path
 func (s *Manager) CreateNewShare(userinfo *user.User, srcFsh *filesystem.FileSystemHandler, vpath string) (*shareEntry.ShareOption, error) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.CreateNewShare: vpath=%.120q", vpath)
+	}
 	if srcFsh == nil {
 		return nil, errors.New("Invalid vpath given")
 	}
@@ -42,6 +45,9 @@ var errReshare = errors.New("Files shared with you cannot be shared again")
 
 // CreateShare always adds a new share with the given settings to the path
 func (s *Manager) CreateShare(userinfo *user.User, vpath string, settings shareEntry.ShareSettings) (*shareEntry.ShareOption, error) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.CreateShare: vpath=%.120q", vpath)
+	}
 	srcFsh := userinfo.GetRootFSHFromVpathInUserScope(vpath)
 	if srcFsh == nil {
 		return nil, errors.New("Invalid vpath given")
@@ -68,6 +74,9 @@ func (s *Manager) CreateShare(userinfo *user.User, vpath string, settings shareE
 
 // UpdateShare changes the settings of an existing share
 func (s *Manager) UpdateShare(userinfo *user.User, uuid string, settings shareEntry.ShareSettings) (*shareEntry.ShareOption, error) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.UpdateShare: uuid=%.120q", uuid)
+	}
 	so := s.GetShareObjectFromUUID(uuid)
 	if so == nil {
 		return nil, errors.New("Share UUID not exists")
@@ -101,6 +110,7 @@ func (s *Manager) UpdateShare(userinfo *user.User, uuid string, settings shareEn
 // resolveRecipients fills in the owner's groups for same group shares and
 // checks that invited users and groups exist.
 func (s *Manager) resolveRecipients(owner *user.User, settings shareEntry.ShareSettings) (shareEntry.ShareSettings, error) {
+	logger.Debug("share", "Manager.resolveRecipients")
 	if settings.Permission == nil {
 		return settings, nil
 	}
@@ -134,6 +144,7 @@ There are two conditions where the user can open the file in file manager
 2. If the user is NOT the owner of the file but the target fsh is public accessible and in user's fsh list
 */
 func (s *Manager) UserCanOpenShareInFileManager(share *shareEntry.ShareOption, userinfo *user.User) bool {
+	logger.Debug("share", "Manager.UserCanOpenShareInFileManager")
 	if share.Owner == userinfo.Username {
 		return true
 	}
@@ -153,6 +164,9 @@ func (s *Manager) UserCanOpenShareInFileManager(share *shareEntry.ShareOption, u
 }
 
 func (s *Manager) ListAllShareByFshId(fshId string, userinfo *user.User) []*shareEntry.ShareOption {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.ListAllShareByFshId: fshId=%.120q", fshId)
+	}
 	results := []*shareEntry.ShareOption{}
 	for _, thisShareOption := range s.options.ShareEntryTable.ListAllShares() {
 		if userinfo.IsAdmin() || thisShareOption.IsAccessibleBy(userinfo.Username, userinfo.GetUserPermissionGroupNames()) {
@@ -168,6 +182,9 @@ func (s *Manager) ListAllShareByFshId(fshId string, userinfo *user.User) []*shar
 // ListSharesOfPath returns the shares on the given path that the user can
 // manage, oldest first.
 func (s *Manager) ListSharesOfPath(userinfo *user.User, vpath string) []*shareEntry.ShareOption {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.ListSharesOfPath: vpath=%.120q", vpath)
+	}
 	ps, err := getPathHashFromUsernameAndVpath(userinfo, vpath)
 	if err != nil {
 		return []*shareEntry.ShareOption{}
@@ -187,6 +204,7 @@ func (s *Manager) ListSharesOfPath(userinfo *user.User, vpath string) []*shareEn
 }
 
 func (s *Manager) ShareIsValid(thisShareOption *shareEntry.ShareOption) bool {
+	logger.Debug("share", "Manager.ShareIsValid")
 	vpath := thisShareOption.FileVirtualPath
 	userinfo, err := s.options.UserHandler.GetUserInfoFromUsername(thisShareOption.Owner)
 	if err != nil {
@@ -208,6 +226,7 @@ func (s *Manager) ShareIsValid(thisShareOption *shareEntry.ShareOption) bool {
 }
 
 func (s *Manager) GetPathHashFromShare(thisShareOption *shareEntry.ShareOption) (string, error) {
+	logger.Debug("share", "Manager.GetPathHashFromShare")
 	vpath := thisShareOption.FileVirtualPath
 	userinfo, err := s.options.UserHandler.GetUserInfoFromUsername(thisShareOption.Owner)
 	if err != nil {
@@ -227,6 +246,7 @@ Nightly share maintenance. Registered on the system nightly task ticker.
 2. Remove shares whose shared file no longer exists in the system
 */
 func (s *Manager) ValidateAndClearShares() {
+	logger.Debug("share", "Manager.ValidateAndClearShares")
 	defer s.driveCache.clear()
 	for _, expired := range s.options.ShareEntryTable.RemoveExpiredShares(time.Now()) {
 		logger.PrintAndLog("Share", "Removing expired share "+expired.UUID+" to file: "+expired.FileVirtualPath, nil)
@@ -253,6 +273,9 @@ func (s *Manager) ValidateAndClearShares() {
 
 // Check if the user has the permission to modify the shares on this path
 func (s *Manager) CanModifyShareEntry(userinfo *user.User, vpath string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.CanModifyShareEntry: vpath=%.120q", vpath)
+	}
 	shareEntry := s.GetShareObjectFromUserAndVpath(userinfo, vpath)
 	if shareEntry == nil {
 		//Share entry not found
@@ -264,6 +287,7 @@ func (s *Manager) CanModifyShareEntry(userinfo *user.User, vpath string) bool {
 // CanModifyShare reports whether the user can edit or remove the given share:
 // admins, the share owner, and writers of a public storage the file sits on.
 func (s *Manager) CanModifyShare(userinfo *user.User, so *shareEntry.ShareOption) bool {
+	logger.Debug("share", "Manager.CanModifyShare")
 	//Check if the user is the share owner or the user is admin
 	if userinfo.IsAdmin() {
 		return true
@@ -287,6 +311,9 @@ func (s *Manager) CanModifyShare(userinfo *user.User, so *shareEntry.ShareOption
 
 // Remove all the shares on the given path that the user can modify
 func (s *Manager) DeleteShareByVpath(userinfo *user.User, vpath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.DeleteShareByVpath: vpath=%.120q", vpath)
+	}
 	shares := s.ListSharesOfPath(userinfo, vpath)
 	if len(shares) == 0 {
 		if s.FileIsShared(userinfo, vpath) {
@@ -304,6 +331,9 @@ func (s *Manager) DeleteShareByVpath(userinfo *user.User, vpath string) error {
 }
 
 func (s *Manager) DeleteShareByUUID(userinfo *user.User, uuid string) error {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.DeleteShareByUUID: uuid=%.120q", uuid)
+	}
 	so := s.GetShareObjectFromUUID(uuid)
 	if so == nil {
 		return errors.New("Invalid share uuid")
@@ -318,6 +348,9 @@ func (s *Manager) DeleteShareByUUID(userinfo *user.User, uuid string) error {
 }
 
 func (s *Manager) GetShareUUIDFromUserAndVpath(userinfo *user.User, vpath string) string {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.GetShareUUIDFromUserAndVpath: vpath=%.120q", vpath)
+	}
 	ps, err := getPathHashFromUsernameAndVpath(userinfo, vpath)
 	if err != nil {
 		return ""
@@ -327,6 +360,9 @@ func (s *Manager) GetShareUUIDFromUserAndVpath(userinfo *user.User, vpath string
 
 // GetShareObjectFromUserAndVpath returns the first share on the path, or nil
 func (s *Manager) GetShareObjectFromUserAndVpath(userinfo *user.User, vpath string) *shareEntry.ShareOption {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.GetShareObjectFromUserAndVpath: vpath=%.120q", vpath)
+	}
 	ps, err := getPathHashFromUsernameAndVpath(userinfo, vpath)
 	if err != nil {
 		return nil
@@ -335,11 +371,17 @@ func (s *Manager) GetShareObjectFromUserAndVpath(userinfo *user.User, vpath stri
 }
 
 func (s *Manager) GetShareObjectFromUUID(uuid string) *shareEntry.ShareOption {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("share", "Manager.GetShareObjectFromUUID: uuid=%.120q", uuid)
+	}
 	return s.options.ShareEntryTable.GetShareObjectFromUUID(uuid)
 }
 
 // FileIsShared reports whether the path has at least one active share
 func (s *Manager) FileIsShared(userinfo *user.User, vpath string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.FileIsShared: vpath=%.120q", vpath)
+	}
 	ps, err := getPathHashFromUsernameAndVpath(userinfo, vpath)
 	if err != nil {
 		return false
@@ -349,6 +391,9 @@ func (s *Manager) FileIsShared(userinfo *user.User, vpath string) bool {
 }
 
 func (s *Manager) RemoveShareByUUID(userinfo *user.User, uuid string) error {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.RemoveShareByUUID: uuid=%.120q", uuid)
+	}
 	shareObject := s.GetShareObjectFromUUID(uuid)
 	if shareObject == nil {
 		return errors.New("Share entry not found")
@@ -361,6 +406,9 @@ func (s *Manager) RemoveShareByUUID(userinfo *user.User, uuid string) error {
 }
 
 func getPathHashFromUsernameAndVpath(userinfo *user.User, vpath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "getPathHashFromUsernameAndVpath: vpath=%.120q", vpath)
+	}
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
 	if err != nil {
 		return "", err

@@ -44,6 +44,7 @@ type DockerManager struct {
 // a manager only when the CLI is present AND the daemon is reachable. A non-nil
 // error means Docker management should stay disabled on this host.
 func NewDockerManager(options Options) (*DockerManager, error) {
+	logger.Debug("docker", "NewDockerManager")
 	if err := detectDockerCLI(); err != nil {
 		return nil, err
 	}
@@ -73,6 +74,7 @@ func NewDockerManager(options Options) (*DockerManager, error) {
 
 // ComposeAvailable reports whether the docker compose v2 plugin was detected.
 func (d *DockerManager) ComposeAvailable() bool {
+	logger.DebugTrace("docker", "DockerManager.ComposeAvailable")
 	return d.composeAvailable
 }
 
@@ -80,6 +82,7 @@ func (d *DockerManager) ComposeAvailable() bool {
 // construction-time values are used as a fallback; a fresh `docker version`
 // call enriches them with API version / OS / arch when the daemon answers.
 func (d *DockerManager) GetEngineStatus() EngineStatus {
+	logger.Debug("docker", "DockerManager.GetEngineStatus")
 	status := EngineStatus{
 		Available:        true,
 		ServerVersion:    d.serverVersion,
@@ -105,6 +108,9 @@ func (d *DockerManager) GetEngineStatus() EngineStatus {
 // HandleEngineStatus serves the engine status as JSON (admin-only endpoint,
 // registered in src/docker.go).
 func (d *DockerManager) HandleEngineStatus(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleEngineStatus: r=%s", logger.RequestSummary(r))
+	}
 	status := d.GetEngineStatus()
 	js, _ := json.Marshal(status)
 	utils.SendJSONResponse(w, string(js))
@@ -114,6 +120,9 @@ func (d *DockerManager) HandleEngineStatus(w http.ResponseWriter, r *http.Reques
 // output. Factored out as a pure function so it is unit-testable without a
 // running docker daemon.
 func parseDockerVersionJSON(out []byte) (dockerVersionOutput, error) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "parseDockerVersionJSON: len(out)=%d", len(out))
+	}
 	var parsed dockerVersionOutput
 	err := json.Unmarshal(out, &parsed)
 	return parsed, err
@@ -123,6 +132,9 @@ func parseDockerVersionJSON(out []byte) (dockerVersionOutput, error) {
 // non-zero exit the trimmed stderr (or the raw exec error if stderr was empty)
 // is returned as the error so callers can surface a meaningful message.
 func runDocker(args ...string) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "runDocker: len(args)=%d", len(args))
+	}
 	cmd := exec.Command("docker", args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

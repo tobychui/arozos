@@ -2,6 +2,8 @@ package pdfrender
 
 import (
 	"math"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -22,6 +24,9 @@ type funcBase struct {
 }
 
 func clamp(v, lo, hi float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "clamp: v=%g lo=%g hi=%g", v, lo, hi)
+	}
 	if v < lo {
 		return lo
 	}
@@ -35,6 +40,9 @@ func clamp(v, lo, hi float64) float64 {
 }
 
 func (f *funcBase) clipIn(in []float64) []float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "funcBase.clipIn: len(in)=%d", len(in))
+	}
 	out := make([]float64, len(in))
 	for i, v := range in {
 		if 2*i+1 < len(f.domain) {
@@ -46,6 +54,9 @@ func (f *funcBase) clipIn(in []float64) []float64 {
 }
 
 func (f *funcBase) clipOut(out []float64) []float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "funcBase.clipOut: len(out)=%d", len(out))
+	}
 	for i := range out {
 		if 2*i+1 < len(f.rng) {
 			out[i] = clamp(out[i], f.rng[2*i], f.rng[2*i+1])
@@ -57,6 +68,9 @@ func (f *funcBase) clipOut(out []float64) []float64 {
 // loadFunction parses a function object, or an array of 1 output functions
 // combined into one
 func (d *Document) loadFunction(o Object, depth int) pdfFunction {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.loadFunction: depth=%d", depth)
+	}
 	if depth > 8 {
 		return nil
 	}
@@ -132,6 +146,9 @@ type funcArray struct {
 }
 
 func (f *funcArray) eval(in []float64) []float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "funcArray.eval: len(in)=%d", len(in))
+	}
 	out := make([]float64, 0, len(f.fs))
 	for _, sub := range f.fs {
 		r := sub.eval(in)
@@ -151,6 +168,9 @@ type funcExp struct {
 }
 
 func (f *funcExp) eval(in []float64) []float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "funcExp.eval: len(in)=%d", len(in))
+	}
 	x := 0.0
 	if len(in) > 0 {
 		x = f.clipIn(in[:1])[0]
@@ -178,6 +198,9 @@ type funcStitch struct {
 }
 
 func (f *funcStitch) eval(in []float64) []float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "funcStitch.eval: len(in)=%d", len(in))
+	}
 	x := 0.0
 	if len(in) > 0 {
 		x = f.clipIn(in[:1])[0]
@@ -219,6 +242,7 @@ type funcSampled struct {
 }
 
 func (d *Document) loadSampled(s *Stream, base funcBase) pdfFunction {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.loadSampled")
 	dict := s.Dict
 	sizes := d.numbers(dict["Size"])
 	m := len(base.domain) / 2
@@ -273,6 +297,9 @@ func (d *Document) loadSampled(s *Stream, base funcBase) pdfFunction {
 }
 
 func (f *funcSampled) eval(in []float64) []float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "funcSampled.eval: len(in)=%d", len(in))
+	}
 	m := len(f.size)
 	x := make([]float64, m)
 	for i := 0; i < m; i++ {
@@ -334,6 +361,9 @@ type bitReader struct {
 }
 
 func (b *bitReader) read(n int) (uint32, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "bitReader.read: n=%d", n)
+	}
 	var v uint32
 	for i := 0; i < n; i++ {
 		byteIdx := b.pos >> 3
@@ -348,6 +378,7 @@ func (b *bitReader) read(n int) (uint32, bool) {
 }
 
 func (b *bitReader) alignByte() {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "bitReader.alignByte")
 	b.pos = (b.pos + 7) &^ 7
 }
 
@@ -369,6 +400,7 @@ type funcPS struct {
 }
 
 func parsePostScript(data []byte) []psOp {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "parsePostScript")
 	l := &lexer{buf: data}
 	t := l.next()
 	if t.kind != tokBraceOpen {
@@ -382,6 +414,9 @@ func parsePostScript(data []byte) []psOp {
 }
 
 func parsePSBlock(l *lexer, depth int) ([]psOp, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "parsePSBlock: depth=%d", depth)
+	}
 	if depth > 32 {
 		return nil, false
 	}
@@ -426,6 +461,9 @@ func parsePSBlock(l *lexer, depth int) ([]psOp, bool) {
 }
 
 func (f *funcPS) eval(in []float64) []float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "funcPS.eval: len(in)=%d", len(in))
+	}
 	st := &psStack{}
 	for _, v := range f.clipIn(in) {
 		st.push(v)
@@ -445,12 +483,16 @@ type psStack struct {
 }
 
 func (s *psStack) push(x float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "psStack.push: x=%g", x)
+	}
 	if len(s.v) < 100 {
 		s.v = append(s.v, x)
 	}
 }
 
 func (s *psStack) pop() float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "psStack.pop")
 	if len(s.v) == 0 {
 		return 0
 	}
@@ -460,6 +502,9 @@ func (s *psStack) pop() float64 {
 }
 
 func boolNum(b bool) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "boolNum: b=%t", b)
+	}
 	if b {
 		return 1
 	}
@@ -467,6 +512,9 @@ func boolNum(b bool) float64 {
 }
 
 func (s *psStack) run(prog []psOp, steps *int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "psStack.run: len(prog)=%d", len(prog))
+	}
 	for _, op := range prog {
 		*steps++
 		if *steps > 10000 {

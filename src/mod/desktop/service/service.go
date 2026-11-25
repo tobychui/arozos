@@ -9,6 +9,7 @@ import (
 	"imuslab.com/arozos/mod/desktop/layout"
 	"imuslab.com/arozos/mod/desktop/prefs"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/modules"
 	"imuslab.com/arozos/mod/user"
 )
@@ -89,6 +90,7 @@ type Service struct {
 
 // New creates a desktop service and the database table it keeps its state in
 func New(opts Options) (*Service, error) {
+	logger.Debug("desktop/service", "New")
 	if opts.Database == nil {
 		return nil, errors.New("desktop service requires a database")
 	}
@@ -127,6 +129,7 @@ func New(opts Options) (*Service, error) {
 
 // RegisterRoutes registers every desktop endpoint on the given router
 func (s *Service) RegisterRoutes(router Router) {
+	logger.Debug("desktop/service", "Service.RegisterRoutes")
 	router.HandleFunc("/system/desktop/listDesktop", s.handleListDesktop)
 	router.HandleFunc("/system/desktop/theme", s.handleTheme)
 	router.HandleFunc("/system/desktop/files", s.handleIconLocation)

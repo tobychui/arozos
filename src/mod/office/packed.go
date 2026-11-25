@@ -38,6 +38,7 @@ import (
 	"sort"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/media"
 )
 
@@ -52,6 +53,9 @@ var htmlMediaAttrRe = regexp.MustCompile(`(?i)(\s(?:src|poster)\s*=\s*)("[^"]*"|
 // attribute of an HTML string through embed, which returns the asset name
 // (and false to leave that link as it is).
 func embedHTMLMediaLinks(s string, embed func(vpath string) (string, bool)) string {
+	if logger.IsDebug() {
+		logger.Debugf("office", "embedHTMLMediaLinks: s=%.120q", s)
+	}
 	if !strings.Contains(s, "media") {
 		return s
 	}
@@ -82,6 +86,9 @@ var htmlDataAttrRe = regexp.MustCompile(`(?i)(\s(?:src|poster|data-export-src)\s
 // stored twice in the file: once as base64 in the embedded copy and once as
 // the OOXML media part.
 func embedHTMLDataURLs(s string, add func(data []byte, ext string) string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office", "embedHTMLDataURLs: s=%.120q", s)
+	}
 	if !strings.Contains(s, "data:") {
 		return s
 	}
@@ -106,6 +113,7 @@ back as base64. Links that are not a png / jpeg / gif, or cannot be read,
 stay as they are.
 */
 func InlineMediaLinks(body string, readVpath func(string) ([]byte, error)) (string, error) {
+	logger.Debug("office", "InlineMediaLinks")
 	if readVpath == nil || !strings.Contains(body, "media") {
 		return body, nil
 	}
@@ -171,6 +179,9 @@ var assetRefRe = regexp.MustCompile(`asset://([A-Za-z0-9._-]+)`)
 // whole string when it is one reference (the original form, which accepts
 // any name), and every reference embedded in it otherwise.
 func resolveAssetRefs(s string, resolve func(name string) (string, bool)) string {
+	if logger.IsDebug() {
+		logger.Debugf("office", "resolveAssetRefs: s=%.120q", s)
+	}
 	if !strings.Contains(s, "asset://") {
 		return s
 	}
@@ -190,6 +201,9 @@ func resolveAssetRefs(s string, resolve func(name string) (string, bool)) string
 // assetExt is the extension an embedded file is stored under: the source
 // path's own, lower-cased, when it is a plain one, and "bin" otherwise.
 func assetExt(vpath string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office", "assetExt: vpath=%.120q", vpath)
+	}
 	ext := strings.TrimPrefix(strings.ToLower(path.Ext(vpath)), ".")
 	if ext == "" || len(ext) > 10 {
 		return "bin"
@@ -204,6 +218,7 @@ func assetExt(vpath string) string {
 
 // transformStrings walks every string value in decoded JSON
 func transformStrings(v interface{}, fn func(string) string) interface{} {
+	logger.DebugTrace("office", "transformStrings")
 	switch t := v.(type) {
 	case map[string]interface{}:
 		for k, vv := range t {
@@ -224,6 +239,9 @@ func transformStrings(v interface{}, fn func(string) string) interface{} {
 // PackEnvelope converts an envelope JSON string into the zip container.
 // readVpath (optional) resolves media?file= links to file bytes.
 func PackEnvelope(envelope string, readVpath func(vpath string) ([]byte, error)) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("office", "PackEnvelope: envelope=%.120q", envelope)
+	}
 	doc, assets, err := collectAssets(envelope, readVpath)
 	if err != nil {
 		return nil, err
@@ -257,6 +275,9 @@ func PackEnvelope(envelope string, readVpath func(vpath string) ([]byte, error))
 // sortedKeys keeps the zip entry order stable, so packing the same
 // document twice produces the same bytes
 func sortedKeys(m map[string][]byte) []string {
+	if logger.IsDebug() {
+		logger.Debugf("office", "sortedKeys: len(m)=%d", len(m))
+	}
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -273,6 +294,9 @@ by content hash. Shared by the session container above and by the asset
 store inside the suite's .docx / .xlsx / .pptx files (native.go).
 */
 func collectAssets(envelope string, readVpath func(vpath string) ([]byte, error)) ([]byte, map[string][]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("office", "collectAssets: envelope=%.120q", envelope)
+	}
 	var root interface{}
 	if err := json.Unmarshal([]byte(envelope), &root); err != nil {
 		return nil, nil, errors.New("invalid envelope JSON: " + err.Error())
@@ -333,6 +357,7 @@ func collectAssets(envelope string, readVpath func(vpath string) ([]byte, error)
 // marshalNoEscape is json.Marshal without the HTML escaping: a Docs body is
 // mostly markup, and < for every "<" makes it a third bigger for nothing
 func marshalNoEscape(v interface{}) ([]byte, error) {
+	logger.Debug("office", "marshalNoEscape")
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
@@ -349,6 +374,7 @@ func marshalNoEscape(v interface{}) ([]byte, error) {
 // instead of carrying megabytes of base64. Legacy plain-JSON files pass
 // through unchanged.
 func UnpackEnvelopeToLinks(data []byte, saveAsset func(name string, content []byte) error, linkFor func(name string) string) (string, error) {
+	logger.Debug("office", "UnpackEnvelopeToLinks")
 	if len(data) < 4 || data[0] != 'P' || data[1] != 'K' {
 		return string(data), nil // legacy plain JSON document
 	}
@@ -404,6 +430,7 @@ func UnpackEnvelopeToLinks(data []byte, saveAsset func(name string, content []by
 // UnpackEnvelope restores the envelope JSON from a zip container. Legacy
 // plain-JSON files pass through unchanged.
 func UnpackEnvelope(data []byte) (string, error) {
+	logger.Debug("office", "UnpackEnvelope")
 	if len(data) < 4 || data[0] != 'P' || data[1] != 'K' {
 		return string(data), nil // legacy plain JSON document
 	}

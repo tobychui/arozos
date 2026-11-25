@@ -41,6 +41,7 @@ type RegisterHandler struct {
 }
 
 func NewRegisterHandler(database *db.Database, authAgent *auth.AuthAgent, ph *permission.PermissionHandler, options RegisterOptions) *RegisterHandler {
+	logger.Debug("auth/register", "NewRegisterHandler")
 	//Create the database for registration
 	database.NewTable("register")
 
@@ -79,11 +80,15 @@ func NewRegisterHandler(database *db.Database, authAgent *auth.AuthAgent, ph *pe
 
 // Create the default usergroup used by new users
 func createDefaultGroup(ph *permission.PermissionHandler) {
+	logger.DebugTrace("auth/register", "createDefaultGroup")
 	//Default storage space: 15GB
 	ph.NewPermissionGroup("default", false, 15<<30, []string{}, "Desktop")
 }
 
 func (h *RegisterHandler) HandleRegisterCheck(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/register", "RegisterHandler.HandleRegisterCheck: r=%s", logger.RequestSummary(r))
+	}
 	if h.AllowRegistry {
 		utils.SendJSONResponse(w, "true")
 	} else {
@@ -93,6 +98,9 @@ func (h *RegisterHandler) HandleRegisterCheck(w http.ResponseWriter, r *http.Req
 
 // Handle and serve the register itnerface
 func (h *RegisterHandler) HandleRegisterInterface(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/register", "RegisterHandler.HandleRegisterInterface: r=%s", logger.RequestSummary(r))
+	}
 	//Serve the register interface
 	if h.AllowRegistry {
 		//Load the vendor icon as base64
@@ -115,6 +123,9 @@ func (h *RegisterHandler) HandleRegisterInterface(w http.ResponseWriter, r *http
 }
 
 func readImageFileAsBase64(src string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/register", "readImageFileAsBase64: src=%.120q", src)
+	}
 	f, err := os.Open(src)
 	if err != nil {
 		return "", err
@@ -131,11 +142,15 @@ func readImageFileAsBase64(src string) (string, error) {
 
 // Get the default usergroup for this register handler
 func (h *RegisterHandler) GetDefaultUserGroup() string {
+	logger.DebugTrace("auth/register", "RegisterHandler.GetDefaultUserGroup")
 	return h.DefaultUserGroup
 }
 
 // Set the default usergroup for this register handler
 func (h *RegisterHandler) SetDefaultUserGroup(groupname string) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth/register", "RegisterHandler.SetDefaultUserGroup: groupname=%.120q", groupname)
+	}
 	if !h.permissionHandler.GroupExists(groupname) {
 		return errors.New("Group not exists")
 	}
@@ -151,11 +166,15 @@ func (h *RegisterHandler) SetDefaultUserGroup(groupname string) error {
 
 // Toggle registry on the fly
 func (h *RegisterHandler) SetAllowRegistry(allow bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("auth/register", "RegisterHandler.SetAllowRegistry: allow=%t", allow)
+	}
 	h.AllowRegistry = allow
 }
 
 // Clearn Register information by removing all users info whose account is no longer registered
 func (h *RegisterHandler) CleanRegisters() {
+	logger.Debug("auth/register", "RegisterHandler.CleanRegisters")
 	entries, _ := h.database.ListTable("register")
 	for _, keypairs := range entries {
 		if strings.Contains(string(keypairs[0]), "user/email/") {
@@ -173,6 +192,7 @@ func (h *RegisterHandler) CleanRegisters() {
 
 // List all User Emails, return [username(string), email(string), stillResitered(bool)]
 func (h *RegisterHandler) ListAllUserEmails() [][]interface{} {
+	logger.Debug("auth/register", "RegisterHandler.ListAllUserEmails")
 	results := [][]interface{}{}
 	entries, _ := h.database.ListTable("register")
 	for _, keypairs := range entries {
@@ -195,6 +215,9 @@ func (h *RegisterHandler) ListAllUserEmails() [][]interface{} {
 
 // Handle the request for creating a new user
 func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/register", "RegisterHandler.HandleRegisterRequest: r=%s", logger.RequestSummary(r))
+	}
 	if h.AllowRegistry == false {
 		utils.SendErrorResponse(w, "Public account registry is currently closed")
 		return
@@ -274,6 +297,9 @@ func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.R
 
 // Change Email for the registered user
 func (h *RegisterHandler) HandleEmailChange(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/register", "RegisterHandler.HandleEmailChange: r=%s", logger.RequestSummary(r))
+	}
 	//Get username from request
 	username, err := h.authAgent.GetUserName(w, r)
 	if err != nil {
@@ -302,6 +328,9 @@ func (h *RegisterHandler) HandleEmailChange(w http.ResponseWriter, r *http.Reque
 
 // Get user email by name
 func (h *RegisterHandler) GetUserEmail(username string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/register", "RegisterHandler.GetUserEmail: username=%.120q", username)
+	}
 	userEmail := ""
 	err := h.database.Read("register", "user/email/"+username, &userEmail)
 	if err != nil || userEmail == "" {
@@ -312,6 +341,7 @@ func (h *RegisterHandler) GetUserEmail(username string) (string, error) {
 
 // Helper functions
 func isValidEmail(email string) bool {
+	logger.Debug("auth/register", "isValidEmail")
 	_, err := mail.ParseAddress(email)
 	return err == nil
 }

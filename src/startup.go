@@ -29,6 +29,7 @@ type vendorInfo struct {
 // deviceVendor / deviceVendorURL / deviceModel / deviceModelDesc globals when
 // the file is present and valid.  Missing fields are left at their defaults.
 func loadVendorInfo() {
+	logger.Debug("Core", "loadVendorInfo")
 	vendorInfoPath := filepath.Join(vendorResRoot, "vendor_info.json")
 	if !fs.FileExists(vendorInfoPath) {
 		return
@@ -59,6 +60,7 @@ func loadVendorInfo() {
 }
 
 func RunStartup() {
+	logger.Debug("Core", "RunStartup")
 	systemWideLogger, _ = logger.NewLogger("system", "system/logs/system/", true)
 	logger.SetDefaultLogger(systemWideLogger)
 	loadVendorInfo()

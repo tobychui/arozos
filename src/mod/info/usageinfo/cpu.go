@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type CPUStats struct {
@@ -20,6 +22,7 @@ type CPUStats struct {
 
 // getCPUStats reads and parses the CPU stats from /proc/stat
 func getCPUStats() (CPUStats, error) {
+	logger.Debug("info/usageinfo", "getCPUStats")
 	data, err := ioutil.ReadFile("/proc/stat")
 	if err != nil {
 		return CPUStats{}, err
@@ -59,6 +62,7 @@ func getCPUStats() (CPUStats, error) {
 
 // calculateCPUUsage calculates the percentage of CPU usage
 func calculateCPUUsage(prev, current CPUStats) float64 {
+	logger.Debug("info/usageinfo", "calculateCPUUsage")
 	prevTotal := prev.user + prev.nice + prev.system + prev.idle + prev.iowait + prev.irq + prev.softirq
 	currentTotal := current.user + current.nice + current.system + current.idle + current.iowait + current.irq + current.softirq
 
@@ -76,6 +80,7 @@ func calculateCPUUsage(prev, current CPUStats) float64 {
 // GetCPUUsage returns the current CPU usage as a percentage
 // Note this is blocking and will sleep for 1 second
 func GetCPUUsageUsingProcStat() (float64, error) {
+	logger.Debug("info/usageinfo", "GetCPUUsageUsingProcStat")
 	// Get initial CPU stats
 	prevStats, err := getCPUStats()
 	if err != nil {

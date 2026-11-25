@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -73,6 +75,7 @@ type ShareSettings struct {
 // DefaultShareOption returns a share with the default settings: anyone with
 // the link can view and download it, forever.
 func DefaultShareOption() *ShareOption {
+	logger.DebugTrace("share/shareEntry", "DefaultShareOption")
 	return &ShareOption{
 		Accessibles:   []string{},
 		Permission:    PermissionAnyone,
@@ -87,6 +90,7 @@ func DefaultShareOption() *ShareOption {
 // migrate upgrades a share loaded from an older database record. It returns
 // true if the record was changed and should be written back.
 func (s *ShareOption) migrate() bool {
+	logger.Debug("share/shareEntry", "ShareOption.migrate")
 	if s.SchemaVersion >= currentSchemaVersion {
 		return false
 	}
@@ -104,16 +108,23 @@ func (s *ShareOption) migrate() bool {
 // Clone returns a deep copy of this share, so callers can read it without
 // racing against updates.
 func (s *ShareOption) Clone() *ShareOption {
+	logger.Debug("share/shareEntry", "ShareOption.Clone")
 	c := *s
 	c.Accessibles = append([]string{}, s.Accessibles...)
 	return &c
 }
 
 func (s *ShareOption) IsOwnedBy(username string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("share/shareEntry", "ShareOption.IsOwnedBy: username=%.120q", username)
+	}
 	return s.Owner == username
 }
 
 func (s *ShareOption) IsAccessibleBy(username string, usergroup []string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("share/shareEntry", "ShareOption.IsAccessibleBy: username=%.120q len(usergroup)=%d", username, len(usergroup))
+	}
 	if s.Permission == PermissionAnyone || s.Permission == PermissionSignedIn {
 		return true
 	} else if s.Permission == PermissionSameGroup || s.Permission == PermissionGroups {
@@ -137,27 +148,32 @@ func (s *ShareOption) IsAccessibleBy(username string, usergroup []string) bool {
 
 // RequireLogin reports whether the recipient must be signed in to open this share
 func (s *ShareOption) RequireLogin() bool {
+	logger.DebugTrace("share/shareEntry", "ShareOption.RequireLogin")
 	return s.Permission != PermissionAnyone
 }
 
 // IsExpired reports whether this share has an expiry and it has passed
 func (s *ShareOption) IsExpired(now time.Time) bool {
+	logger.DebugTrace("share/shareEntry", "ShareOption.IsExpired")
 	return s.ExpireAt > 0 && now.Unix() >= s.ExpireAt
 }
 
 // HasPassword reports whether this share is password protected
 func (s *ShareOption) HasPassword() bool {
+	logger.DebugTrace("share/shareEntry", "ShareOption.HasPassword")
 	return s.PasswordHash != ""
 }
 
 // CanUpload reports whether recipients may upload files into this share
 func (s *ShareOption) CanUpload() bool {
+	logger.DebugTrace("share/shareEntry", "ShareOption.CanUpload")
 	return s.IsFolder && s.AccessLevel == AccessLevelEdit
 }
 
 // SetPassword hashes and stores the given password. An empty password
 // removes the protection.
 func (s *ShareOption) SetPassword(password string) error {
+	logger.Debug("share/shareEntry", "ShareOption.SetPassword")
 	if password == "" {
 		s.PasswordHash = ""
 		return nil
@@ -176,6 +192,7 @@ func (s *ShareOption) SetPassword(password string) error {
 // CheckPassword reports whether the given password unlocks this share. A
 // share without password accepts anything.
 func (s *ShareOption) CheckPassword(password string) bool {
+	logger.Debug("share/shareEntry", "ShareOption.CheckPassword")
 	if !s.HasPassword() {
 		return true
 	}
@@ -185,6 +202,7 @@ func (s *ShareOption) CheckPassword(password string) bool {
 // Apply validates the given settings and writes them into this share. The
 // share is left untouched if any setting is invalid.
 func (s *ShareOption) Apply(settings ShareSettings, now time.Time) error {
+	logger.Debug("share/shareEntry", "ShareOption.Apply")
 	next := s.Clone()
 	if settings.Permission != nil {
 		accessibles := cleanNameList(settings.Accessibles)
@@ -247,6 +265,9 @@ func (s *ShareOption) Apply(settings ShareSettings, now time.Time) error {
 
 // cleanNameList trims the given names and drops empty and duplicated ones
 func cleanNameList(names []string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("share/shareEntry", "cleanNameList: len(names)=%d", len(names))
+	}
 	results := []string{}
 	for _, name := range names {
 		name = strings.TrimSpace(name)

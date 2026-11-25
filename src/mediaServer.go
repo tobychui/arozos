@@ -5,6 +5,7 @@ import (
 	"net/url"
 
 	"imuslab.com/arozos/mod/apt"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/media/mediaserver"
 )
 
@@ -22,6 +23,7 @@ PLEASE ALWAYS USE URLENCODE IN THE LINK PASSED INTO THE /media ENDPOINT
 */
 
 func mediaServer_init() {
+	logger.Debug("Core", "mediaServer_init")
 	//Create a media server
 	mediaServer = mediaserver.NewMediaServer(&mediaserver.Options{
 		BufferPoolSize:      *bufferPoolSize,

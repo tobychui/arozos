@@ -47,6 +47,7 @@ type desktopObject struct {
 // File Manager, System Setting and the trash are reached from the launcher and
 // the dock, so a new desktop no longer gets shortcuts to them.
 func (s *Service) initUserFolderStructure(userinfo *user.User) {
+	logger.Debug("desktop/service", "Service.initUserFolderStructure")
 	userfsh, err := userinfo.GetHomeFileSystemHandler()
 	if err != nil {
 		logger.PrintAndLog("Desktop", "Unable to initiate user desktop folder", err)
@@ -64,10 +65,16 @@ func (s *Service) initUserFolderStructure(userinfo *user.User) {
 
 // isHiddenFile reports whether a desktop entry should be skipped
 func isHiddenFile(name string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("desktop/service", "isHiddenFile: name=%.120q", name)
+	}
 	return strings.HasPrefix(filepath.Base(name), ".")
 }
 
 func (s *Service) handleListDesktop(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/service", "Service.handleListDesktop: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := s.opts.Users.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "user not logged in!")
@@ -156,6 +163,9 @@ func (s *Service) handleListDesktop(w http.ResponseWriter, r *http.Request) {
 
 // setIconLocation stores the icon position of a file that exists on the user's desktop
 func (s *Service) setIconLocation(userinfo *user.User, filename string, x int, y int) error {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/service", "Service.setIconLocation: filename=%.120q x=%d y=%d", filename, x, y)
+	}
 	fsh, subpath, err := s.opts.ResolveVirtualPath(desktopVpath)
 	if err != nil {
 		return err
@@ -180,6 +190,9 @@ func (s *Service) setIconLocation(userinfo *user.User, filename string, x int, y
 
 // handleIconLocation gets, sets or deletes the desktop position of an icon
 func (s *Service) handleIconLocation(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/service", "Service.handleIconLocation: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := s.opts.Users.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")

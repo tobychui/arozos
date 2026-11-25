@@ -37,6 +37,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem/localversion"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/filesystem/shortcut"
+	"imuslab.com/arozos/mod/info/logger"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/share"
@@ -124,6 +125,7 @@ type fileOperationTask struct {
 }
 
 func FileSystemInit() {
+	logger.Debug("Core", "FileSystemInit")
 	router := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "File Manager",
 		AdminOnly:   false,
@@ -321,6 +323,9 @@ func FileSystemInit() {
 */
 
 func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleFileSearch: r=%s", logger.RequestSummary(r))
+	}
 	//Get the user information
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -481,6 +486,9 @@ const (
 )
 
 func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleLowMemoryUpload: r=%s", logger.RequestSummary(r))
+	}
 	//Get user info
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -974,6 +982,9 @@ This function is design for general SBCs or computers with more than 2GB of RAM
 (e.g. Raspberry Pi 4 / Linux Server)
 */
 func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleUpload: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -1121,6 +1132,9 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 
 // Validate if the copy and target process will involve file overwriting problem.
 func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_validateFileOpr: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -1202,6 +1216,9 @@ const (
 )
 
 func system_fs_getTrashRetentionDays(username string) int {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_getTrashRetentionDays: username=%.120q", username)
+	}
 	result := ""
 	err := sysdb.Read("fs", "pref/"+trashRetentionPrefKey+"/"+username, &result)
 	if err != nil {
@@ -1220,6 +1237,9 @@ func system_fs_getTrashRetentionDays(username string) int {
 }
 
 func system_fs_getTrashQuotaBytes(username string) int64 {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_getTrashQuotaBytes: username=%.120q", username)
+	}
 	result := ""
 	err := sysdb.Read("fs", "pref/"+trashQuotaPrefKey+"/"+username, &result)
 	if err != nil {
@@ -1241,6 +1261,9 @@ the quota. Hidden files are included because they were moved along with the
 rest, and the trash itself is a hidden folder.
 */
 func system_fs_getTrashEntrySize(fsh *filesystem.FileSystemHandler, rpath string) int64 {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_getTrashEntrySize: rpath=%.120q", rpath)
+	}
 	if fsh.FileSystemAbstraction.IsDir(rpath) {
 		size, _ := fsh.GetDirctorySizeFromRealPath(rpath, true)
 		return size
@@ -1250,6 +1273,9 @@ func system_fs_getTrashEntrySize(fsh *filesystem.FileSystemHandler, rpath string
 
 // Total bytes currently sitting in a user's trash across every file system
 func system_fs_getTrashUsage(username string) int64 {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_getTrashUsage: username=%.120q", username)
+	}
 	total := int64(0)
 	for _, item := range system_fs_listTrash(username) {
 		total += system_fs_getTrashEntrySize(item.Fsh, item.Realpath)
@@ -1264,6 +1290,9 @@ GET  with no value  -> {"RetentionDays":n,"QuotaBytes":n,"MaxRetentionDays":365,
 POST retentionDays / quotaBytes -> stores them
 */
 func system_fs_handleTrashSettings(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleTrashSettings: r=%s", logger.RequestSummary(r))
+	}
 	username, err := authAgent.GetUserName(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -1334,6 +1363,9 @@ type trashItem struct {
 
 // Check if a name is a trashed item name: <name>.<unix time>
 func system_fs_isTrashName(name string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_isTrashName: name=%.120q", name)
+	}
 	ext := path.Ext(name)
 	if len(ext) < 2 || len(ext) == len(name) {
 		return false
@@ -1349,6 +1381,9 @@ func system_fs_isTrashName(name string) bool {
 
 // Escape a folder name on the way to a trashed item so it is never taken for one
 func system_fs_escapeTrashFolder(name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_escapeTrashFolder: name=%.120q", name)
+	}
 	if system_fs_isTrashName(strings.TrimRight(name, "~")) {
 		return name + "~"
 	}
@@ -1356,6 +1391,9 @@ func system_fs_escapeTrashFolder(name string) string {
 }
 
 func system_fs_unescapeTrashFolder(name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_unescapeTrashFolder: name=%.120q", name)
+	}
 	if strings.HasSuffix(name, "~") && system_fs_isTrashName(strings.TrimRight(name, "~")) {
 		return strings.TrimSuffix(name, "~")
 	}
@@ -1377,6 +1415,9 @@ it and can restore it. Used by the File Manager and the SMB server.
 	file system abstraction.
 */
 func system_fs_moveToTrash(fsh *filesystem.FileSystemHandler, subpath string, rpath string, username string) error {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_moveToTrash: subpath=%.120q rpath=%.120q username=%.120q", subpath, rpath, username)
+	}
 	fshAbs := fsh.FileSystemAbstraction
 	if system_fs_isInTrash(subpath) {
 		return errAlreadyInTrash
@@ -1438,6 +1479,9 @@ func system_fs_moveToTrash(fsh *filesystem.FileSystemHandler, subpath string, rp
 
 // Check if a subpath is the .trash folder or anything inside it
 func system_fs_isInTrash(subpath string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_isInTrash: subpath=%.120q", subpath)
+	}
 	cleaned := path.Clean("/" + filepath.ToSlash(subpath))
 	return cleaned == trashFolderSubpath || strings.HasPrefix(cleaned, trashFolderSubpath+"/")
 }
@@ -1450,6 +1494,9 @@ Where an item removed at the given time goes inside the trash
 Returns an empty string for the root folder, which cannot be trashed.
 */
 func system_fs_trashSubpathOf(originalSubpath string, timestamp int64) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_trashSubpathOf: originalSubpath=%.120q timestamp=%d", originalSubpath, timestamp)
+	}
 	cleaned := strings.Trim(path.Clean("/"+filepath.ToSlash(originalSubpath)), "/")
 	if cleaned == "" {
 		return ""
@@ -1472,6 +1519,9 @@ ok is false for anything that is not a trashed item: a folder on the way, a
 file inside a trashed folder or a path outside the trash.
 */
 func system_fs_originalSubpathOf(trashSubpath string) (string, int64, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_originalSubpathOf: trashSubpath=%.120q", trashSubpath)
+	}
 	cleaned := path.Clean("/" + filepath.ToSlash(trashSubpath))
 	if !strings.HasPrefix(cleaned, trashFolderSubpath+"/") {
 		return "", 0, false
@@ -1500,6 +1550,9 @@ item in it. Only the folders on the way are read, never the inside of a
 trashed folder. An error returned by fn stops the scan and is returned.
 */
 func system_fs_scanTrashOf(fsh *filesystem.FileSystemHandler, username string, fn func(trashItem) error) error {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_scanTrashOf: username=%.120q", username)
+	}
 	fshAbs := fsh.FileSystemAbstraction
 	trashRoot, err := fshAbs.VirtualPathToRealPath(trashFolderSubpath, username)
 	if err != nil || !fshAbs.IsDir(trashRoot) {
@@ -1544,6 +1597,7 @@ func system_fs_scanTrashOf(fsh *filesystem.FileSystemHandler, username string, f
 
 // The file system roots whose trash a user sees
 func system_fs_trashRootsOf(userinfo *user.User) []*filesystem.FileSystemHandler {
+	logger.Debug("Core", "system_fs_trashRootsOf")
 	roots := []*filesystem.FileSystemHandler{}
 	for _, storage := range userinfo.GetAllFileSystemHandler() {
 		if storage.Hierarchy == "backup" || share.IsSharedDrive(storage) {
@@ -1562,6 +1616,9 @@ func system_fs_trashRootsOf(userinfo *user.User) []*filesystem.FileSystemHandler
 
 // Get every trashed item of a user across all their file system roots
 func system_fs_listTrash(username string) []trashItem {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_listTrash: username=%.120q", username)
+	}
 	userinfo, err := userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
 		return []trashItem{}
@@ -1582,6 +1639,9 @@ var errTrashItemFound = errors.New("trash item found")
 // Report whether any of the given roots holds a trashed item. The scan stops at
 // the first one, so a full trash is not walked to the end to answer this
 func system_fs_trashHasItems(roots []*filesystem.FileSystemHandler, username string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_trashHasItems: len(roots)=%d username=%.120q", len(roots), username)
+	}
 	for _, fsh := range roots {
 		err := system_fs_scanTrashOf(fsh, username, func(item trashItem) error {
 			return errTrashItemFound
@@ -1602,6 +1662,9 @@ The desktop dock asks this to pick its empty or full trash icon; the full
 listing (listTrash) describes every item and is far too heavy for that.
 */
 func system_fs_handleTrashState(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleTrashState: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -1616,6 +1679,7 @@ func system_fs_handleTrashState(w http.ResponseWriter, r *http.Request) {
 
 // Describe a trashed item to the client
 func system_fs_getTrashedFileInfo(item trashItem) trashedFile {
+	logger.Debug("Core", "system_fs_getTrashedFileInfo")
 	fshAbs := item.Fsh.FileSystemAbstraction
 	originalName := path.Base(item.OriginalSubpath)
 	isDir := fshAbs.IsDir(item.Realpath)
@@ -1638,6 +1702,7 @@ func system_fs_getTrashedFileInfo(item trashItem) trashedFile {
 
 // Remove a trashed item for good, along with the owner's quota record of it
 func system_fs_removeTrashItem(userinfo *user.User, item trashItem) error {
+	logger.Debug("Core", "system_fs_removeTrashItem")
 	vpath := item.Fsh.UUID + ":" + item.Subpath
 	if userinfo.IsOwnerOfFile(item.Fsh, vpath) {
 		userinfo.RemoveOwnershipFromFile(item.Fsh, vpath)
@@ -1651,6 +1716,9 @@ and report whether rdir still holds one. Leftovers such as the .metadata
 folder a thumbnail of a trashed file leaves behind, or a .DS_Store, go too.
 */
 func system_fs_pruneTrashTree(fshAbs filesystem.FileSystemAbstraction, rdir string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("Core", "system_fs_pruneTrashTree: rdir=%.120q", rdir)
+	}
 	entries, err := fshAbs.ReadDir(rdir)
 	if err != nil {
 		//Cannot tell what is in there; leave it alone
@@ -1672,6 +1740,9 @@ func system_fs_pruneTrashTree(fshAbs filesystem.FileSystemAbstraction, rdir stri
 
 // After an item left the trash, remove the folders it left empty, up to the .trash folder itself
 func system_fs_pruneTrashParents(fsh *filesystem.FileSystemHandler, username string, rdir string) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_pruneTrashParents: username=%.120q rdir=%.120q", username, rdir)
+	}
 	fshAbs := fsh.FileSystemAbstraction
 	trashRoot, err := fshAbs.VirtualPathToRealPath(trashFolderSubpath, username)
 	if err != nil {
@@ -1699,6 +1770,7 @@ Removes trashed files past their owner's retention window. Users who have
 set the retention to zero keep their trash indefinitely.
 */
 func system_fs_clearExpiredTrash() {
+	logger.Debug("Core", "system_fs_clearExpiredTrash")
 	for _, username := range authAgent.ListUsers() {
 		retentionDays := system_fs_getTrashRetentionDays(username)
 		if retentionDays <= 0 {
@@ -1753,6 +1825,9 @@ func system_fs_clearExpiredTrash() {
 
 // Scan the trash of every root and send back the results with WebSocket
 func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_WebSocketScanTrashBin: r=%s", logger.RequestSummary(r))
+	}
 	//Get and check user permission
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -1790,6 +1865,9 @@ func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
 
 // Scan the trash of every root and return the trashed files within the system
 func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_scanTrashBin: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -1813,6 +1891,9 @@ func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
 
 // Restore a trashed file to the folder it was removed from
 func system_fs_restoreFile(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_restoreFile: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -1877,6 +1958,9 @@ func system_fs_restoreFile(w http.ResponseWriter, r *http.Request) {
 
 // Clear all trashed file in the system
 func system_fs_clearTrashBin(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_clearTrashBin: r=%s", logger.RequestSummary(r))
+	}
 	u, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -1914,6 +1998,9 @@ func system_fs_clearTrashBin(w http.ResponseWriter, r *http.Request) {
 */
 
 func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleNewObjects: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -2054,6 +2141,9 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 */
 
 func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleWebSocketOpr: r=%s", logger.RequestSummary(r))
+	}
 	//Get and check user permission
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -2123,6 +2213,9 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 */
 
 func system_fs_handleAsyncOpr(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleAsyncOpr: r=%s", logger.RequestSummary(r))
+	}
 	//Get and check user permission
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -2174,6 +2267,9 @@ func system_fs_handleAsyncOpr(w http.ResponseWriter, r *http.Request) {
 */
 
 func system_fs_handleFileOprStatusWebSocket(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleFileOprStatusWebSocket: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -2250,6 +2346,9 @@ type fileOprProgressUpdate struct {
 // parseFileOperationRequest validates a file operation request and returns the
 // decoded source file list and the decoded destination virtual path
 func parseFileOperationRequest(operation string, vsrcFiles string, vdestFile string) ([]string, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "parseFileOperationRequest: operation=%.120q vsrcFiles=%.120q vdestFile=%.120q", operation, vsrcFiles, vdestFile)
+	}
 	//Check if opr is supported
 	if operation != "move" && operation != "copy" && operation != "zip" && operation != "unzip" {
 		systemWideLogger.PrintAndLog("File System", "This file operation is not supported on the file operation endpoint. Received: "+operation, errors.New("operation not supported"))
@@ -2292,6 +2391,9 @@ func parseFileOperationRequest(operation string, vsrcFiles string, vdestFile str
 // runFileOperationTask executes the file operation described by the given task record.
 // onUpdate is optional and, when given, is called on every progress update.
 func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFiles []string, vdestFile string, existsOpr string, onUpdate func(fileOprProgressUpdate)) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "runFileOperationTask: len(sourceFiles)=%d vdestFile=%.120q existsOpr=%.120q", len(sourceFiles), vdestFile, existsOpr)
+	}
 	if existsOpr == "" {
 		existsOpr = "keep"
 	}
@@ -2559,6 +2661,9 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 
 // fileOperationCancelled reports whether the user asked to cancel the given operation
 func fileOperationCancelled(oprId string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "fileOperationCancelled: oprId=%.120q", oprId)
+	}
 	t, err := GetOngoingFileOperationByOprID(oprId)
 	if err != nil {
 		return false
@@ -2575,6 +2680,9 @@ func fileOperationCancelled(oprId string) bool {
 */
 //Handle file operations.
 func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleOpr: r=%s", logger.RequestSummary(r))
+	}
 	//Check if user logged in
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -3053,6 +3161,9 @@ var system_fs_defaultUserPreferences = map[string]string{
 // or its system default when nothing is stored. Preferences without a default
 // stay empty.
 func system_fs_userPreferenceOrDefault(key string, stored string) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_userPreferenceOrDefault: stored=%.120q", stored)
+	}
 	if stored != "" {
 		return stored
 	}
@@ -3061,6 +3172,9 @@ func system_fs_userPreferenceOrDefault(key string, stored string) string {
 
 // Allow systems to store key value pairs in the database as preferences.
 func system_fs_handleUserPreference(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleUserPreference: r=%s", logger.RequestSummary(r))
+	}
 	username, err := authAgent.GetUserName(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -3103,6 +3217,9 @@ func system_fs_handleUserPreference(w http.ResponseWriter, r *http.Request) {
 }
 
 func system_fs_removeUserPreferences(username string) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_removeUserPreferences: username=%.120q", username)
+	}
 	entries, err := sysdb.ListTable("fs")
 	if err != nil {
 		return
@@ -3117,6 +3234,9 @@ func system_fs_removeUserPreferences(username string) {
 }
 
 func system_fs_listDrives(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_listDrives: r=%s", logger.RequestSummary(r))
+	}
 	if !authAgent.CheckAuth(r) {
 		utils.SendErrorResponse(w, "User not logged in")
 		return
@@ -3170,6 +3290,9 @@ func system_fs_listDrives(w http.ResponseWriter, r *http.Request) {
 }
 
 func system_fs_listRoot(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_listRoot: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -3244,11 +3367,17 @@ name and Clean guards the result with a "./" prefix, turning
 that prefix back off for the same reason.
 */
 func virtualDirname(vpath string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("Core", "virtualDirname: vpath=%.120q", vpath)
+	}
 	return path.Dir(vpath)
 }
 
 // Handle file properties request
 func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_getFileProperties: r=%s", logger.RequestSummary(r))
+	}
 	type fileProperties struct {
 		VirtualPath    string
 		StoragePath    string
@@ -3413,6 +3542,9 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 */
 
 func system_fs_getStorageInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_getStorageInfo: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -3469,6 +3601,9 @@ func system_fs_getStorageInfo(w http.ResponseWriter, r *http.Request) {
 */
 
 func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleList: r=%s", logger.RequestSummary(r))
+	}
 	currentDir, err := utils.PostPara(r, "dir")
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -3622,6 +3757,9 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 
 // Handle getting a hash from a given contents in the given path
 func system_fs_handleDirHash(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleDirHash: r=%s", logger.RequestSummary(r))
+	}
 	currentDir, err := utils.GetPara(r, "dir")
 	if err != nil {
 		utils.SendErrorResponse(w, "Invalid dir given")
@@ -3706,6 +3844,9 @@ func system_fs_handleDirHash(w http.ResponseWriter, r *http.Request) {
 
 // Handle all zip related API
 func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_zipHandler: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -3873,6 +4014,9 @@ stops and reports the cancellation as an error, and finishTmpZipTask turns that
 back into a cancelled record.
 */
 func runTmpZipTask(oprId string, sourceFshs []*filesystem.FileSystemHandler, realSourcePaths []string, zipDestFsh *filesystem.FileSystemHandler, zipOutput string, destFsh *filesystem.FileSystemHandler, rdest string) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "runTmpZipTask: oprId=%.120q len(sourceFshs)=%d len(realSourcePaths)=%d zipOutput=%.120q rdest=%.120q", oprId, len(sourceFshs), len(realSourcePaths), zipOutput, rdest)
+	}
 	err := filesystem.ArozZipFileWithProgress(sourceFshs, realSourcePaths, zipDestFsh, zipOutput, false, func(currentFilename string, _ int, _ int, progress float64) int {
 		sig, _ := UpdateOngoingFileOperation(oprId, currentFilename, math.Ceil(progress))
 		return sig
@@ -3904,6 +4048,9 @@ func runTmpZipTask(oprId string, sourceFshs []*filesystem.FileSystemHandler, rea
 // finishTmpZipTask closes off the task record of a background tmp zip.
 // Pass in the error the zipping ended with, or nil when it completed.
 func finishTmpZipTask(oprId string, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "finishTmpZipTask: oprId=%.120q err=%v", oprId, err)
+	}
 	if err != nil {
 		SetFileOperationTaskEnded(oprId, filesystem.FsOpr_Error, err.Error())
 		return
@@ -3913,6 +4060,9 @@ func finishTmpZipTask(oprId string, err error) {
 
 // Manage file version history
 func system_fs_FileVersionHistory(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_FileVersionHistory: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -4014,6 +4164,7 @@ func system_fs_FileVersionHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 func system_fs_clearVersionHistories() {
+	logger.Debug("Core", "system_fs_clearVersionHistories")
 	allFsh := GetAllLoadedFsh()
 	for _, fsh := range allFsh {
 		if fsh.ReadOnly {
@@ -4029,6 +4180,9 @@ func system_fs_clearVersionHistories() {
 
 // Handle cache rendering with websocket pipeline
 func system_fs_handleCacheRender(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleCacheRender: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -4069,6 +4223,9 @@ func system_fs_handleCacheRender(w http.ResponseWriter, r *http.Request) {
 
 // Handle loading of one thumbnail
 func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleThumbnailLoad: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -4139,6 +4296,9 @@ func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
 
 // Handle file thumbnail caching
 func system_fs_handleFolderCache(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleFolderCache: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -4167,6 +4327,9 @@ func system_fs_handleFolderCache(w http.ResponseWriter, r *http.Request) {
 
 // Handle the get and set of sort mode of a particular folder
 func system_fs_handleFolderSortModePreference(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleFolderSortModePreference: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -4226,6 +4389,9 @@ never given one reads back as an empty string, and the File Manager then
 uses the view mode chosen last.
 */
 func system_fs_handleFolderViewModePreference(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleFolderViewModePreference: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -4268,6 +4434,9 @@ func system_fs_handleFolderViewModePreference(w http.ResponseWriter, r *http.Req
 
 // Handle setting and loading of file permission on Linux
 func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_handleFilePermission: r=%s", logger.RequestSummary(r))
+	}
 	file, err := utils.PostPara(r, "file")
 	if err != nil {
 		utils.SendErrorResponse(w, "Invalid file")
@@ -4365,6 +4534,7 @@ func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
 
 // Clear the old files inside the tmp file
 func system_fs_clearOldTmpFiles() {
+	logger.Debug("Core", "system_fs_clearOldTmpFiles")
 	filesToBeDelete := []string{}
 	tmpAbs, _ := filepath.Abs(*tmp_directory)
 	filepath.Walk(*tmp_directory, func(path string, info os.FileInfo, err error) error {
@@ -4426,6 +4596,9 @@ func system_fs_clearOldTmpFiles() {
 
 // Generate a random buffer filepath. Remember to delete file after usage
 func getFsBufferFilepath(originalFilename string, keepOriginalName bool) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "getFsBufferFilepath: originalFilename=%.120q keepOriginalName=%t", originalFilename, keepOriginalName)
+	}
 	thisBuffFilename := uuid.NewV4().String()
 	tmpDir := filepath.Join(*tmp_directory, "fsBuff")
 	targetFile := filepath.Join(tmpDir, thisBuffFilename+filepath.Ext(originalFilename))
@@ -4439,6 +4612,9 @@ func getFsBufferFilepath(originalFilename string, keepOriginalName bool) string 
 
 // Generate a buffer filepath and buffer the remote file to local. Remember to remove file after done.
 func bufferRemoteFileToLocal(targetFsh *filesystem.FileSystemHandler, rpath string, keepOriginalName bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "bufferRemoteFileToLocal: rpath=%.120q keepOriginalName=%t", rpath, keepOriginalName)
+	}
 	newBufferFilename := getFsBufferFilepath(rpath, keepOriginalName)
 	src, err := targetFsh.FileSystemAbstraction.ReadStream(rpath)
 	if err != nil {
@@ -4460,6 +4636,9 @@ func bufferRemoteFileToLocal(targetFsh *filesystem.FileSystemHandler, rpath stri
 
 // Check if a file is buffer filepath
 func isFsBufferFilepath(filename string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "isFsBufferFilepath: filename=%.120q", filename)
+	}
 	tmpDir := filepath.Join(*tmp_directory, "fsBuff")
 	filenameAbs, _ := filepath.Abs(filename)
 	filenameAbs = filepath.ToSlash(filenameAbs)
@@ -4469,6 +4648,9 @@ func isFsBufferFilepath(filename string) bool {
 }
 
 func cleanFsBufferFileFromList(filelist []string) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "cleanFsBufferFileFromList: len(filelist)=%d", len(filelist))
+	}
 	for _, thisFilepath := range filelist {
 		if isFsBufferFilepath(thisFilepath) {
 			os.RemoveAll(thisFilepath)
@@ -4495,6 +4677,9 @@ func cleanFsBufferFileFromList(filelist []string) {
 // When no flag is given, the ongoing task list of this user is returned.
 // Pass in all=true to include the recently finished tasks in the listing.
 func system_fs_HandleOnGoingTasks(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_fs_HandleOnGoingTasks: r=%s", logger.RequestSummary(r))
+	}
 	//Get the user information
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -4542,6 +4727,9 @@ func system_fs_HandleOnGoingTasks(w http.ResponseWriter, r *http.Request) {
 // ApplyFileOperationControl applies a control signal to one of the file operations
 // owned by the given user. Supported commands are continue, pause, cancel and remove.
 func ApplyFileOperationControl(username string, command string, oprid string) error {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "ApplyFileOperationControl: username=%.120q command=%.120q oprid=%.120q", username, command, oprid)
+	}
 	if command == "clear" {
 		ClearFinishedFileOperationForUser(username)
 		return nil
@@ -4591,6 +4779,9 @@ func ApplyFileOperationControl(username string, command string, oprid string) er
 // The size of each source file is resolved here so the front end can show the
 // transferred / total size of every file in the operation.
 func NewOngoingFileOperation(userinfo *user.User, operation string, sourceFiles []string, vdestFile string) *fileOperationTask {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "NewOngoingFileOperation: operation=%.120q len(sourceFiles)=%d vdestFile=%.120q", operation, len(sourceFiles), vdestFile)
+	}
 	/*
 		Sizing a source folder means walking it. For a move that the storage can
 		satisfy with a rename that walk costs far more than the move itself, and
@@ -4643,6 +4834,9 @@ func NewOngoingFileOperation(userinfo *user.User, operation string, sourceFiles 
 // the size is not worth what it costs to work out.
 // The size is 0 when it cannot be determined.
 func resolveFileOperationSourceInfo(userinfo *user.User, vsrc string, resolveSize bool) (int64, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "resolveFileOperationSourceInfo: vsrc=%.120q resolveSize=%t", vsrc, resolveSize)
+	}
 	if !userinfo.CanRead(vsrc) {
 		//The task is refused when it runs, but it is listed before that
 		return 0, false
@@ -4671,6 +4865,9 @@ func resolveFileOperationSourceInfo(userinfo *user.User, vsrc string, resolveSiz
 // storage holding both of its ends can carry out on its own, in which case no
 // bytes travel through ArozOS and the operation finishes right away.
 func fileOperationCanBeRenamed(operation string, sourceFiles []string, vdestFile string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "fileOperationCanBeRenamed: operation=%.120q len(sourceFiles)=%d vdestFile=%.120q", operation, len(sourceFiles), vdestFile)
+	}
 	if operation != "move" {
 		return false
 	}
@@ -4694,6 +4891,9 @@ func fileOperationCanBeRenamed(operation string, sourceFiles []string, vdestFile
 // The records are live objects that the running operations keep updating, so
 // read them through MarshalFileOperationForUser unless you hold fileOprTaskLock.
 func GetAllFileOperationForUser(username string, includeFinished bool) []*fileOperationTask {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "GetAllFileOperationForUser: username=%.120q includeFinished=%t", username, includeFinished)
+	}
 	fileOprTaskLock.RLock()
 	defer fileOprTaskLock.RUnlock()
 	return collectFileOperationForUser(username, includeFinished)
@@ -4703,6 +4903,9 @@ func GetAllFileOperationForUser(username string, includeFinished bool) []*fileOp
 // while holding the task lock, so the running operations cannot update a record
 // half way through the serialization.
 func MarshalFileOperationForUser(username string, includeFinished bool) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "MarshalFileOperationForUser: username=%.120q includeFinished=%t", username, includeFinished)
+	}
 	fileOprTaskLock.RLock()
 	defer fileOprTaskLock.RUnlock()
 	return json.Marshal(collectFileOperationForUser(username, includeFinished))
@@ -4711,6 +4914,9 @@ func MarshalFileOperationForUser(username string, includeFinished bool) ([]byte,
 // collectFileOperationForUser gathers the task records of a user in operation id
 // order. The caller is expected to be holding fileOprTaskLock.
 func collectFileOperationForUser(username string, includeFinished bool) []*fileOperationTask {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "collectFileOperationForUser: username=%.120q includeFinished=%t", username, includeFinished)
+	}
 	results := []*fileOperationTask{}
 	wsConnectionStore.Range(func(key, value interface{}) bool {
 		taskInfo := value.(*fileOperationTask)
@@ -4728,6 +4934,9 @@ func collectFileOperationForUser(username string, includeFinished bool) []*fileO
 
 // ClearFinishedFileOperationForUser removes all the finished records of a user
 func ClearFinishedFileOperationForUser(username string) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "ClearFinishedFileOperationForUser: username=%.120q", username)
+	}
 	fileOprTaskLock.Lock()
 	defer fileOprTaskLock.Unlock()
 	wsConnectionStore.Range(func(key, value interface{}) bool {
@@ -4741,6 +4950,9 @@ func ClearFinishedFileOperationForUser(username string) {
 
 // Get an ongoing task record
 func GetOngoingFileOperationByOprID(oprid string) (*fileOperationTask, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "GetOngoingFileOperationByOprID: oprid=%.120q", oprid)
+	}
 	object, ok := wsConnectionStore.Load(oprid)
 	if !ok {
 		return nil, errors.New("task not exists")
@@ -4751,11 +4963,15 @@ func GetOngoingFileOperationByOprID(oprid string) (*fileOperationTask, error) {
 
 // Set or update an ongoing task record
 func SetOngoingFileOperation(opr *fileOperationTask) {
+	logger.DebugTrace("Core", "SetOngoingFileOperation")
 	wsConnectionStore.Store(opr.ID, opr)
 }
 
 // Update the status of an ongoing task record, return latest status code and error if any
 func UpdateOngoingFileOperation(oprid string, currentFile string, progress float64) (int, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "UpdateOngoingFileOperation: oprid=%.120q currentFile=%.120q progress=%g", oprid, currentFile, progress)
+	}
 	t, err := GetOngoingFileOperationByOprID(oprid)
 	if err != nil {
 		return 0, err
@@ -4802,6 +5018,9 @@ wins over the size resolved when the task was created: a folder can grow or
 shrink between the two, and the transfer knows better than the earlier walk.
 */
 func UpdateOngoingFileOperationSubtask(oprid string, subtaskIndex int, currentFile string, bytesDone int64, bytesTotal int64) (int, float64, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "UpdateOngoingFileOperationSubtask: oprid=%.120q subtaskIndex=%d currentFile=%.120q bytesDone=%d bytesTotal=%d", oprid, subtaskIndex, currentFile, bytesDone, bytesTotal)
+	}
 	t, err := GetOngoingFileOperationByOprID(oprid)
 	if err != nil {
 		return 0, 0, err
@@ -4848,6 +5067,7 @@ Operations whose sizes could not be resolved fall back to weighting every source
 file equally. The caller is expected to be holding fileOprTaskLock.
 */
 func recalculateFileOperationProgress(t *fileOperationTask) {
+	logger.Debug("Core", "recalculateFileOperationProgress")
 	if t.TotalSize > 0 {
 		progress := float64(t.DoneSize) / float64(t.TotalSize) * 100
 		if progress > 100 {
@@ -4870,6 +5090,9 @@ func recalculateFileOperationProgress(t *fileOperationTask) {
 // MarkFileOperationSubtaskEnded marks one source file inside a task as finished.
 // Pass in an empty errmsg for a successful completion.
 func MarkFileOperationSubtaskEnded(oprid string, subtaskIndex int, errmsg string) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "MarkFileOperationSubtaskEnded: oprid=%.120q subtaskIndex=%d errmsg=%.120q", oprid, subtaskIndex, errmsg)
+	}
 	t, err := GetOngoingFileOperationByOprID(oprid)
 	if err != nil {
 		return
@@ -4897,6 +5120,9 @@ func MarkFileOperationSubtaskEnded(oprid string, subtaskIndex int, errmsg string
 // SetFileOperationTaskEnded closes off a task record with the given ending signal.
 // The record is kept in the store so the front end can still render the result.
 func SetFileOperationTaskEnded(oprid string, endingSignal int, errmsg string) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "SetFileOperationTaskEnded: oprid=%.120q endingSignal=%d errmsg=%.120q", oprid, endingSignal, errmsg)
+	}
 	t, err := GetOngoingFileOperationByOprID(oprid)
 	if err != nil {
 		return
@@ -4944,12 +5170,14 @@ func SetFileOperationTaskEnded(oprid string, endingSignal int, errmsg string) {
 // taskIsFinished checks if a task record has stopped running.
 // The caller is expected to be holding fileOprTaskLock when required.
 func taskIsFinished(t *fileOperationTask) bool {
+	logger.DebugTrace("Core", "taskIsFinished")
 	return t.Status != FsTask_Ongoing && t.Status != FsTask_Pending
 }
 
 // sumFileOperationDoneSize sums up the transferred bytes of all the files in a task.
 // The caller is expected to be holding fileOprTaskLock.
 func sumFileOperationDoneSize(t *fileOperationTask) int64 {
+	logger.Debug("Core", "sumFileOperationDoneSize")
 	total := int64(0)
 	for _, thisSubtask := range t.Files {
 		total += thisSubtask.Done
@@ -4960,6 +5188,7 @@ func sumFileOperationDoneSize(t *fileOperationTask) int64 {
 // startFinishedFileOperationJanitor starts the background cleaner that tidies up
 // the finished task records, see clearExpiredFileOperationRecords.
 func startFinishedFileOperationJanitor() {
+	logger.Debug("Core", "startFinishedFileOperationJanitor")
 	if !fileOprJanitorStarted.CompareAndSwap(false, true) {
 		return
 	}
@@ -4984,6 +5213,7 @@ wrong after reopening the desktop from this or from another machine. Only the
 newest fileOprErrorRecordLimit failures of each user are kept.
 */
 func clearExpiredFileOperationRecords() {
+	logger.Debug("Core", "clearExpiredFileOperationRecords")
 	expireTime := time.Now().Unix() - fileOprFinishedRecordTTL
 	errorRecords := map[string][]*fileOperationTask{}
 

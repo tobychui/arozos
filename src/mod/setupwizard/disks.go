@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Reasons a disk or partition is in use. The wizard translates them.
@@ -117,6 +119,9 @@ var ignoredDiskName = regexp.MustCompile(`^(zram|ram|loop|sr|fd)\d*|^mmcblk\d+(b
 
 // ParseDisks turns an lsblk JSON listing into the disks the wizard shows
 func ParseDisks(lsblkJSON []byte, used []UsedDrive) ([]Disk, error) {
+	if logger.IsDebug() {
+		logger.Debugf("setupwizard", "ParseDisks: len(lsblkJSON)=%d len(used)=%d", len(lsblkJSON), len(used))
+	}
 	var out lsblkOutput
 	if err := json.Unmarshal(lsblkJSON, &out); err != nil {
 		return nil, fmt.Errorf("could not read the disk list: %v", err)
@@ -167,6 +172,9 @@ func ParseDisks(lsblkJSON []byte, used []UsedDrive) ([]Disk, error) {
 // analysePartition works out what a partition is used for and how it could
 // become a drive
 func analysePartition(dev lsblkDevice, used []UsedDrive) Partition {
+	if logger.IsDebug() {
+		logger.Debugf("setupwizard", "analysePartition: len(used)=%d", len(used))
+	}
 	p := Partition{
 		Name:       dev.Name,
 		Path:       "/dev/" + dev.Name,
@@ -216,6 +224,9 @@ func analysePartition(dev lsblkDevice, used []UsedDrive) Partition {
 }
 
 func holderUse(deviceType string) string {
+	if logger.IsDebug() {
+		logger.Debugf("setupwizard", "holderUse: deviceType=%.120q", deviceType)
+	}
 	switch {
 	case strings.HasPrefix(deviceType, "raid"):
 		return UseRAID
@@ -229,6 +240,9 @@ func holderUse(deviceType string) string {
 
 // drivePath trims the slash a drive path ends with, but keeps the root
 func drivePath(path string) string {
+	if logger.IsDebug() {
+		logger.Debugf("setupwizard", "drivePath: path=%.120q", path)
+	}
 	path = strings.TrimSpace(path)
 	if len(path) > 1 {
 		path = strings.TrimRight(path, "/")
@@ -238,6 +252,9 @@ func drivePath(path string) string {
 
 // drivesUsingPath reports whether a drive serves a folder of this mount point
 func drivesUsingPath(mountpoint string, drive UsedDrive) bool {
+	if logger.IsDebug() {
+		logger.Debugf("setupwizard", "drivesUsingPath: mountpoint=%.120q", mountpoint)
+	}
 	if mountpoint == "" || systemMounts[mountpoint] {
 		//Every folder is "inside" the root file system, that tells nothing
 		return false
@@ -248,6 +265,9 @@ func drivesUsingPath(mountpoint string, drive UsedDrive) bool {
 
 // driveUsing returns the id of the ArozOS drive on this partition, if any
 func driveUsing(p Partition, used []UsedDrive) string {
+	if logger.IsDebug() {
+		logger.Debugf("setupwizard", "driveUsing: len(used)=%d", len(used))
+	}
 	for _, drive := range used {
 		switch {
 		case drive.Mountdev != "" && drive.Mountdev == p.Path:
@@ -264,6 +284,9 @@ func driveUsing(p Partition, used []UsedDrive) string {
 // diskUse is why a disk may not be formatted: a system partition wins over
 // any other use, so the root disk always says "system"
 func diskUse(parts []Partition) string {
+	if logger.IsDebug() {
+		logger.Debugf("setupwizard", "diskUse: len(parts)=%d", len(parts))
+	}
 	reason := ""
 	for _, p := range parts {
 		if p.InUse == UseSystem {
@@ -278,6 +301,9 @@ func diskUse(parts []Partition) string {
 
 // FindPartition returns the partition with this device path (e.g. /dev/sdb1)
 func FindPartition(disks []Disk, device string) (*Disk, *Partition, error) {
+	if logger.IsDebug() {
+		logger.Debugf("setupwizard", "FindPartition: len(disks)=%d device=%.120q", len(disks), device)
+	}
 	for i := range disks {
 		for j := range disks[i].Partitions {
 			if disks[i].Partitions[j].Path == device {
@@ -293,6 +319,9 @@ var labelChars = regexp.MustCompile(`[^A-Za-z0-9 _-]`)
 
 // CleanLabel makes a volume label safe for the given file system
 func CleanLabel(fstype string, label string) string {
+	if logger.IsDebug() {
+		logger.Debugf("setupwizard", "CleanLabel: fstype=%.120q label=%.120q", fstype, label)
+	}
 	label = strings.TrimSpace(labelChars.ReplaceAllString(label, ""))
 	limit := 16
 	switch fstype {
@@ -311,6 +340,9 @@ func CleanLabel(fstype string, label string) string {
 // FormatCommand returns the program and arguments that create the file
 // system. The device is always the last argument and never passes a shell.
 func FormatCommand(fstype string, label string, device string) (string, []string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("setupwizard", "FormatCommand: fstype=%.120q label=%.120q device=%.120q", fstype, label, device)
+	}
 	if !strings.HasPrefix(device, "/dev/") || strings.ContainsAny(device[5:], "/ ") || len(device) <= 5 {
 		return "", nil, errors.New("Invalid device: " + device)
 	}
@@ -341,6 +373,9 @@ func FormatCommand(fstype string, label string, device string) (string, []string
 
 // CheckFormat makes sure a device on a fresh listing may be formatted
 func CheckFormat(disks []Disk, device string) (*Partition, error) {
+	if logger.IsDebug() {
+		logger.Debugf("setupwizard", "CheckFormat: len(disks)=%d device=%.120q", len(disks), device)
+	}
 	disk, part, err := FindPartition(disks, device)
 	if err != nil {
 		return nil, err
@@ -360,10 +395,14 @@ var driveIDFormat = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
 // ValidDriveID reports whether a drive id is safe to use as a folder name
 func ValidDriveID(id string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("setupwizard", "ValidDriveID: id=%.120q", id)
+	}
 	return driveIDFormat.MatchString(id)
 }
 
 func str(s *string) string {
+	logger.Debug("setupwizard", "str")
 	if s == nil {
 		return ""
 	}
@@ -372,6 +411,7 @@ func str(s *string) string {
 
 // looseInt reads a JSON number that may also be written as a string
 func looseInt(raw json.RawMessage) int64 {
+	logger.Debug("setupwizard", "looseInt")
 	var n int64
 	if json.Unmarshal(raw, &n) == nil {
 		return n
@@ -385,6 +425,7 @@ func looseInt(raw json.RawMessage) int64 {
 
 // looseBool reads true, 1 or "1"
 func looseBool(raw json.RawMessage) bool {
+	logger.Debug("setupwizard", "looseBool")
 	var b bool
 	if json.Unmarshal(raw, &b) == nil {
 		return b

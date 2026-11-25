@@ -36,6 +36,7 @@ import (
 const agiOriginTag = "agi"
 
 func (g *Gateway) SharedSpaceLibRegister() {
+	logger.Debug("agi", "Gateway.SharedSpaceLibRegister")
 	err := g.RegisterLib("sharedspace", g.injectSharedSpaceFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -45,6 +46,7 @@ func (g *Gateway) SharedSpaceLibRegister() {
 
 // agiDescribeSpace renders the space fields shared with AGI scripts.
 func agiDescribeSpace(space *sharedspace.Space) map[string]interface{} {
+	logger.DebugTrace("agi", "agiDescribeSpace")
 	return map[string]interface{}{
 		"spaceid":    space.ID,
 		"name":       space.Name,
@@ -62,6 +64,7 @@ func agiDescribeSpace(space *sharedspace.Space) map[string]interface{} {
 // agiDescribeItem renders a space item for AGI scripts. Text content is
 // included inline for text items; blobs report their display name and size.
 func agiDescribeItem(item *sharedspace.Item) map[string]interface{} {
+	logger.DebugTrace("agi", "agiDescribeItem")
 	return map[string]interface{}{
 		"itemid":   item.ID,
 		"type":     item.Type,
@@ -76,6 +79,7 @@ func agiDescribeItem(item *sharedspace.Item) map[string]interface{} {
 
 // agiDescribeDoc renders a document snapshot for AGI scripts.
 func agiDescribeDoc(doc *sharedspace.DocSnapshot, includeContent bool) map[string]interface{} {
+	logger.Debug("agi", "agiDescribeDoc")
 	desc := map[string]interface{}{
 		"docid":     doc.ID,
 		"name":      doc.Name,
@@ -97,6 +101,9 @@ func agiDescribeDoc(doc *sharedspace.DocSnapshot, includeContent bool) map[strin
 // connected to the space (they are already receiving the live message). The
 // result is sorted for deterministic delivery and testing.
 func resolveNotifyRecipients(members map[string]string, present map[string]bool, sender string, requested []string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "resolveNotifyRecipients: len(members)=%d len(present)=%d sender=%.120q len(requested)=%d", len(members), len(present), sender, len(requested))
+	}
 	var requestedSet map[string]bool
 	if requested != nil {
 		requestedSet = make(map[string]bool, len(requested))
@@ -124,6 +131,7 @@ func resolveNotifyRecipients(members map[string]string, present map[string]bool,
 }
 
 func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectSharedSpaceFunctions")
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh

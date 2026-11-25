@@ -9,12 +9,17 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // readSysNet reads a sysfs network attribute for the given interface.
 // Returns "" on any error — absent on minimal embedded systems
 // (busybox, Yocto builds without sysfs, etc.).
 func readSysNet(ifaceName, attr string) string {
+	if logger.IsDebug() {
+		logger.Debugf("network", "readSysNet: ifaceName=%.120q attr=%.120q", ifaceName, attr)
+	}
 	data, err := os.ReadFile("/sys/class/net/" + ifaceName + "/" + attr)
 	if err != nil {
 		return ""
@@ -23,6 +28,9 @@ func readSysNet(ifaceName, attr string) string {
 }
 
 func formatMbps(mbps int) string {
+	if logger.IsDebug() {
+		logger.Debugf("network", "formatMbps: mbps=%d", mbps)
+	}
 	if mbps >= 1000 {
 		if mbps%1000 == 0 {
 			return fmt.Sprintf("%d Gbps", mbps/1000)
@@ -36,6 +44,9 @@ func formatMbps(mbps int) string {
 // Gracefully returns N/A fields when sysfs attributes are unavailable
 // (e.g. on embedded platforms without /sys/class/net/).
 func nicExtraAll(ifaces []net.Interface) map[string]nicExtraInfo {
+	if logger.IsDebug() {
+		logger.Debugf("network", "nicExtraAll: len(ifaces)=%d", len(ifaces))
+	}
 	result := make(map[string]nicExtraInfo, len(ifaces))
 	for _, iface := range ifaces {
 		// OperState: sysfs --> flag fallback

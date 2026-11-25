@@ -14,6 +14,7 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -41,6 +42,7 @@ const (
 
 // decodeCustomIcon validates a square PNG data URL and returns it re-encoded
 func decodeCustomIcon(dataURL string) ([]byte, error) {
+	logger.Debug("desktop/service", "decodeCustomIcon")
 	if !strings.HasPrefix(dataURL, pngDataURLPrefix) {
 		return nil, errors.New("Icon must be a PNG image")
 	}
@@ -78,22 +80,32 @@ func decodeCustomIcon(dataURL string) ([]byte, error) {
 
 // customIconFilename names an icon by its content
 func customIconFilename(content []byte) string {
+	logger.Debug("desktop/service", "customIconFilename")
 	sum := sha256.Sum256(content)
 	return hex.EncodeToString(sum[:8]) + ".png"
 }
 
 // customIconVpath is the virtual path of an icon stored next to the given shortcut
 func customIconVpath(shortcutVpath string, filename string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("desktop/service", "customIconVpath: shortcutVpath=%.120q filename=%.120q", shortcutVpath, filename)
+	}
 	return path.Join(path.Dir(shortcutVpath), customIconFolder, filename)
 }
 
 // mediaURL is the web path the desktop loads a user file through
 func mediaURL(vpath string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("desktop/service", "mediaURL: vpath=%.120q", vpath)
+	}
 	return "media/?file=" + url.QueryEscape(vpath)
 }
 
 // writeCustomIcon stores the icon next to the shortcut at shortcutRpath
 func writeCustomIcon(fsh *filesystem.FileSystemHandler, shortcutRpath string, filename string, content []byte) error {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/service", "writeCustomIcon: shortcutRpath=%.120q filename=%.120q", shortcutRpath, filename)
+	}
 	fshAbs := fsh.FileSystemAbstraction
 	iconDir := arozfs.ToSlash(filepath.Join(filepath.Dir(shortcutRpath), customIconFolder))
 	if !fshAbs.FileExists(iconDir) {

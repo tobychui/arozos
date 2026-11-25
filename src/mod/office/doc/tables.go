@@ -15,6 +15,8 @@ package doc
 import (
 	"sort"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type tableRow struct {
@@ -25,6 +27,9 @@ type tableRow struct {
 // collectTable gathers the rows of the table at depth d starting at
 // paras[i]; it returns them and the index after the table
 func collectTable(paras []*para, i, d int) ([]*tableRow, int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "collectTable: len(paras)=%d i=%d d=%d", len(paras), i, d)
+	}
 	var rows []*tableRow
 	row := &tableRow{}
 	var cell []*para
@@ -64,6 +69,9 @@ func collectTable(paras []*para, i, d int) ([]*tableRow, int) {
 
 // tableXML writes a table at depth d
 func (w *writer) tableXML(rows []*tableRow, d int, st *storyState) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "writer.tableXML: len(rows)=%d d=%d", len(rows), d)
+	}
 	// the grid: every cell edge of every row
 	edgeSet := map[int]bool{}
 	for _, r := range rows {
@@ -220,6 +228,9 @@ func (w *writer) tableXML(rows []*tableRow, d int, st *storyState) string {
 // content of a depth d cell): a paragraph deeper than that starts a
 // table one level down. sectPr maps a paragraph to the section it closes.
 func (w *writer) blocksXML(paras []*para, level int, st *storyState, sectPr map[*para]string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "writer.blocksXML: len(paras)=%d level=%d len(sectPr)=%d", len(paras), level, len(sectPr))
+	}
 	var sb strings.Builder
 	for i := 0; i < len(paras); {
 		pg := paras[i]

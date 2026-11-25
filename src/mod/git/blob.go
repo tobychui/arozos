@@ -16,6 +16,8 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // maxBlobBytes caps what may be pulled into memory for a preview. Anything
@@ -38,6 +40,9 @@ all, which lets the caller distinguish "added in this change" from a genuine
 read failure.
 */
 func (m *Manager) FileBlob(realpath string, file string, revision string) ([]byte, bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.FileBlob: realpath=%.120q file=%.120q revision=%.120q", realpath, file, revision)
+	}
 	cleaned, err := cleanRepoPath(file)
 	if err != nil {
 		return nil, false, err
@@ -98,6 +103,9 @@ consults the Windows registry and /etc/mime.types, so the same repository could
 otherwise preview differently on two machines.
 */
 func PreviewMimeType(path string) string {
+	if logger.IsDebug() {
+		logger.Debugf("git", "PreviewMimeType: path=%.120q", path)
+	}
 	extension := strings.ToLower(path)
 	if index := strings.LastIndex(extension, "."); index >= 0 {
 		extension = extension[index:]
@@ -156,6 +164,9 @@ func PreviewMimeType(path string) string {
 // PreviewKind groups a media type into the element the front-end should use.
 // Returns "image", "pdf", "video", "audio" or "" when there is no preview.
 func PreviewKind(path string) string {
+	if logger.IsDebug() {
+		logger.Debugf("git", "PreviewKind: path=%.120q", path)
+	}
 	mimeType := PreviewMimeType(path)
 	switch {
 	case mimeType == "":

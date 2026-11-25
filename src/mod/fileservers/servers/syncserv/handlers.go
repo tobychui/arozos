@@ -42,12 +42,16 @@ type AdminConfig struct {
 }
 
 func sendJSON(w http.ResponseWriter, value interface{}) {
+	logger.Debug("fileservers/servers/syncserv", "sendJSON")
 	js, _ := json.Marshal(value)
 	utils.SendJSONResponse(w, string(js))
 }
 
 // postValue reads a field of the body of a POST request, never the URL.
 func postValue(r *http.Request, key string) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "postValue: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		return ""
 	}
@@ -56,6 +60,9 @@ func postValue(r *http.Request, key string) string {
 }
 
 func (m *Manager) currentUser(w http.ResponseWriter, r *http.Request) (string, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.currentUser: r=%s", logger.RequestSummary(r))
+	}
 	username, err := m.opt.CurrentUser(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -65,6 +72,9 @@ func (m *Manager) currentUser(w http.ResponseWriter, r *http.Request) (string, b
 }
 
 func requirePost(w http.ResponseWriter, r *http.Request) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "requirePost: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "This request must be a POST")
 		return false
@@ -75,6 +85,9 @@ func requirePost(w http.ResponseWriter, r *http.Request) bool {
 // settingsFromForm reads the folder and sorting choices of a request over
 // base, and checks them.
 func (m *Manager) settingsFromForm(r *http.Request, username string, base UserSettings) (UserSettings, error) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.settingsFromForm: r=%s username=%.120q", logger.RequestSummary(r), username)
+	}
 	s := base
 	s.Folder = postValue(r, "folder")
 	s.ByType = postValue(r, "bytype") == "true"
@@ -93,6 +106,9 @@ func (m *Manager) settingsFromForm(r *http.Request, username string, base UserSe
 
 // HandleStatus tells a signed in user how the server is set up for them.
 func (m *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.HandleStatus: r=%s", logger.RequestSummary(r))
+	}
 	username, ok := m.currentUser(w, r)
 	if !ok {
 		return
@@ -115,6 +131,9 @@ func (m *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
 // setPasswordFromForm applies the password choice of a request: the login
 // password, or a new sync password.
 func (m *Manager) setPasswordFromForm(r *http.Request, username string, settings *UserSettings) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.setPasswordFromForm: r=%s username=%.120q", logger.RequestSummary(r), username)
+	}
 	settings.LoginPassword = postValue(r, "loginpassword") == "true"
 	if settings.LoginPassword {
 		m.cache.forget(username)
@@ -127,6 +146,9 @@ func (m *Manager) setPasswordFromForm(r *http.Request, username string, settings
 // password has to come with it, so that a browser left open cannot be used
 // to open the account to uploads.
 func (m *Manager) HandleActivate(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.HandleActivate: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -167,6 +189,9 @@ func (m *Manager) HandleActivate(w http.ResponseWriter, r *http.Request) {
 
 // HandleSettings changes the folder and the sorting of the signed in user.
 func (m *Manager) HandleSettings(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.HandleSettings: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -194,6 +219,9 @@ func (m *Manager) HandleSettings(w http.ResponseWriter, r *http.Request) {
 // HandlePassword changes how the signed in user's uploads sign in. Like
 // turning the server on, it needs the login password.
 func (m *Manager) HandlePassword(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.HandlePassword: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -230,6 +258,9 @@ func (m *Manager) HandlePassword(w http.ResponseWriter, r *http.Request) {
 // HandleDeactivate turns the server off for the signed in user. The files
 // already received stay where they are.
 func (m *Manager) HandleDeactivate(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.HandleDeactivate: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -245,6 +276,9 @@ func (m *Manager) HandleDeactivate(w http.ResponseWriter, r *http.Request) {
 // HandleForget forgets the file names the signed in user's uploads sent
 // lately, so files deleted or moved on the server are received again.
 func (m *Manager) HandleForget(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.HandleForget: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -257,6 +291,9 @@ func (m *Manager) HandleForget(w http.ResponseWriter, r *http.Request) {
 
 // HandleConfig reads or changes the admin settings.
 func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.HandleConfig: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		groups := []string{}
 		if m.opt.ListGroups != nil {
@@ -305,11 +342,17 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 
 // HandleUsers lists who turned the server on, and is for admins.
 func (m *Manager) HandleUsers(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncserv", "Manager.HandleUsers: r=%s", logger.RequestSummary(r))
+	}
 	sendJSON(w, m.Users())
 }
 
 // HandleRevoke turns the server off for a user, and is for admins.
 func (m *Manager) HandleRevoke(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.HandleRevoke: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}

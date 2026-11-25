@@ -9,6 +9,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -51,6 +53,7 @@ const (
 var kindByExt = map[string]string{}
 
 func init() {
+	logger.Debug("fileservers/servers/syncserv", "init")
 	add := func(kind string, exts ...string) {
 		for _, ext := range exts {
 			kindByExt[ext] = kind
@@ -69,6 +72,9 @@ func init() {
 
 // Classify names the type folder of a file name.
 func Classify(name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Classify: name=%.120q", name)
+	}
 	if kind, ok := kindByExt[strings.ToLower(path.Ext(name))]; ok {
 		return kind
 	}
@@ -77,6 +83,9 @@ func Classify(name string) string {
 
 // DateFolder is the date part of the folder an upload goes to.
 func DateFolder(layout string, t time.Time) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "DateFolder: layout=%.120q", layout)
+	}
 	year := strconv.Itoa(t.Year())
 	month := t.Format("01")
 	switch layout {
@@ -93,6 +102,9 @@ func DateFolder(layout string, t time.Time) string {
 // Subfolder is the folder, relative to the sync folder, an upload goes to.
 // It is empty when uploads go straight into the sync folder.
 func Subfolder(settings UserSettings, kind string, t time.Time) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Subfolder: kind=%.120q", kind)
+	}
 	parts := []string{}
 	if settings.ByType {
 		parts = append(parts, kind)
@@ -119,6 +131,9 @@ const maxNameBytes = 200
 // refuse, no leading dots (hidden or traversal names), at most 200 bytes.
 // It returns "" when nothing usable is left.
 func CleanName(name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "CleanName: name=%.120q", name)
+	}
 	name = strings.ReplaceAll(name, "\\", "/")
 	if i := strings.LastIndex(name, "/"); i >= 0 {
 		name = name[i+1:]
@@ -186,6 +201,7 @@ var extByContentType = map[string]string{
 
 // ExtForContentType is the extension for a media type, "" when unknown.
 func ExtForContentType(contentType string) string {
+	logger.Debug("fileservers/servers/syncserv", "ExtForContentType")
 	contentType = strings.ToLower(strings.TrimSpace(strings.SplitN(contentType, ";", 2)[0]))
 	return extByContentType[contentType]
 }
@@ -216,6 +232,7 @@ var dateLayouts = []string{
 }
 
 func plausible(t time.Time) bool {
+	logger.DebugTrace("fileservers/servers/syncserv", "plausible")
 	return t.Year() >= 1970 && t.Year() <= 2200
 }
 
@@ -225,6 +242,7 @@ func plausible(t time.Time) bool {
 // written for people, as "2026年8月14日" or "Aug 14, 2026 at 10:22". A date
 // with a time zone keeps it, so the day is the one on the phone.
 func ParseDate(text string) (time.Time, bool) {
+	logger.Debug("fileservers/servers/syncserv", "ParseDate")
 	text = strings.TrimSpace(text)
 	if text == "" || len(text) > 128 {
 		return time.Time{}, false
@@ -259,6 +277,9 @@ func ParseDate(text string) (time.Time, bool) {
 }
 
 func ymd(year, month, day string) (time.Time, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "ymd: year=%.120q month=%.120q day=%.120q", year, month, day)
+	}
 	m, err := strconv.Atoi(month)
 	if err != nil {
 		return time.Time{}, false
@@ -267,6 +288,9 @@ func ymd(year, month, day string) (time.Time, bool) {
 }
 
 func ymdMonth(year string, month time.Month, day string) (time.Time, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "ymdMonth: year=%.120q day=%.120q", year, day)
+	}
 	y, err1 := strconv.Atoi(year)
 	d, err2 := strconv.Atoi(day)
 	if err1 != nil || err2 != nil || month < 1 || month > 12 || d < 1 || d > 31 {
@@ -283,6 +307,9 @@ func ymdMonth(year string, month time.Month, day string) (time.Time, bool) {
 // Numbered is name with " (n)" before its extension, for a file that has
 // the name of a different file already there.
 func Numbered(name string, n int) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Numbered: name=%.120q n=%d", name, n)
+	}
 	ext := path.Ext(name)
 	if len(ext) > 16 || ext == name {
 		ext = ""
@@ -292,6 +319,9 @@ func Numbered(name string, n int) string {
 
 // sniffExt names the extension of content that came without a file name.
 func sniffExt(head []byte, contentType string) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "sniffExt: len(head)=%d", len(head))
+	}
 	if len(head) >= 12 && string(head[4:8]) == "ftyp" {
 		switch string(head[8:12]) {
 		case "heic", "heix", "heim", "heis", "mif1", "msf1":

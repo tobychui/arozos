@@ -10,6 +10,8 @@ package email
 
 import (
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Preset describes a mail provider the account wizard knows.
@@ -229,6 +231,7 @@ var customPreset = Preset{
 
 // Presets returns every known provider, the generic one last.
 func Presets() []Preset {
+	logger.Debug("email", "Presets")
 	results := make([]Preset, 0, len(presets)+1)
 	results = append(results, presets...)
 	results = append(results, customPreset)
@@ -237,6 +240,9 @@ func Presets() []Preset {
 
 // PresetByID finds a preset by its identifier.
 func PresetByID(id string) (Preset, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "PresetByID: id=%.120q", id)
+	}
 	for _, preset := range presets {
 		if preset.ID == id {
 			return preset, true
@@ -251,6 +257,9 @@ func PresetByID(id string) (Preset, bool) {
 // presetForDomain matches the domain of an address against the known
 // consumer domains (gmail.com, hotmail.co.uk, yahoo.co.jp, …).
 func presetForDomain(domain string) (Preset, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "presetForDomain: domain=%.120q", domain)
+	}
 	domain = strings.ToLower(strings.TrimSpace(domain))
 	if domain == "" {
 		return Preset{}, false
@@ -272,6 +281,9 @@ func presetForDomain(domain string) (Preset, bool) {
 
 // presetForMX identifies a hosted custom domain from one of its MX hosts.
 func presetForMX(mxHost string) (Preset, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "presetForMX: mxHost=%.120q", mxHost)
+	}
 	mxHost = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(mxHost), "."))
 	if mxHost == "" {
 		return Preset{}, false
@@ -289,6 +301,9 @@ func presetForMX(mxHost string) (Preset, bool) {
 // presetSavesSent reports whether a client must append sent mail to the Sent
 // folder itself for this provider (Gmail and Outlook file it server-side).
 func presetSavesSent(providerID string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("email", "presetSavesSent: providerID=%.120q", providerID)
+	}
 	if preset, ok := PresetByID(providerID); ok {
 		return preset.SaveSent
 	}
@@ -297,6 +312,9 @@ func presetSavesSent(providerID string) bool {
 
 // usernameFor applies the preset username style to an address.
 func usernameFor(style string, address string) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "usernameFor: style=%.120q", style)
+	}
 	if style == "localpart" {
 		if at := strings.LastIndex(address, "@"); at > 0 {
 			return address[:at]
@@ -307,6 +325,7 @@ func usernameFor(style string, address string) string {
 
 // domainOf returns the lower-cased domain of an address.
 func domainOf(address string) string {
+	logger.Debug("email", "domainOf")
 	address = strings.TrimSpace(address)
 	at := strings.LastIndex(address, "@")
 	if at < 0 || at == len(address)-1 {
@@ -317,6 +336,9 @@ func domainOf(address string) string {
 
 // authHintFor returns the advice shown when a login with a password fails.
 func authHintFor(providerID string) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "authHintFor: providerID=%.120q", providerID)
+	}
 	preset, ok := PresetByID(providerID)
 	if !ok {
 		return ""

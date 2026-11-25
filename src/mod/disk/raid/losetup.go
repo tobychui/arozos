@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -22,6 +24,7 @@ type LoopDevice struct {
 
 // List all the loop devices
 func ListAllLoopDevices() ([]*LoopDevice, error) {
+	logger.Debug("disk/raid", "ListAllLoopDevices")
 	cmd := exec.Command("sudo", "losetup", "-a")
 
 	output, err := cmd.CombinedOutput()
@@ -54,6 +57,9 @@ func ListAllLoopDevices() ([]*LoopDevice, error) {
 
 // Mount an given image path as loopback device
 func MountImageAsLoopDevice(imagePath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "MountImageAsLoopDevice: imagePath=%.120q", imagePath)
+	}
 	cmd := exec.Command("sudo", "losetup", "-f", imagePath)
 
 	cmd.Stdout = os.Stdout
@@ -69,6 +75,9 @@ func MountImageAsLoopDevice(imagePath string) error {
 
 // Unmount a loop device by the image path
 func UnmountLoopDeviceByImagePath(imagePath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "UnmountLoopDeviceByImagePath: imagePath=%.120q", imagePath)
+	}
 	imagePathIsMounted, err := ImageMountedAsLoopDevice(imagePath)
 	if err != nil {
 		return err
@@ -90,6 +99,9 @@ func UnmountLoopDeviceByImagePath(imagePath string) error {
 
 // Unmount the loop device by id e.g. /dev/loop1
 func UnmountLoopDeviceByID(loopDevId string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "UnmountLoopDeviceByID: loopDevId=%.120q", loopDevId)
+	}
 	cmd := exec.Command("sudo", "losetup", "-d", loopDevId)
 
 	cmd.Stdout = os.Stdout
@@ -105,6 +117,9 @@ func UnmountLoopDeviceByID(loopDevId string) error {
 
 // Get loopdrive ID (/dev/loop1) by the image path, return empty string if not found error if load failed
 func GetLoopDriveIDFromImagePath(imagePath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "GetLoopDriveIDFromImagePath: imagePath=%.120q", imagePath)
+	}
 	absPath, err := filepath.Abs(imagePath)
 	if err != nil {
 		return "", err
@@ -127,6 +142,9 @@ func GetLoopDriveIDFromImagePath(imagePath string) (string, error) {
 
 // Check if an image file is already mounted as loop drive
 func ImageMountedAsLoopDevice(imagePath string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "ImageMountedAsLoopDevice: imagePath=%.120q", imagePath)
+	}
 	loopDriveId, err := GetLoopDriveIDFromImagePath(imagePath)
 	if err != nil {
 		return false, err

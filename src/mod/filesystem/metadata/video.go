@@ -11,10 +11,14 @@ import (
 	"github.com/oliamb/cutter"
 	"imuslab.com/arozos/mod/apt"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
 func generateThumbnailForVideo(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "generateThumbnailForVideo: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
+	}
 	if fsh.RequireBuffer {
 		return "", nil
 	}
@@ -79,6 +83,9 @@ func generateThumbnailForVideo(fsh *filesystem.FileSystemHandler, cacheFolder st
 }
 
 func pkg_exists(pkgname string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "pkg_exists: pkgname=%.120q", pkgname)
+	}
 	installed, _ := apt.PackageExists(pkgname)
 	return installed
 }

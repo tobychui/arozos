@@ -19,6 +19,7 @@ import (
 	"unicode/utf16"
 
 	"github.com/go-pdf/fpdf"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/htmlutil"
 	"imuslab.com/arozos/mod/office/internal/media"
 )
@@ -27,6 +28,9 @@ const pxToMM = 25.4 / 96.0
 
 // pdfSetFillHex / pdfSetTextHex apply "#rrggbb" (or rgb()) colors
 func pdfColor(c string) (int, int, int, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pdf", "pdfColor: c=%.120q", c)
+	}
 	hexv := htmlutil.CSSColorHex(c)
 	if len(hexv) != 6 {
 		return 0, 0, 0, false
@@ -39,6 +43,9 @@ func pdfColor(c string) (int, int, int, bool) {
 }
 
 func pdfSetTextHex(pdf *fpdf.Fpdf, c string, defR, defG, defB int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pdf", "pdfSetTextHex: c=%.120q defR=%d defG=%d defB=%d", c, defR, defG, defB)
+	}
 	if r, g, b, ok := pdfColor(c); ok {
 		pdf.SetTextColor(r, g, b)
 	} else {
@@ -47,6 +54,9 @@ func pdfSetTextHex(pdf *fpdf.Fpdf, c string, defR, defG, defB int) {
 }
 
 func pdfSetFillHex(pdf *fpdf.Fpdf, c string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pdf", "pdfSetFillHex: c=%.120q", c)
+	}
 	if r, g, b, ok := pdfColor(c); ok {
 		pdf.SetFillColor(r, g, b)
 		return true
@@ -55,6 +65,9 @@ func pdfSetFillHex(pdf *fpdf.Fpdf, c string) bool {
 }
 
 func pdfSetDrawHex(pdf *fpdf.Fpdf, c string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pdf", "pdfSetDrawHex: c=%.120q", c)
+	}
 	if r, g, b, ok := pdfColor(c); ok {
 		pdf.SetDrawColor(r, g, b)
 	} else {
@@ -64,6 +77,9 @@ func pdfSetDrawHex(pdf *fpdf.Fpdf, c string) {
 
 // pdfStyleStr builds fpdf's font style string
 func pdfStyleStr(b, i, u bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pdf", "pdfStyleStr: b=%t i=%t u=%t", b, i, u)
+	}
 	s := ""
 	if b {
 		s += "B"
@@ -80,6 +96,9 @@ func pdfStyleStr(b, i, u bool) string {
 // pdfImageFromDataURL registers a data-URL image under a unique name and
 // returns (name, imageType, ok)
 func pdfImageFromDataURL(pdf *fpdf.Fpdf, src string, seq *int) (string, string, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pdf", "pdfImageFromDataURL: src=%.120q", src)
+	}
 	data, ext, ok := media.DecodeDataURL(src)
 	if !ok {
 		return "", "", false
@@ -100,6 +119,7 @@ func pdfImageFromDataURL(pdf *fpdf.Fpdf, src string, seq *int) (string, string, 
 
 // pdfOutput finalizes the document into bytes
 func pdfOutput(pdf *fpdf.Fpdf) ([]byte, error) {
+	logger.DebugTrace("office/pdf", "pdfOutput")
 	var buf bytes.Buffer
 	if err := pdf.Output(&buf); err != nil {
 		return nil, err
@@ -112,6 +132,9 @@ func pdfOutput(pdf *fpdf.Fpdf) ([]byte, error) {
 // writes the bytes of a Bookmark title as they are while a core font is
 // set, which is always the case here.
 func pdfTextString(s string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pdf", "pdfTextString: s=%.120q", s)
+	}
 	u := utf16.Encode([]rune(s))
 	b := make([]byte, 2, 2+2*len(u))
 	b[0], b[1] = 0xFE, 0xFF
@@ -132,6 +155,7 @@ var pdfNbsp = strings.NewReplacer(
 
 // pdfTr returns fpdf's UTF-8 -> cp1252 translator for core fonts
 func pdfTr(pdf *fpdf.Fpdf) func(string) string {
+	logger.DebugTrace("office/pdf", "pdfTr")
 	tr := pdf.UnicodeTranslatorFromDescriptor("")
 	return func(s string) string {
 		return tr(pdfNbsp.Replace(s))
@@ -150,6 +174,9 @@ func pdfTr(pdf *fpdf.Fpdf) func(string) string {
 // drawn) while the cut is made on runes of the original, so a multi-byte
 // character is never split in half.
 func pdfFitText(pdf *fpdf.Fpdf, tr func(string) string, s string, maxW float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pdf", "pdfFitText: s=%.120q maxW=%g", s, maxW)
+	}
 	if s == "" || maxW <= 0 {
 		return ""
 	}

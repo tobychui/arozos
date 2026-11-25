@@ -35,6 +35,8 @@ import (
 
 	gomessage "github.com/emersion/go-message"
 	gomail "github.com/emersion/go-message/mail"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // ComposeAttachment is a file attached by the user. The AGI layer resolves
@@ -99,6 +101,9 @@ var dataImagePattern = regexp.MustCompile(`(?i)(<img\b[^>]*?\bsrc\s*=\s*["'])dat
 // parseRecipients validates a recipient list, accepting "Name <a@b>",
 // bare addresses and comma / semicolon separated strings.
 func parseRecipients(values []string) ([]*mail.Address, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "parseRecipients: len(values)=%d", len(values))
+	}
 	results := []*mail.Address{}
 	seen := map[string]bool{}
 	for _, value := range values {
@@ -124,6 +129,9 @@ func parseRecipients(values []string) ([]*mail.Address, error) {
 
 // splitAddressList splits on commas and semicolons outside quotes / brackets.
 func splitAddressList(value string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "splitAddressList: value=%.120q", value)
+	}
 	parts := []string{}
 	var current strings.Builder
 	inQuotes, inAngle := false, false
@@ -149,6 +157,9 @@ func splitAddressList(value string) []string {
 // buildMessage renders a compose request. forDraft keeps Bcc in the headers
 // and allows an empty recipient list.
 func (m *Manager) buildMessage(ctx context.Context, p Principal, account *Account, request *ComposeRequest, forDraft bool) (*builtMessage, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.buildMessage: forDraft=%t", forDraft)
+	}
 	to, err := parseRecipients(request.To)
 	if err != nil {
 		return nil, err
@@ -288,6 +299,7 @@ type attachmentPayload struct {
 // collectAttachments gathers user files and forwarded server parts and
 // enforces the administrator's size budget.
 func (m *Manager) collectAttachments(ctx context.Context, p Principal, request *ComposeRequest) ([]attachmentPayload, error) {
+	logger.Debug("email", "Manager.collectAttachments")
 	limit := m.maxAttachmentBytes()
 	var total int64
 	payloads := []attachmentPayload{}
@@ -351,6 +363,9 @@ func (m *Manager) collectAttachments(ctx context.Context, p Principal, request *
 
 // writeMessageBody writes the MIME tree described at the top of this file.
 func writeMessageBody(w io.Writer, header gomail.Header, request *ComposeRequest, attachments []attachmentPayload) error {
+	if logger.IsDebug() {
+		logger.Debugf("email", "writeMessageBody: len(attachments)=%d", len(attachments))
+	}
 	htmlBody := request.HTML
 	textBody := request.Text
 	if request.PlainOnly {
@@ -512,6 +527,7 @@ func writeMessageBody(w io.Writer, header gomail.Header, request *ComposeRequest
 
 // wrapHTMLDocument gives editor HTML a complete document with a UTF-8 hint.
 func wrapHTMLDocument(body string) string {
+	logger.Debug("email", "wrapHTMLDocument")
 	lower := strings.ToLower(body)
 	if strings.Contains(lower, "<html") {
 		return body
@@ -521,6 +537,7 @@ func wrapHTMLDocument(body string) string {
 }
 
 func normaliseNewlines(text string) string {
+	logger.Debug("email", "normaliseNewlines")
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
 	return strings.ReplaceAll(text, "\n", "\r\n")
@@ -528,6 +545,9 @@ func normaliseNewlines(text string) string {
 
 // contentTypeFor guesses a media type from a file name.
 func contentTypeFor(name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "contentTypeFor: name=%.120q", name)
+	}
 	if byExt := mime.TypeByExtension(strings.ToLower(filepath.Ext(name))); byExt != "" {
 		//Drop the charset Go appends for text types; attachments are bytes
 		if semicolon := strings.Index(byExt, ";"); semicolon > 0 {
@@ -539,6 +559,9 @@ func contentTypeFor(name string) string {
 }
 
 func humanSize(size int64) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "humanSize: size=%d", size)
+	}
 	const unit = 1024
 	if size < unit {
 		return fmt.Sprintf("%d B", size)

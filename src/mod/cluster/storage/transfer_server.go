@@ -33,6 +33,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/cluster/acn"
 	"imuslab.com/arozos/mod/cluster/metadata"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -116,6 +117,7 @@ type session struct {
 }
 
 func (s *Service) registerACNHandlers() {
+	logger.Debug("cluster/storage", "Service.registerACNHandlers")
 	srv := s.m.Server()
 	srv.HandleFunc(pathBegin, s.handleBegin)
 	srv.HandleFunc(pathChunk, s.handleChunk)
@@ -134,6 +136,9 @@ func (s *Service) registerACNHandlers() {
 
 // localVolumePath resolves a request onto a local volume path.
 func (s *Service) localVolumePath(volumeID string, logical string) (*metadata.Volume, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.localVolumePath: volumeID=%.120q logical=%.120q", volumeID, logical)
+	}
 	vol, ok := s.meta.Volume(volumeID)
 	if !ok || vol.Removed {
 		return nil, "", errors.New("volume not found")
@@ -149,6 +154,9 @@ func (s *Service) localVolumePath(volumeID string, logical string) (*metadata.Vo
 }
 
 func statusFor(err error) int {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "statusFor: err=%v", err)
+	}
 	switch {
 	case errors.Is(err, ErrNotLocalVolume), errors.Is(err, os.ErrNotExist):
 		return http.StatusNotFound
@@ -161,6 +169,9 @@ func statusFor(err error) int {
 }
 
 func (s *Service) handleBegin(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.handleBegin: r=%s", logger.RequestSummary(r))
+	}
 	var req BeginRequest
 	if err := json.Unmarshal(body, &req); err != nil || req.Size < 0 || req.Checksum == "" {
 		acn.WriteError(w, http.StatusBadRequest, "invalid begin request")
@@ -212,6 +223,7 @@ func (s *Service) handleBegin(w http.ResponseWriter, r *http.Request, sender *ac
 }
 
 func (sess *session) haveList() []int {
+	logger.Debug("cluster/storage", "session.haveList")
 	out := make([]int, 0, len(sess.received))
 	for i := range sess.received {
 		out = append(out, i)
@@ -220,6 +232,7 @@ func (sess *session) haveList() []int {
 }
 
 func (sess *session) chunkCount() int {
+	logger.Debug("cluster/storage", "session.chunkCount")
 	if sess.Size == 0 {
 		return 0
 	}
@@ -227,6 +240,9 @@ func (sess *session) chunkCount() int {
 }
 
 func (s *Service) getSession(id string) (*session, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.getSession: id=%.120q", id)
+	}
 	s.sessMu.Lock()
 	defer s.sessMu.Unlock()
 	sess, ok := s.sessions[id]
@@ -237,6 +253,9 @@ func (s *Service) getSession(id string) (*session, bool) {
 }
 
 func (s *Service) dropSession(id string, removePart bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.dropSession: id=%.120q removePart=%t", id, removePart)
+	}
 	s.sessMu.Lock()
 	sess, ok := s.sessions[id]
 	delete(s.sessions, id)
@@ -247,6 +266,9 @@ func (s *Service) dropSession(id string, removePart bool) {
 }
 
 func (s *Service) handleChunk(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.handleChunk: r=%s", logger.RequestSummary(r))
+	}
 	q := r.URL.Query()
 	sess, ok := s.getSession(q.Get("session"))
 	if !ok {
@@ -291,6 +313,9 @@ func (s *Service) handleChunk(w http.ResponseWriter, r *http.Request, sender *ac
 }
 
 func (s *Service) handleCommit(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.handleCommit: r=%s", logger.RequestSummary(r))
+	}
 	var req SessionRequest
 	if err := json.Unmarshal(body, &req); err != nil {
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")
@@ -331,6 +356,9 @@ func (s *Service) handleCommit(w http.ResponseWriter, r *http.Request, sender *a
 }
 
 func (s *Service) handleAbort(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.handleAbort: r=%s", logger.RequestSummary(r))
+	}
 	var req SessionRequest
 	if err := json.Unmarshal(body, &req); err != nil {
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")
@@ -341,6 +369,9 @@ func (s *Service) handleAbort(w http.ResponseWriter, r *http.Request, sender *ac
 }
 
 func (s *Service) handleRead(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.handleRead: r=%s", logger.RequestSummary(r))
+	}
 	q := r.URL.Query()
 	_, real, err := s.localVolumePath(q.Get("volume"), q.Get("path"))
 	if err != nil {
@@ -387,6 +418,9 @@ func (s *Service) handleRead(w http.ResponseWriter, r *http.Request, sender *acn
 }
 
 func (s *Service) handleStatFile(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.handleStatFile: r=%s", logger.RequestSummary(r))
+	}
 	q := r.URL.Query()
 	_, real, err := s.localVolumePath(q.Get("volume"), q.Get("path"))
 	if err != nil {
@@ -402,6 +436,9 @@ func (s *Service) handleStatFile(w http.ResponseWriter, r *http.Request, sender 
 }
 
 func (s *Service) handleMkdir(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.handleMkdir: r=%s", logger.RequestSummary(r))
+	}
 	var req PathRequest
 	if err := json.Unmarshal(body, &req); err != nil {
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")
@@ -420,6 +457,9 @@ func (s *Service) handleMkdir(w http.ResponseWriter, r *http.Request, sender *ac
 }
 
 func (s *Service) handleDelete(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.handleDelete: r=%s", logger.RequestSummary(r))
+	}
 	var req PathRequest
 	if err := json.Unmarshal(body, &req); err != nil {
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")
@@ -448,6 +488,9 @@ func (s *Service) handleDelete(w http.ResponseWriter, r *http.Request, sender *a
 }
 
 func (s *Service) handleRename(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.handleRename: r=%s", logger.RequestSummary(r))
+	}
 	var req PathRequest
 	if err := json.Unmarshal(body, &req); err != nil || req.NewPath == "" {
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")
@@ -475,6 +518,9 @@ func (s *Service) handleRename(w http.ResponseWriter, r *http.Request, sender *a
 }
 
 func (s *Service) handleList(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.handleList: r=%s", logger.RequestSummary(r))
+	}
 	q := r.URL.Query()
 	_, real, err := s.localVolumePath(q.Get("volume"), q.Get("path"))
 	if err != nil {
@@ -501,6 +547,9 @@ func (s *Service) handleList(w http.ResponseWriter, r *http.Request, sender *acn
 }
 
 func (s *Service) handleChecksum(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.handleChecksum: r=%s", logger.RequestSummary(r))
+	}
 	var req PathRequest
 	if err := json.Unmarshal(body, &req); err != nil {
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")
@@ -520,6 +569,9 @@ func (s *Service) handleChecksum(w http.ResponseWriter, r *http.Request, sender 
 }
 
 func (s *Service) handlePlace(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.handlePlace: r=%s", logger.RequestSummary(r))
+	}
 	if !s.meta.IsLeader() {
 		acn.WriteError(w, http.StatusConflict, "this node is not the metadata leader")
 		return
@@ -543,6 +595,7 @@ func (s *Service) handlePlace(w http.ResponseWriter, r *http.Request, sender *ac
 
 // sweepSessions drops abandoned uploads and their part files.
 func (s *Service) sweepSessions() {
+	logger.Debug("cluster/storage", "Service.sweepSessions")
 	cutoff := time.Now().Add(-SessionTTL)
 	s.sessMu.Lock()
 	stale := []*session{}

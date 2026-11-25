@@ -35,6 +35,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // SliceView is one file a face is loaded from and the characters it holds
@@ -64,11 +66,13 @@ type SourceFamily struct {
 
 // embeddable reports whether a document may carry the face
 func embeddable(f *Face) bool {
+	logger.DebugTrace("locale/fonts", "embeddable")
 	return f.plain && !f.Info.NoEmbed
 }
 
 // fileExt is the extension FileData's font goes by
 func fileExt(f *Face) string {
+	logger.DebugTrace("locale/fonts", "fileExt")
 	if f.Info.Outline == "cff" {
 		return ".otf"
 	}
@@ -77,6 +81,7 @@ func fileExt(f *Face) string {
 
 // Sources lists every installed family with the files of its faces
 func (l *Library) Sources() []SourceFamily {
+	logger.DebugTrace("locale/fonts", "Library.Sources")
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	out := make([]SourceFamily, 0, len(l.families))
@@ -109,6 +114,7 @@ func (l *Library) Sources() []SourceFamily {
 
 // embeddedFace returns the face a key names when a document may embed it
 func (l *Library) embeddedFace(key string) *Face {
+	logger.DebugTrace("locale/fonts", "Library.embeddedFace")
 	l.mu.RLock()
 	face := l.faces[key]
 	l.mu.RUnlock()
@@ -121,6 +127,9 @@ func (l *Library) embeddedFace(key string) *Face {
 // glyphsAligned reports whether every glyph of a TrueType font starts on an
 // even offset; a font without glyf / loca has nothing to align
 func glyphsAligned(font *Font, numGlyphs int) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "glyphsAligned: numGlyphs=%d", numGlyphs)
+	}
 	if font.Table("glyf") == nil || font.Table("loca") == nil {
 		return true
 	}
@@ -139,6 +148,9 @@ func glyphsAligned(font *Font, numGlyphs int) bool {
 // padGlyphs rewrites glyf so every glyph starts on a 4-byte boundary, with
 // a long loca to match. Only the padding between glyphs changes.
 func padGlyphs(tables map[string][]byte) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "padGlyphs: len(tables)=%d", len(tables))
+	}
 	maxp := tables["maxp"]
 	if len(maxp) < 6 || len(tables["head"]) < 54 {
 		return errors.New("the maxp or head table is damaged")
@@ -169,6 +181,7 @@ func padGlyphs(tables map[string][]byte) error {
 // FilePath returns the font file a face is handed over as - the installed
 // file, or a copy made on first use (see above) - and its extension
 func (l *Library) FilePath(key string) (string, string, error) {
+	logger.DebugTrace("locale/fonts", "Library.FilePath")
 	face := l.embeddedFace(key)
 	if face == nil {
 		return "", "", ErrNotFound
@@ -238,6 +251,7 @@ func (l *Library) FilePath(key string) (string, string, error) {
 // FileData returns a face as an OpenType font file (FilePath) and its
 // extension
 func (l *Library) FileData(key string) ([]byte, string, error) {
+	logger.DebugTrace("locale/fonts", "Library.FileData")
 	file, ext, err := l.FilePath(key)
 	if err != nil {
 		return nil, "", err
@@ -252,6 +266,9 @@ func (l *Library) FileData(key string) ([]byte, string, error) {
 // ServeFile answers a request for a whole font, named "<key>.ttf" or
 // "<key>.otf" as Sources lists it
 func (l *Library) ServeFile(w http.ResponseWriter, r *http.Request, name string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.ServeFile: r=%s name=%.120q", logger.RequestSummary(r), name)
+	}
 	key, ext, ok := strings.Cut(name, ".")
 	face := l.embeddedFace(key)
 	if !ok || face == nil || "."+ext != fileExt(face) {

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -54,6 +55,7 @@ var bootFlagNames = map[string]string{
 
 // currentBootFlags reads the boot flags from the runtime globals
 func currentBootFlags() bootFlags {
+	logger.DebugTrace("Core", "currentBootFlags")
 	return bootFlags{
 		Hostname:          *host_name,
 		MaxUploadSize:     int(max_upload_size >> 20),
@@ -68,6 +70,7 @@ func currentBootFlags() bootFlags {
 
 // applyBootFlags writes the boot flags into the runtime globals
 func applyBootFlags(c bootFlags) {
+	logger.Debug("Core", "applyBootFlags")
 	*host_name = c.Hostname
 	*max_upload = c.MaxUploadSize
 	max_upload_size = int64(c.MaxUploadSize) << 20
@@ -81,6 +84,7 @@ func applyBootFlags(c bootFlags) {
 
 // validateBootFlags normalises and checks a config before it is applied
 func validateBootFlags(c *bootFlags) error {
+	logger.Debug("Core", "validateBootFlags")
 	c.Hostname = strings.TrimSpace(c.Hostname)
 	if c.Hostname == "" {
 		return errors.New("host name cannot be empty")
@@ -99,6 +103,7 @@ func validateBootFlags(c *bootFlags) error {
 
 // explicitStartFlags returns the names of the flags given on the command line
 func explicitStartFlags() map[string]bool {
+	logger.Debug("Core", "explicitStartFlags")
 	set := map[string]bool{}
 	flag.Visit(func(f *flag.Flag) {
 		set[f.Name] = true
@@ -115,10 +120,14 @@ type bootFlagsReport struct {
 }
 
 func currentBootFlagsReport() bootFlagsReport {
+	logger.DebugTrace("Core", "currentBootFlagsReport")
 	return newBootFlagsReport(currentBootFlags(), explicitStartFlags())
 }
 
 func newBootFlagsReport(flags bootFlags, explicit map[string]bool) bootFlagsReport {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "newBootFlagsReport: len(explicit)=%d", len(explicit))
+	}
 	fromStartFlag := []string{}
 	for field, name := range bootFlagNames {
 		if explicit[name] {
@@ -137,6 +146,9 @@ is kept as raw fields so a config saved by an older version, missing some
 fields, only restores the ones it has.
 */
 func mergeBootFlags(runtime bootFlags, stored map[string]json.RawMessage, explicit map[string]bool) bootFlags {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "mergeBootFlags: len(stored)=%d len(explicit)=%d", len(stored), len(explicit))
+	}
 	merged := runtime
 	restore := func(field string, target interface{}) {
 		raw, ok := stored[field]
@@ -177,6 +189,7 @@ run right after the system database opens and before any service reads these
 flags (e.g. the host name is captured by several modules at init).
 */
 func StartupFlagsRestore() {
+	logger.Debug("Core", "StartupFlagsRestore")
 	sysdb.NewTable(bootFlagsTable)
 
 	stored := map[string]json.RawMessage{}
@@ -197,6 +210,7 @@ func StartupFlagsRestore() {
 }
 
 func StartupFlagsInit() {
+	logger.Debug("Core", "StartupFlagsInit")
 	//Create a admin permission router for handling requests
 	//Register a boot flag modifier
 	registerSetting(settingModule{
@@ -220,6 +234,9 @@ func StartupFlagsInit() {
 }
 
 func handleBootFlagsFunction(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleBootFlagsFunction: r=%s", logger.RequestSummary(r))
+	}
 	opr, _ := utils.PostPara(r, "opr")
 	if opr == "" {
 		js, _ := json.Marshal(currentBootFlagsReport())

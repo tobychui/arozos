@@ -10,6 +10,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -20,6 +21,7 @@ This module handles cross cluster scanning, responses and more that related
 to functions that identifiy this as a ArOZ Online device
 */
 func SystemIDInit() {
+	logger.Debug("Core", "SystemIDInit")
 	//Initialize device UUID if not exists
 	systemIdGenerateSystemUUID()
 
@@ -84,6 +86,9 @@ func SystemIDInit() {
 Ping function. This function handles the request
 */
 func systemIdHandlePing(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "systemIdHandlePing: r=%s", logger.RequestSummary(r))
+	}
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
@@ -96,6 +101,7 @@ func systemIdHandlePing(w http.ResponseWriter, r *http.Request) {
 }
 
 func systemIdGenerateSystemUUID() {
+	logger.Debug("Core", "systemIdGenerateSystemUUID")
 	if !fs.FileExists("./system/dev.uuid") {
 		//UUID not exist. Create one
 		thisuuid := uuid.NewV4().String()
@@ -120,6 +126,7 @@ func systemIdGenerateSystemUUID() {
 }
 
 func systemIdGetSystemUUID() string {
+	logger.Debug("Core", "systemIdGetSystemUUID")
 	fileUUID, err := os.ReadFile("./system/dev.uuid")
 	if err != nil {
 		systemWideLogger.PrintAndLog("Storage", "Unable to read system UUID from dev.uuid file", err)
@@ -131,6 +138,9 @@ func systemIdGetSystemUUID() string {
 }
 
 func systemHandleListLicense(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "systemHandleListLicense: r=%s", logger.RequestSummary(r))
+	}
 	licenses, _ := filepath.Glob("./web/SystemAO/info/license/*.txt")
 	results := [][]string{}
 	for _, file := range licenses {
@@ -145,6 +155,9 @@ func systemHandleListLicense(w http.ResponseWriter, r *http.Request) {
 }
 
 func systemIdHandleRequest(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "systemIdHandleRequest: r=%s", logger.RequestSummary(r))
+	}
 	//Check if user has logged in
 	if authAgent.CheckAuth(r) == false {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -177,6 +190,9 @@ func systemIdHandleRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func systemIdResponseBetaScan(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "systemIdResponseBetaScan: r=%s", logger.RequestSummary(r))
+	}
 	//Handle beta scanning method
 	uuid := systemIdGetSystemUUID()
 	IPAddress := r.Header.Get("X-Real-Ip")
@@ -195,6 +211,9 @@ func systemIdResponseBetaScan(w http.ResponseWriter, r *http.Request) {
 }
 
 func systemIdServeVersonNumber(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "systemIdServeVersonNumber: r=%s", logger.RequestSummary(r))
+	}
 	if build_version == "development" {
 		w.Write([]byte("AO-DEV_v" + internal_version))
 	} else {
@@ -203,6 +222,9 @@ func systemIdServeVersonNumber(w http.ResponseWriter, r *http.Request) {
 }
 
 func systemIdGetDriveStates(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "systemIdGetDriveStates: r=%s", logger.RequestSummary(r))
+	}
 	results := [][]string{}
 	results = append(results, []string{
 		"user",

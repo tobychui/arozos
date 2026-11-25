@@ -103,6 +103,7 @@ type Record struct {
 
 // Done reports whether the job reached a terminal state.
 func (r *Record) Done() bool {
+	logger.Debug("cluster/jobs", "Record.Done")
 	switch r.State.Status {
 	case StatusSucceeded, StatusFailed, StatusCancelled:
 		return true
@@ -188,6 +189,7 @@ var (
 
 // New creates the job service and starts its loops.
 func New(opt Option) (*Manager, error) {
+	logger.Debug("cluster/jobs", "New")
 	if opt.Membership == nil || opt.Metadata == nil {
 		return nil, errors.New("membership and metadata are required")
 	}
@@ -233,6 +235,7 @@ func New(opt Option) (*Manager, error) {
 
 // Close stops the scheduler and cancels local jobs.
 func (j *Manager) Close() {
+	logger.Debug("cluster/jobs", "Manager.Close")
 	j.once.Do(func() { close(j.stop) })
 	j.mu.Lock()
 	for _, rs := range j.running {
@@ -243,6 +246,7 @@ func (j *Manager) Close() {
 }
 
 func (j *Manager) loop() {
+	logger.Debug("cluster/jobs", "Manager.loop")
 	defer j.wg.Done()
 	ticker := time.NewTicker(j.opt.ScheduleInterval)
 	defer ticker.Stop()
@@ -270,6 +274,7 @@ func (j *Manager) loop() {
 */
 
 func (j *Manager) decode(mj *metadata.Job) (Record, bool) {
+	logger.Debug("cluster/jobs", "Manager.decode")
 	var rec Record
 	if mj == nil || json.Unmarshal(mj.Body, &rec) != nil {
 		return rec, false
@@ -279,6 +284,9 @@ func (j *Manager) decode(mj *metadata.Job) (Record, bool) {
 
 // Get returns one job record.
 func (j *Manager) Get(id string) (Record, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.Get: id=%.120q", id)
+	}
 	mj, ok := j.meta.Job(id)
 	if !ok || mj.Removed {
 		return Record{}, false
@@ -288,6 +296,9 @@ func (j *Manager) Get(id string) (Record, bool) {
 
 // List returns jobs, newest first; owner "" lists every job.
 func (j *Manager) List(owner string) []Record {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.List: owner=%.120q", owner)
+	}
 	out := []Record{}
 	for _, mj := range j.meta.Jobs() {
 		if mj.Removed || (owner != "" && mj.Owner != owner) {
@@ -303,6 +314,7 @@ func (j *Manager) List(owner string) []Record {
 
 // put replicates a record.
 func (j *Manager) put(rec Record) error {
+	logger.Debug("cluster/jobs", "Manager.put")
 	body, err := json.Marshal(rec)
 	if err != nil {
 		return err
@@ -323,6 +335,7 @@ func (j *Manager) put(rec Record) error {
 
 // Submit validates and queues a job. The caller supplies the script source.
 func (j *Manager) Submit(spec Spec) (Record, error) {
+	logger.Debug("cluster/jobs", "Manager.Submit")
 	if !j.m.InCluster() {
 		return Record{}, metadata.ErrNotInCluster
 	}
@@ -372,6 +385,9 @@ func (j *Manager) Submit(spec Spec) (Record, error) {
 
 // Cancel marks a job cancelled; a running node notices within a second.
 func (j *Manager) Cancel(id string, requester string, isAdmin bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.Cancel: id=%.120q requester=%.120q isAdmin=%t", id, requester, isAdmin)
+	}
 	rec, ok := j.Get(id)
 	if !ok {
 		return ErrNotFound
@@ -398,6 +414,9 @@ func (j *Manager) Cancel(id string, requester string, isAdmin bool) error {
 
 // Wait blocks until the job finishes or the timeout expires.
 func (j *Manager) Wait(id string, timeout time.Duration) (Record, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.Wait: id=%.120q", id)
+	}
 	deadline := time.Now().Add(timeout)
 	for {
 		rec, ok := j.Get(id)
@@ -423,11 +442,13 @@ func (j *Manager) Wait(id string, timeout time.Duration) (Record, error) {
 */
 
 func usableState(s membership.NodeState) bool {
+	logger.DebugTrace("cluster/jobs", "usableState")
 	return s == membership.StateOnline || s == membership.StateDegraded
 }
 
 // schedule is one scheduling pass.
 func (j *Manager) schedule() {
+	logger.Debug("cluster/jobs", "Manager.schedule")
 	if !j.meta.IsLeader() {
 		return
 	}
@@ -523,6 +544,9 @@ func (j *Manager) schedule() {
 // host may supply a richer implementation (which also expands directories);
 // otherwise the metadata records answer it directly.
 func (j *Manager) locality(paths []string, nodeID string) (int64, int64) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.locality: len(paths)=%d nodeID=%.120q", len(paths), nodeID)
+	}
 	if j.opt.LocalityBytes != nil {
 		return j.opt.LocalityBytes(paths, nodeID)
 	}
@@ -551,12 +575,18 @@ func (j *Manager) locality(paths []string, nodeID string) (int64, int64) {
 // nothing fits. It also returns the full ranking, which the explain endpoint
 // shows to administrators.
 func (j *Manager) pick(rec Record, nodes []membership.NodeView, load map[string]int) (string, string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.pick: len(nodes)=%d len(load)=%d", len(nodes), len(load))
+	}
 	results := j.rank(rec, nodes, load)
 	return scheduling.Best(results)
 }
 
 // rank scores every node for a job.
 func (j *Manager) rank(rec Record, nodes []membership.NodeView, load map[string]int) []scheduling.Result {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.rank: len(nodes)=%d len(load)=%d", len(nodes), len(load))
+	}
 	blocked := map[string]bool{}
 	for _, id := range rec.State.Blocked {
 		blocked[id] = true
@@ -591,6 +621,9 @@ func (j *Manager) rank(rec Record, nodes []membership.NodeView, load map[string]
 
 // Explain returns the ranking the scheduler would use for a job right now.
 func (j *Manager) Explain(jobID string) ([]scheduling.Result, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.Explain: jobID=%.120q", jobID)
+	}
 	rec, ok := j.Get(jobID)
 	if !ok {
 		return nil, ErrNotFound
@@ -611,6 +644,7 @@ func (j *Manager) Explain(jobID string) ([]scheduling.Result, error) {
 // refuses (no account for the owner, cannot execute) is remembered so the
 // scheduler does not offer it the same job again.
 func (j *Manager) assign(rec Record) {
+	logger.Debug("cluster/jobs", "Manager.assign")
 	node := rec.State.Node
 	var err error
 	if node == j.m.NodeID() {
@@ -654,6 +688,9 @@ func (j *Manager) assign(rec Record) {
 // cannot execute jobs at all. The error may come straight from Start or, for
 // a remote node, as the text the node sent back.
 func refusalIsPermanent(err error) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "refusalIsPermanent: err=%v", err)
+	}
 	if err == nil {
 		return false
 	}
@@ -665,6 +702,9 @@ func refusalIsPermanent(err error) bool {
 }
 
 func contains(list []string, v string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "contains: len(list)=%d v=%.120q", len(list), v)
+	}
 	for _, x := range list {
 		if x == v {
 			return true
@@ -674,6 +714,7 @@ func contains(list []string, v string) bool {
 }
 
 func (j *Manager) finishedEvent(rec Record) {
+	logger.Debug("cluster/jobs", "Manager.finishedEvent")
 	if j.OnFinished != nil {
 		j.OnFinished(rec)
 	}
@@ -701,6 +742,9 @@ type Status struct {
 
 // Status builds the picture, filtered to owner when non-empty.
 func (j *Manager) Status(owner string) Status {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.Status: owner=%.120q", owner)
+	}
 	st := Status{InCluster: j.m.InCluster(), IsLeader: j.meta.IsLeader(), LocalSlots: j.opt.MaxParallel, Jobs: []Record{}}
 	if l := j.meta.Leader(); l != "" {
 		st.LeaderName = j.m.NodeName(l)

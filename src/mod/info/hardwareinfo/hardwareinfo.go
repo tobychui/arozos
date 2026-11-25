@@ -49,6 +49,7 @@ type Server struct {
 }
 
 func NewInfoServer(a ArOZInfo) *Server {
+	logger.DebugTrace("info/hardwareinfo", "NewInfoServer")
 	return &Server{
 		hostInfo: a,
 	}
@@ -60,6 +61,7 @@ and disks, read through the Win32 API (mod/info/wininfo). Other platforms
 log "Undefined".
 */
 func PrintSystemHardwareDebugMessage() {
+	logger.Debug("info/hardwareinfo", "PrintSystemHardwareDebugMessage")
 	osName, _ := wininfo.OSName()
 	memory := "Undefined"
 	if m, err := wininfo.MemoryStatus(); err == nil {
@@ -78,6 +80,9 @@ func PrintSystemHardwareDebugMessage() {
 
 // orUndefined is how the hardware pages show a value Windows did not report
 func orUndefined(value string) string {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "orUndefined: value=%.120q", value)
+	}
 	if strings.TrimSpace(value) == "" {
 		return "Undefined"
 	}
@@ -85,6 +90,9 @@ func orUndefined(value string) string {
 }
 
 func (s *Server) GetArOZInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "Server.GetArOZInfo: r=%s", logger.RequestSummary(r))
+	}
 	var jsonData []byte
 	jsonData, err := json.Marshal(s.hostInfo)
 	if err != nil {
@@ -104,6 +112,9 @@ func (s *Server) GetArOZInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func filterGrepResults(result string, sep string) string {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "filterGrepResults: result=%.120q sep=%.120q", result, sep)
+	}
 	if strings.Contains(result, sep) == false {
 		return result
 	}

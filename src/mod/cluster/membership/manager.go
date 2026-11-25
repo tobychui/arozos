@@ -80,6 +80,9 @@ type Manager struct {
 }
 
 func (m *Manager) fireMembershipChange(inCluster bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.fireMembershipChange: inCluster=%t", inCluster)
+	}
 	m.mu.RLock()
 	cb := m.OnMembershipChange
 	m.mu.RUnlock()
@@ -97,6 +100,7 @@ var (
 // NewManager opens the cluster database and node key and, when the node was
 // part of a cluster before the restart, resumes membership.
 func NewManager(opt Option) (*Manager, error) {
+	logger.Debug("cluster/membership", "NewManager")
 	if opt.NodeID == "" {
 		return nil, errors.New("node id is required")
 	}
@@ -167,6 +171,7 @@ func NewManager(opt Option) (*Manager, error) {
 
 // Close stops heartbeats and tunnels and closes the database.
 func (m *Manager) Close() {
+	logger.Debug("cluster/membership", "Manager.Close")
 	m.stopLoops()
 	m.hub.Close()
 	m.store.close()
@@ -174,38 +179,47 @@ func (m *Manager) Close() {
 
 // ACNHandler is the HTTP handler to mount at acn.BasePath.
 func (m *Manager) ACNHandler() http.Handler {
+	logger.DebugTrace("cluster/membership", "Manager.ACNHandler")
 	return m.server
 }
 
 // Transport exposes the node-to-node transport to higher layers.
 func (m *Manager) Transport() *acn.Transport {
+	logger.DebugTrace("cluster/membership", "Manager.Transport")
 	return m.transport
 }
 
 // Server exposes the ACN server so higher layers can register endpoints.
 func (m *Manager) Server() *acn.Server {
+	logger.DebugTrace("cluster/membership", "Manager.Server")
 	return m.server
 }
 
 // NodeID returns the ID of this node.
 func (m *Manager) NodeID() string {
+	logger.DebugTrace("cluster/membership", "Manager.NodeID")
 	return m.opt.NodeID
 }
 
 // Sign signs an arbitrary message with this node's key so higher layers can
 // issue verifiable statements (e.g. user assertions).
 func (m *Manager) Sign(message []byte) []byte {
+	logger.DebugTrace("cluster/membership", "Manager.Sign")
 	return ed25519.Sign(m.key.Private, message)
 }
 
 // DB exposes the cluster database so sibling cluster services can keep their
 // cluster-scoped state in it (use the TableIdentity table, wiped on leave).
 func (m *Manager) DB() *database.Database {
+	logger.DebugTrace("cluster/membership", "Manager.DB")
 	return m.store.db
 }
 
 // NodeName returns the display name of a member, or the ID when unknown.
 func (m *Manager) NodeName(nodeID string) string {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.NodeName: nodeID=%.120q", nodeID)
+	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if rec, ok := m.nodes[nodeID]; ok && rec.Name != "" {
@@ -217,6 +231,7 @@ func (m *Manager) NodeName(nodeID string) string {
 // IdentityOrigin returns the node that verifies logins for the cluster,
 // empty when unset or when not in a cluster.
 func (m *Manager) IdentityOrigin() string {
+	logger.Debug("cluster/membership", "Manager.IdentityOrigin")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.cluster == nil {
@@ -228,6 +243,9 @@ func (m *Manager) IdentityOrigin() string {
 // SetIdentityOrigin makes nodeID the login authority of the cluster (empty
 // disables forward authentication) and replicates the setting.
 func (m *Manager) SetIdentityOrigin(nodeID string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.SetIdentityOrigin: nodeID=%.120q", nodeID)
+	}
 	m.mu.Lock()
 	if m.cluster == nil {
 		m.mu.Unlock()
@@ -259,6 +277,7 @@ func (m *Manager) SetIdentityOrigin(nodeID string) error {
 
 // mergeClusterLocked adopts newer replicated cluster settings.
 func (m *Manager) mergeClusterLocked(in *ClusterInfo) bool {
+	logger.Debug("cluster/membership", "Manager.mergeClusterLocked")
 	if in == nil || m.cluster == nil || in.ID != m.cluster.ID {
 		return false
 	}
@@ -276,6 +295,7 @@ func (m *Manager) mergeClusterLocked(in *ClusterInfo) bool {
 
 // clusterCopyLocked returns a copy of the cluster info for gossip payloads.
 func (m *Manager) clusterCopyLocked() *ClusterInfo {
+	logger.Debug("cluster/membership", "Manager.clusterCopyLocked")
 	if m.cluster == nil {
 		return nil
 	}
@@ -285,6 +305,7 @@ func (m *Manager) clusterCopyLocked() *ClusterInfo {
 
 // syncPayload builds the full gossip payload (settings plus every record).
 func (m *Manager) syncPayload() SyncRequest {
+	logger.Debug("cluster/membership", "Manager.syncPayload")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return SyncRequest{Cluster: m.clusterCopyLocked(), Nodes: m.allRecordsLocked()}
@@ -292,6 +313,7 @@ func (m *Manager) syncPayload() SyncRequest {
 
 // InCluster reports whether this node is currently a cluster member.
 func (m *Manager) InCluster() bool {
+	logger.Debug("cluster/membership", "Manager.InCluster")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.cluster != nil
@@ -299,6 +321,7 @@ func (m *Manager) InCluster() bool {
 
 // Cluster returns a copy of the cluster info, nil when standalone.
 func (m *Manager) Cluster() *ClusterInfo {
+	logger.Debug("cluster/membership", "Manager.Cluster")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.cluster == nil {
@@ -309,6 +332,7 @@ func (m *Manager) Cluster() *ClusterInfo {
 }
 
 func (m *Manager) clusterID() string {
+	logger.Debug("cluster/membership", "Manager.clusterID")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.cluster == nil {
@@ -319,6 +343,9 @@ func (m *Manager) clusterID() string {
 
 // ResolvePeer implements acn.PeerResolver.
 func (m *Manager) ResolvePeer(nodeID string) (*acn.Peer, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.ResolvePeer: nodeID=%.120q", nodeID)
+	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	rec, ok := m.nodes[nodeID]
@@ -345,6 +372,7 @@ func (m *Manager) ResolvePeer(nodeID string) (*acn.Peer, bool) {
 // refreshLocalRecordLocked makes sure the record describing this node exists
 // and reflects the current config, key and capabilities.
 func (m *Manager) refreshLocalRecordLocked() {
+	logger.Debug("cluster/membership", "Manager.refreshLocalRecordLocked")
 	now := time.Now().Unix()
 	rec, ok := m.nodes[m.opt.NodeID]
 	if !ok {
@@ -378,6 +406,7 @@ func (m *Manager) refreshLocalRecordLocked() {
 
 // localSnapshotLocked returns the local record with fresh transient fields.
 func (m *Manager) localSnapshotLocked() NodeRecord {
+	logger.Debug("cluster/membership", "Manager.localSnapshotLocked")
 	rec := m.nodes[m.opt.NodeID].Clone()
 	h := m.opt.Health()
 	h.Uptime = int64(time.Since(m.started).Seconds())
@@ -389,6 +418,7 @@ func (m *Manager) localSnapshotLocked() NodeRecord {
 
 // allRecordsLocked lists every record including tombstones, self first.
 func (m *Manager) allRecordsLocked() []NodeRecord {
+	logger.Debug("cluster/membership", "Manager.allRecordsLocked")
 	out := []NodeRecord{m.localSnapshotLocked()}
 	ids := make([]string, 0, len(m.nodes))
 	for id := range m.nodes {
@@ -404,6 +434,7 @@ func (m *Manager) allRecordsLocked() []NodeRecord {
 }
 
 func (m *Manager) peerIDsLocked() []string {
+	logger.Debug("cluster/membership", "Manager.peerIDsLocked")
 	ids := []string{}
 	for id, rec := range m.nodes {
 		if id != m.opt.NodeID && !rec.Removed {
@@ -421,6 +452,7 @@ func (m *Manager) peerIDsLocked() []string {
 // mergeRecordLocked folds one gossiped record into the local view. It reports
 // whether persistent fields changed and whether this node has been evicted.
 func (m *Manager) mergeRecordLocked(in NodeRecord) (changed bool, evicted bool) {
+	logger.Debug("cluster/membership", "Manager.mergeRecordLocked")
 	if in.ID == "" {
 		return false, false
 	}
@@ -470,11 +502,17 @@ func (m *Manager) mergeRecordLocked(in NodeRecord) (changed bool, evicted bool) 
 
 // mergeNodes applies a batch of records, persists changes and handles eviction.
 func (m *Manager) mergeNodes(records []NodeRecord) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/membership", "Manager.mergeNodes: len(records)=%d", len(records))
+	}
 	m.mergeGossip(nil, records)
 }
 
 // mergeGossip applies replicated cluster settings and a batch of records.
 func (m *Manager) mergeGossip(cluster *ClusterInfo, records []NodeRecord) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.mergeGossip: len(records)=%d", len(records))
+	}
 	m.mu.Lock()
 	if m.cluster == nil {
 		m.mu.Unlock()
@@ -505,6 +543,7 @@ func (m *Manager) mergeGossip(cluster *ClusterInfo, records []NodeRecord) {
 }
 
 func (m *Manager) gcTombstonesLocked() {
+	logger.Debug("cluster/membership", "Manager.gcTombstonesLocked")
 	cutoff := time.Now().Add(-TombstoneTTL).UnixMilli()
 	for id, rec := range m.nodes {
 		if rec.Removed && rec.Updated < cutoff && id != m.opt.NodeID {
@@ -520,6 +559,9 @@ func (m *Manager) gcTombstonesLocked() {
 
 // CreateCluster turns this standalone node into the first member of a new cluster.
 func (m *Manager) CreateCluster(name string) (*ClusterInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.CreateCluster: name=%.120q", name)
+	}
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, errors.New("cluster name cannot be empty")
@@ -553,6 +595,7 @@ func (m *Manager) CreateCluster(name string) (*ClusterInfo, error) {
 
 // JoinCluster contacts the issuing node named in the token and joins its cluster.
 func (m *Manager) JoinCluster(tokenString string) (*ClusterInfo, error) {
+	logger.Debug("cluster/membership", "Manager.JoinCluster")
 	payload, err := DecodeJoinToken(tokenString)
 	if err != nil {
 		return nil, err
@@ -623,6 +666,7 @@ func (m *Manager) JoinCluster(tokenString string) (*ClusterInfo, error) {
 
 // LeaveCluster tells the other members goodbye and returns to standalone mode.
 func (m *Manager) LeaveCluster() error {
+	logger.Debug("cluster/membership", "Manager.LeaveCluster")
 	m.mu.RLock()
 	if m.cluster == nil {
 		m.mu.RUnlock()
@@ -640,6 +684,7 @@ func (m *Manager) LeaveCluster() error {
 
 // wipeLocalState drops all cluster records and returns to standalone mode.
 func (m *Manager) wipeLocalState() {
+	logger.Debug("cluster/membership", "Manager.wipeLocalState")
 	m.stopLoops()
 	m.hub.Close()
 	m.mu.Lock()
@@ -658,6 +703,9 @@ func (m *Manager) wipeLocalState() {
 
 // RemoveNode evicts another member.
 func (m *Manager) RemoveNode(nodeID string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.RemoveNode: nodeID=%.120q", nodeID)
+	}
 	if nodeID == m.opt.NodeID {
 		return errors.New("use leave to remove this node")
 	}
@@ -695,6 +743,7 @@ func (m *Manager) RemoveNode(nodeID string) error {
 
 // notifyEvicted delivers the evict notice to a node that is no longer resolvable.
 func (m *Manager) notifyEvicted(ctx context.Context, target *NodeRecord) {
+	logger.Debug("cluster/membership", "Manager.notifyEvicted")
 	body, _ := json.Marshal(NodeIDRequest{NodeID: target.ID})
 	if target.AdvertiseURL != "" {
 		m.transport.DoURL(ctx, target.AdvertiseURL, http.MethodPost, acn.BasePath+"/evict", body, true)
@@ -710,6 +759,9 @@ func (m *Manager) notifyEvicted(ctx context.Context, target *NodeRecord) {
 
 // SetNodeAdminState puts a node into maintenance / draining / normal mode.
 func (m *Manager) SetNodeAdminState(nodeID string, state string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.SetNodeAdminState: nodeID=%.120q state=%.120q", nodeID, state)
+	}
 	state = strings.ToLower(strings.TrimSpace(state))
 	if state == "normal" {
 		state = AdminStateNormal
@@ -742,6 +794,7 @@ func (m *Manager) SetNodeAdminState(nodeID string, state string) error {
 
 // Config returns the local node configuration.
 func (m *Manager) Config() LocalConfig {
+	logger.Debug("cluster/membership", "Manager.Config")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.config
@@ -749,6 +802,7 @@ func (m *Manager) Config() LocalConfig {
 
 // UpdateConfig changes the local node configuration and republishes the record.
 func (m *Manager) UpdateConfig(cfg LocalConfig) error {
+	logger.Debug("cluster/membership", "Manager.UpdateConfig")
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	cfg.AdvertiseURL = strings.TrimRight(strings.TrimSpace(cfg.AdvertiseURL), "/")
 	cfg.TunnelVia = strings.TrimSpace(cfg.TunnelVia)
@@ -793,6 +847,7 @@ func (m *Manager) UpdateConfig(cfg LocalConfig) error {
 
 // RefreshCapabilities re-detects the local manifest and republishes it.
 func (m *Manager) RefreshCapabilities() capability.Manifest {
+	logger.Debug("cluster/membership", "Manager.RefreshCapabilities")
 	caps := m.opt.Capabilities()
 	m.mu.Lock()
 	m.caps = caps
@@ -807,6 +862,7 @@ func (m *Manager) RefreshCapabilities() capability.Manifest {
 
 // NewJoinToken issues a token other nodes can use to join through this node.
 func (m *Manager) NewJoinToken(ttl time.Duration) (string, *JoinToken, error) {
+	logger.Debug("cluster/membership", "Manager.NewJoinToken")
 	if ttl <= 0 {
 		ttl = 24 * time.Hour
 	}
@@ -828,6 +884,7 @@ func (m *Manager) NewJoinToken(ttl time.Duration) (string, *JoinToken, error) {
 
 // ListJoinTokens returns the unexpired tokens, purging expired ones.
 func (m *Manager) ListJoinTokens() []JoinToken {
+	logger.Debug("cluster/membership", "Manager.ListJoinTokens")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	now := time.Now().Unix()
@@ -846,6 +903,9 @@ func (m *Manager) ListJoinTokens() []JoinToken {
 
 // RevokeJoinToken deletes a token before it expires.
 func (m *Manager) RevokeJoinToken(id string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.RevokeJoinToken: id=%.120q", id)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.tokens[id]; !ok {
@@ -861,6 +921,7 @@ func (m *Manager) RevokeJoinToken(id string) error {
 
 // NodeViews lists the live members with their computed state.
 func (m *Manager) NodeViews() []NodeView {
+	logger.Debug("cluster/membership", "Manager.NodeViews")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	now := time.Now()
@@ -889,6 +950,7 @@ func (m *Manager) NodeViews() []NodeView {
 
 // snapshotRecords returns every record for gossip.
 func (m *Manager) snapshotRecords() []NodeRecord {
+	logger.Debug("cluster/membership", "Manager.snapshotRecords")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.allRecordsLocked()
@@ -920,6 +982,7 @@ type Status struct {
 
 // Status builds the admin view.
 func (m *Manager) Status() Status {
+	logger.Debug("cluster/membership", "Manager.Status")
 	connected, host := m.tunnel.Status()
 	m.mu.RLock()
 	local := m.localSnapshotLocked()
@@ -963,6 +1026,9 @@ type ProbeResult struct {
 
 // ProbeNode pings a member through whatever route the transport picks.
 func (m *Manager) ProbeNode(nodeID string) ProbeResult {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.ProbeNode: nodeID=%.120q", nodeID)
+	}
 	res := ProbeResult{NodeID: nodeID}
 	peer, ok := m.ResolvePeer(nodeID)
 	if !ok {
@@ -998,6 +1064,7 @@ func (m *Manager) ProbeNode(nodeID string) ProbeResult {
 */
 
 func (m *Manager) startLoops() {
+	logger.Debug("cluster/membership", "Manager.startLoops")
 	m.loopMu.Lock()
 	if m.loopStop != nil {
 		m.loopMu.Unlock()
@@ -1029,6 +1096,7 @@ func (m *Manager) startLoops() {
 }
 
 func (m *Manager) stopLoops() {
+	logger.Debug("cluster/membership", "Manager.stopLoops")
 	m.loopMu.Lock()
 	if m.loopStop == nil {
 		m.loopMu.Unlock()
@@ -1043,6 +1111,7 @@ func (m *Manager) stopLoops() {
 
 // heartbeatAll reports to every peer in parallel and merges their views.
 func (m *Manager) heartbeatAll() {
+	logger.Debug("cluster/membership", "Manager.heartbeatAll")
 	m.mu.RLock()
 	if m.cluster == nil {
 		m.mu.RUnlock()
@@ -1076,6 +1145,9 @@ func (m *Manager) heartbeatAll() {
 }
 
 func (m *Manager) markSeen(nodeID string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.markSeen: nodeID=%.120q", nodeID)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if rec, ok := m.nodes[nodeID]; ok {
@@ -1085,6 +1157,9 @@ func (m *Manager) markSeen(nodeID string) {
 
 // noteLatency folds a round trip measurement into the peer's moving average.
 func (m *Manager) noteLatency(peerID string, ms float64) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.noteLatency: peerID=%.120q ms=%g", peerID, ms)
+	}
 	if ms < 0 {
 		return
 	}
@@ -1100,6 +1175,9 @@ func (m *Manager) noteLatency(peerID string, ms float64) {
 // Latency returns the moving average round trip to a peer in milliseconds.
 // known is false when this node has never measured it (0 for the local node).
 func (m *Manager) Latency(nodeID string) (ms float64, known bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.Latency: nodeID=%.120q", nodeID)
+	}
 	if nodeID == m.opt.NodeID {
 		return 0, true
 	}
@@ -1111,6 +1189,7 @@ func (m *Manager) Latency(nodeID string) (ms float64, known bool) {
 
 // Latencies returns a copy of every measured round trip.
 func (m *Manager) Latencies() map[string]float64 {
+	logger.Debug("cluster/membership", "Manager.Latencies")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	out := map[string]float64{}
@@ -1122,6 +1201,9 @@ func (m *Manager) Latencies() map[string]float64 {
 
 // noteReachability logs only when a peer flips between reachable and not.
 func (m *Manager) noteReachability(peerID string, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.noteReachability: peerID=%.120q err=%v", peerID, err)
+	}
 	m.mu.Lock()
 	prev, known := m.reachable[peerID]
 	now := err == nil
@@ -1142,6 +1224,9 @@ func (m *Manager) noteReachability(peerID string, err error) {
 
 // broadcast posts payload to the given peers in parallel and waits for all.
 func (m *Manager) broadcast(peers []string, path string, payload interface{}, timeout time.Duration) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.broadcast: len(peers)=%d path=%.120q", len(peers), path)
+	}
 	var wg sync.WaitGroup
 	for _, id := range peers {
 		wg.Add(1)
@@ -1161,6 +1246,7 @@ func (m *Manager) broadcast(peers []string, path string, payload interface{}, ti
 
 // pickTunnelHost chooses the reachable peer a NAT-only node should attach to.
 func (m *Manager) pickTunnelHost() (acn.TunnelHost, bool) {
+	logger.Debug("cluster/membership", "Manager.pickTunnelHost")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.cluster == nil {
@@ -1197,6 +1283,7 @@ func (m *Manager) pickTunnelHost() (acn.TunnelHost, bool) {
 
 // onTunnelState records which host now terminates our tunnel and tells it.
 func (m *Manager) onTunnelState(connected bool, host acn.TunnelHost) {
+	logger.Debug("cluster/membership", "Manager.onTunnelState")
 	if !connected {
 		return
 	}
@@ -1214,6 +1301,9 @@ func (m *Manager) onTunnelState(connected bool, host acn.TunnelHost) {
 
 // onTunnelConnect runs on the host side when a NAT-only node attaches.
 func (m *Manager) onTunnelConnect(nodeID string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.onTunnelConnect: nodeID=%.120q", nodeID)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	rec, ok := m.nodes[nodeID]

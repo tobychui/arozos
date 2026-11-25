@@ -13,9 +13,14 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func SortNaturalFilelist(filelist []*sortBufferedStructure) []*sortBufferedStructure {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/fssort", "SortNaturalFilelist: len(filelist)=%d", len(filelist))
+	}
 	filenameList := []string{}
 	filenameMap := map[string]*sortBufferedStructure{}
 	for _, file := range filelist {
@@ -33,6 +38,9 @@ func SortNaturalFilelist(filelist []*sortBufferedStructure) []*sortBufferedStruc
 }
 
 func sortNaturalStrings(array []string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/fssort", "sortNaturalStrings: len(array)=%d", len(array))
+	}
 	bufKey := []string{}
 	bufMap := map[string]string{}
 	for _, thisString := range array {

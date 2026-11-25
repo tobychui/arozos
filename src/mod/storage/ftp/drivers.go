@@ -9,10 +9,12 @@ import (
 )
 
 func (m *mainDriver) GetSettings() (*ftp.Settings, error) {
+	logger.DebugTrace("storage/ftp", "mainDriver.GetSettings")
 	return &m.setting, nil
 }
 
 func (m *mainDriver) ClientConnected(cc ftp.ClientContext) (string, error) {
+	logger.Debug("storage/ftp", "mainDriver.ClientConnected")
 	if !AddressAllowed(cc.RemoteAddr(), m.opt.AllowPublic) {
 		return "This server only accepts clients from private networks", errors.New("public address refused")
 	}
@@ -21,6 +23,7 @@ func (m *mainDriver) ClientConnected(cc ftp.ClientContext) (string, error) {
 }
 
 func (m *mainDriver) ClientDisconnected(cc ftp.ClientContext) {
+	logger.Debug("storage/ftp", "mainDriver.ClientDisconnected")
 	value, ok := m.clients.LoadAndDelete(cc.ID())
 	if !ok {
 		return
@@ -34,6 +37,9 @@ func (m *mainDriver) ClientDisconnected(cc ftp.ClientContext) {
 
 // AuthUser signs a client in through the Authenticate function of the options
 func (m *mainDriver) AuthUser(cc ftp.ClientContext, username string, pass string) (ftp.ClientDriver, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/ftp", "mainDriver.AuthUser: username=%.120q", username)
+	}
 	if err := m.opt.Authenticate(username, pass, hostOf(cc.RemoteAddr())); err != nil {
 		return nil, err
 	}
@@ -51,5 +57,6 @@ func (m *mainDriver) AuthUser(cc ftp.ClientContext, username string, pass string
 }
 
 func (m *mainDriver) GetTLSConfig() (*tls.Config, error) {
+	logger.DebugTrace("storage/ftp", "mainDriver.GetTLSConfig")
 	return nil, errors.New("Not Supported")
 }

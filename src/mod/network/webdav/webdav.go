@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -34,6 +35,9 @@ type Handler struct {
 }
 
 func (h *Handler) stripPrefix(p string) (string, int, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.stripPrefix: p=%.120q", p)
+	}
 	if h.Prefix == "" {
 		return p, http.StatusOK, nil
 	}
@@ -44,6 +48,9 @@ func (h *Handler) stripPrefix(p string) (string, int, error) {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.ServeHTTP: r=%s", logger.RequestSummary(r))
+	}
 	status, err := http.StatusBadRequest, errUnsupportedMethod
 	if h.FileSystem == nil {
 		status, err = http.StatusInternalServerError, errNoFileSystem
@@ -88,10 +95,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Check if the request was from a windows client
 func isWindowsClient(r *http.Request) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav", "isWindowsClient: r=%s", logger.RequestSummary(r))
+	}
 	return r.Header["User-Agent"] != nil && strings.Contains(r.Header["User-Agent"][0], "Microsoft-WebDAV-MiniRedir")
 }
 
 func (h *Handler) lock(now time.Time, root string) (token string, status int, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.lock: root=%.120q", root)
+	}
 	token, err = h.LockSystem.Create(now, LockDetails{
 		Root:      root,
 		Duration:  infiniteTimeout,
@@ -107,6 +120,9 @@ func (h *Handler) lock(now time.Time, root string) (token string, status int, er
 }
 
 func (h *Handler) confirmLocks(r *http.Request, src, dst string) (release func(), status int, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.confirmLocks: r=%s src=%.120q dst=%.120q", logger.RequestSummary(r), src, dst)
+	}
 	//Ignore lock on Windows
 	if isWindowsClient(r) {
 		return nil, 200, nil
@@ -185,6 +201,9 @@ func (h *Handler) confirmLocks(r *http.Request, src, dst string) (release func()
 }
 
 func (h *Handler) handleOptions(w http.ResponseWriter, r *http.Request) (status int, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.handleOptions: r=%s", logger.RequestSummary(r))
+	}
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
 		return status, err
@@ -207,6 +226,9 @@ func (h *Handler) handleOptions(w http.ResponseWriter, r *http.Request) (status 
 }
 
 func (h *Handler) handleGetHeadPost(w http.ResponseWriter, r *http.Request) (status int, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.handleGetHeadPost: r=%s", logger.RequestSummary(r))
+	}
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
 		return status, err
@@ -238,6 +260,9 @@ func (h *Handler) handleGetHeadPost(w http.ResponseWriter, r *http.Request) (sta
 }
 
 func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) (status int, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.handleDelete: r=%s", logger.RequestSummary(r))
+	}
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
 		return status, err
@@ -272,6 +297,9 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) (status i
 }
 
 func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) (status int, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.handlePut: r=%s", logger.RequestSummary(r))
+	}
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
 		return status, err
@@ -319,6 +347,9 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) (status int,
 }
 
 func (h *Handler) handleMkcol(w http.ResponseWriter, r *http.Request) (status int, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.handleMkcol: r=%s", logger.RequestSummary(r))
+	}
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
 		return status, err
@@ -348,6 +379,9 @@ func (h *Handler) handleMkcol(w http.ResponseWriter, r *http.Request) (status in
 }
 
 func (h *Handler) handleCopyMove(w http.ResponseWriter, r *http.Request) (status int, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.handleCopyMove: r=%s", logger.RequestSummary(r))
+	}
 	hdr := r.Header.Get("Destination")
 	if hdr == "" {
 		return http.StatusBadRequest, errInvalidDestination
@@ -431,6 +465,9 @@ func (h *Handler) handleCopyMove(w http.ResponseWriter, r *http.Request) (status
 }
 
 func (h *Handler) handleLock(w http.ResponseWriter, r *http.Request) (retStatus int, retErr error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.handleLock: r=%s", logger.RequestSummary(r))
+	}
 	duration, err := parseTimeout(r.Header.Get("Timeout"))
 	if err != nil {
 		return http.StatusBadRequest, err
@@ -525,6 +562,9 @@ func (h *Handler) handleLock(w http.ResponseWriter, r *http.Request) (retStatus 
 }
 
 func (h *Handler) handleUnlock(w http.ResponseWriter, r *http.Request) (status int, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.handleUnlock: r=%s", logger.RequestSummary(r))
+	}
 	// http://www.webdav.org/specs/rfc4918.html#HEADER_Lock-Token says that the
 	// Lock-Token value is a Coded-URL. We strip its angle brackets.
 	t := r.Header.Get("Lock-Token")
@@ -548,6 +588,9 @@ func (h *Handler) handleUnlock(w http.ResponseWriter, r *http.Request) (status i
 }
 
 func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request) (status int, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.handlePropfind: r=%s", logger.RequestSummary(r))
+	}
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
 		return status, err
@@ -628,6 +671,9 @@ func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request) (status
 }
 
 func (h *Handler) handleProppatch(w http.ResponseWriter, r *http.Request) (status int, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "Handler.handleProppatch: r=%s", logger.RequestSummary(r))
+	}
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
 		return status, err
@@ -671,6 +717,9 @@ func (h *Handler) handleProppatch(w http.ResponseWriter, r *http.Request) (statu
 }
 
 func makePropstatResponse(href string, pstats []Propstat) *response {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "makePropstatResponse: href=%.120q len(pstats)=%d", href, len(pstats))
+	}
 	resp := response{
 		Href:     []string{(&url.URL{Path: href}).EscapedPath()},
 		Propstat: make([]propstat, 0, len(pstats)),
@@ -706,6 +755,9 @@ const (
 //
 // These constraints are enforced by the handleXxx methods.
 func parseDepth(s string) int {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "parseDepth: s=%.120q", s)
+	}
 	switch s {
 	case "0":
 		return 0
@@ -727,6 +779,9 @@ const (
 )
 
 func StatusText(code int) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "StatusText: code=%d", code)
+	}
 	switch code {
 	case StatusMulti:
 		return "Multi-Status"

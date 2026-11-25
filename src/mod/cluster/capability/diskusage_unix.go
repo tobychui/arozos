@@ -2,10 +2,14 @@
 
 package capability
 
+import "imuslab.com/arozos/mod/info/logger"
 import "golang.org/x/sys/unix"
 
 // DiskUsage returns the free and total bytes of the file system holding path.
 func DiskUsage(path string) (free int64, total int64, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/capability", "DiskUsage: path=%.120q", path)
+	}
 	var st unix.Statfs_t
 	if err := unix.Statfs(path, &st); err != nil {
 		return 0, 0, err

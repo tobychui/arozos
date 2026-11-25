@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // refreshInterval controls how often drive, NIC and USB data is refreshed.
@@ -30,6 +32,7 @@ var hic = &hostInfoCache{}
 // launches a ticker to keep volatile data (drives, NICs, USB) fresh.
 // Call this once at startup.
 func StartHostInfoCache() {
+	logger.Debug("info/hardwareinfo", "StartHostInfoCache")
 	go hic.refresh(true) // static + volatile initial prime
 
 	go func() {
@@ -45,6 +48,9 @@ func StartHostInfoCache() {
 // in-process httptest recorder. When withStatic is true, CPU and RAM are
 // re-sampled; otherwise only drives, NICs and USB are refreshed.
 func (c *hostInfoCache) refresh(withStatic bool) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "hostInfoCache.refresh: withStatic=%t", withStatic)
+	}
 	req, _ := http.NewRequest("GET", "/", nil)
 
 	if withStatic {
@@ -75,6 +81,9 @@ func (c *hostInfoCache) refresh(withStatic bool) {
 // CachedGetCPUInfo serves CPU info from cache, falling back to a live call
 // for the brief window before the first background sample completes.
 func CachedGetCPUInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "CachedGetCPUInfo: r=%s", logger.RequestSummary(r))
+	}
 	hic.mu.RLock()
 	b := hic.cpuBytes
 	hic.mu.RUnlock()
@@ -87,6 +96,9 @@ func CachedGetCPUInfo(w http.ResponseWriter, r *http.Request) {
 
 // CachedGetRamInfo serves total RAM from cache.
 func CachedGetRamInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "CachedGetRamInfo: r=%s", logger.RequestSummary(r))
+	}
 	hic.mu.RLock()
 	b := hic.ramBytes
 	hic.mu.RUnlock()
@@ -99,6 +111,9 @@ func CachedGetRamInfo(w http.ResponseWriter, r *http.Request) {
 
 // CachedGetDriveStat serves drive statistics from cache.
 func CachedGetDriveStat(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "CachedGetDriveStat: r=%s", logger.RequestSummary(r))
+	}
 	hic.mu.RLock()
 	b := hic.driveBytes
 	hic.mu.RUnlock()
@@ -111,6 +126,9 @@ func CachedGetDriveStat(w http.ResponseWriter, r *http.Request) {
 
 // CachedIfconfig serves NIC info from cache.
 func CachedIfconfig(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "CachedIfconfig: r=%s", logger.RequestSummary(r))
+	}
 	hic.mu.RLock()
 	b := hic.ifcBytes
 	hic.mu.RUnlock()
@@ -123,6 +141,9 @@ func CachedIfconfig(w http.ResponseWriter, r *http.Request) {
 
 // CachedGetUSB serves USB device info from cache.
 func CachedGetUSB(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "CachedGetUSB: r=%s", logger.RequestSummary(r))
+	}
 	hic.mu.RLock()
 	b := hic.usbBytes
 	hic.mu.RUnlock()

@@ -23,12 +23,14 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 	"imuslab.com/arozos/mod/office/model"
 )
 
 // Parse converts raw .xlsx bytes into a Workbook
 func Parse(data []byte) (*model.Workbook, error) {
+	logger.Debug("office/xlsx", "Parse")
 	if len(data) > 8 && data[0] == 0xD0 && data[1] == 0xCF {
 		// an Excel 97-2003 file: package xls converts it into an .xlsx first
 		return nil, errors.New("this is an Excel 97-2003 (.xls) workbook; open it with xls.Parse")
@@ -134,6 +136,7 @@ _xlnm.* names; those belong to features the webapp models separately, so
 they are skipped.
 */
 func parseDefinedNames(wbTree *xmltree.Node) []*model.DefinedName {
+	logger.DebugTrace("office/xlsx", "parseDefinedNames")
 	node := wbTree.First("definedNames")
 	if node == nil {
 		return nil
@@ -162,6 +165,7 @@ func parseDefinedNames(wbTree *xmltree.Node) []*model.DefinedName {
 /* ---------- shared strings ---------- */
 
 func parseSharedStrings(data []byte) []string {
+	logger.DebugTrace("office/xlsx", "parseSharedStrings")
 	if data == nil {
 		return nil
 	}
@@ -186,6 +190,7 @@ type xlsxXfInfo struct {
 
 // parseXlsxStyles maps every cellXfs index to a webapp CellStyle
 func parseXlsxStyles(data []byte) []xlsxXfInfo {
+	logger.DebugTrace("office/xlsx", "parseXlsxStyles")
 	if data == nil {
 		return nil
 	}
@@ -362,6 +367,9 @@ func parseXlsxStyles(data []byte) []xlsxXfInfo {
 
 // numFmtIDToName maps builtin/custom number format ids to webapp fmt names
 func numFmtIDToName(id int, custom map[int]string) (string, int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "numFmtIDToName: id=%d len(custom)=%d", id, len(custom))
+	}
 	switch {
 	case id >= 1 && id <= 2:
 		return "number", decimalsInCode("0.00")
@@ -402,6 +410,9 @@ func numFmtIDToName(id int, custom map[int]string) (string, int) {
 }
 
 func decimalsInCode(code string) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "decimalsInCode: code=%.120q", code)
+	}
 	i := strings.Index(code, ".")
 	if i < 0 {
 		return 0
@@ -416,6 +427,9 @@ func decimalsInCode(code string) int {
 /* ---------- worksheet ---------- */
 
 func parseWorksheet(tree *xmltree.Node, sharedStr []string, styleMap []xlsxXfInfo) *model.WorkSheet {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "parseWorksheet: len(sharedStr)=%d len(styleMap)=%d", len(sharedStr), len(styleMap))
+	}
 	ws := &model.WorkSheet{
 		Cells: map[string]*model.WorkCell{},
 		ColW:  map[string]float64{},
@@ -569,6 +583,9 @@ func parseWorksheet(tree *xmltree.Node, sharedStr []string, styleMap []xlsxXfInf
 
 // parseXlsxCell extracts the raw editor value from a <c> element
 func parseXlsxCell(c *xmltree.Node, shared []string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "parseXlsxCell: len(shared)=%d", len(shared))
+	}
 	// formulas win: the webapp recalculates them
 	if f := c.First("f"); f != nil && strings.TrimSpace(f.Text) != "" {
 		return "=" + stripXlPrefixes(f.Text)

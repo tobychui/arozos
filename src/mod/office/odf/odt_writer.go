@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"golang.org/x/net/html"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/htmlutil"
 	"imuslab.com/arozos/mod/office/internal/media"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
@@ -33,6 +34,7 @@ type odtBuilder struct {
 
 // BuildOdt serializes a Document into a complete .odt file
 func BuildOdt(doc *model.Document) ([]byte, error) {
+	logger.Debug("office/odf", "BuildOdt")
 	root, err := html.Parse(strings.NewReader("<body>" + doc.HTML + "</body>"))
 	if err != nil {
 		return nil, err
@@ -82,6 +84,9 @@ type odtFmt struct {
 }
 
 func (b *odtBuilder) newStyle(family, props string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "odtBuilder.newStyle: family=%.120q props=%.120q", family, props)
+	}
 	b.styleSeq++
 	name := fmt.Sprintf("S%d", b.styleSeq)
 	b.styles.WriteString(`<style:style style:name="` + name + `" style:family="` + family + `">` +
@@ -92,6 +97,7 @@ func (b *odtBuilder) newStyle(family, props string) string {
 // textStyleFor renders a style:style for the current inline format ("" when
 // the format is plain)
 func (b *odtBuilder) textStyleFor(f odtFmt) string {
+	logger.DebugTrace("office/odf", "odtBuilder.textStyleFor")
 	var p strings.Builder
 	if f.b {
 		p.WriteString(` fo:font-weight="bold"`)
@@ -124,6 +130,7 @@ func (b *odtBuilder) textStyleFor(f odtFmt) string {
 }
 
 func (b *odtBuilder) paraStyleAttrs(n *html.Node) string {
+	logger.DebugTrace("office/odf", "odtBuilder.paraStyleAttrs")
 	props := ""
 	switch htmlutil.StyleProp(htmlutil.Attr(n, "style"), "text-align") {
 	case "center":
@@ -147,6 +154,7 @@ func (b *odtBuilder) paraStyleAttrs(n *html.Node) string {
 /* ---------- blocks ---------- */
 
 func (b *odtBuilder) odtBlock(n *html.Node, f odtFmt) {
+	logger.DebugTrace("office/odf", "odtBuilder.odtBlock")
 	if strings.Contains(" "+htmlutil.Attr(n, "class")+" ", " doc-pagebreak ") {
 		b.pending = "break" // applied to the next paragraph
 		return
@@ -181,6 +189,7 @@ func (b *odtBuilder) odtBlock(n *html.Node, f odtFmt) {
 }
 
 func odtHasBlockChild(n *html.Node) bool {
+	logger.DebugTrace("office/odf", "odtHasBlockChild")
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if c.Type == html.ElementNode && htmlutil.BlockTags[c.Data] {
 			return true
@@ -190,6 +199,7 @@ func odtHasBlockChild(n *html.Node) bool {
 }
 
 func (b *odtBuilder) odtBlockOrPara(n *html.Node, f odtFmt) {
+	logger.DebugTrace("office/odf", "odtBuilder.odtBlockOrPara")
 	if odtHasBlockChild(n) {
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			if c.Type == html.ElementNode {
@@ -206,6 +216,9 @@ func (b *odtBuilder) odtBlockOrPara(n *html.Node, f odtFmt) {
 }
 
 func (b *odtBuilder) odtList(n *html.Node, f odtFmt, style string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "odtBuilder.odtList: style=%.120q", style)
+	}
 	b.body.WriteString(`<text:list text:style-name="` + style + `">`)
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if c.Type != html.ElementNode || c.Data != "li" {
@@ -229,6 +242,7 @@ func (b *odtBuilder) odtList(n *html.Node, f odtFmt, style string) {
 }
 
 func (b *odtBuilder) odtTable(n *html.Node, f odtFmt) {
+	logger.DebugTrace("office/odf", "odtBuilder.odtTable")
 	cols := 0
 	var count func(node *html.Node)
 	count = func(node *html.Node) {
@@ -305,6 +319,7 @@ func (b *odtBuilder) odtTable(n *html.Node, f odtFmt) {
 /* ---------- inline ---------- */
 
 func (b *odtBuilder) odtInline(n *html.Node, f odtFmt) {
+	logger.DebugTrace("office/odf", "odtBuilder.odtInline")
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if c.Type == html.TextNode {
 			b.emitOdtText(c.Data, f)
@@ -369,6 +384,7 @@ func (b *odtBuilder) odtInline(n *html.Node, f odtFmt) {
 }
 
 func (b *odtBuilder) emitOdtText(text string, f odtFmt) {
+	logger.DebugTrace("office/odf", "odtBuilder.emitOdtText")
 	if text == "" {
 		return
 	}
@@ -385,6 +401,7 @@ func (b *odtBuilder) emitOdtText(text string, f odtFmt) {
 }
 
 func (b *odtBuilder) emitOdtImage(n *html.Node) {
+	logger.DebugTrace("office/odf", "odtBuilder.emitOdtImage")
 	src := htmlutil.Attr(n, "src")
 	pic := odfPicture(src, &b.media)
 	if pic == "" {
@@ -402,6 +419,7 @@ func (b *odtBuilder) emitOdtImage(n *html.Node) {
 /* ---------- styles.xml (page geometry + header/footer) ---------- */
 
 func odtStylesXML(doc *model.Document) string {
+	logger.DebugTrace("office/odf", "odtStylesXML")
 	wMM, hMM := 210.0, 297.0
 	mT, mR, mB, mL := 25.4, 25.4, 25.4, 25.4
 	if doc.Page != nil {

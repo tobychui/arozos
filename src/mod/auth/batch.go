@@ -27,6 +27,9 @@ Must be in the format of:{ username, default password, default group } format.
 Each user occupied one new line
 */
 func (a *AuthAgent) HandleCreateUserAccountsFromCSV(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.HandleCreateUserAccountsFromCSV: r=%s", logger.RequestSummary(r))
+	}
 	csvContent, err := utils.PostPara(r, "csv")
 	if err != nil {
 		sendErrorResponse(w, "Invalid csv")
@@ -73,6 +76,9 @@ Set exact = true will only delete users which the user is
 Require paramter: group, exact
 */
 func (a *AuthAgent) HandleUserDeleteByGroup(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.HandleUserDeleteByGroup: r=%s", logger.RequestSummary(r))
+	}
 	group, err := utils.PostPara(r, "group")
 	if err != nil {
 		sendErrorResponse(w, "Invalid group")
@@ -120,6 +126,7 @@ Export all the users into a csv file. Should only be usable via command line as 
 DO NOT EXPOSE THIS TO HTTP SERVER
 */
 func (a *AuthAgent) ExportUserListAsCSV() string {
+	logger.Debug("auth", "AuthAgent.ExportUserListAsCSV")
 	entries, _ := a.Database.ListTable("auth")
 	results := [][]string{}
 	for _, keypairs := range entries {

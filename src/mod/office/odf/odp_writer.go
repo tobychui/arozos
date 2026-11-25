@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/fonts"
 	"imuslab.com/arozos/mod/office/internal/media"
 	"imuslab.com/arozos/mod/office/internal/slidetext"
@@ -28,6 +29,7 @@ import (
 
 // BuildOdp serializes a Presentation into a complete .odp file
 func BuildOdp(p *model.Presentation) ([]byte, error) {
+	logger.Debug("office/odf", "BuildOdp")
 	b := &odpBuilder{}
 	var body strings.Builder
 
@@ -100,6 +102,9 @@ type odpBuilder struct {
 }
 
 func (b *odpBuilder) newStyle(family, props string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "odpBuilder.newStyle: family=%.120q props=%.120q", family, props)
+	}
 	b.styleSeq++
 	name := fmt.Sprintf("S%d", b.styleSeq)
 	b.styles.WriteString(`<style:style style:name="` + name + `" style:family="` + family + `">` +
@@ -108,11 +113,13 @@ func (b *odpBuilder) newStyle(family, props string) string {
 }
 
 func odpGeom(o *model.Object) string {
+	logger.DebugTrace("office/odf", "odpGeom")
 	return fmt.Sprintf(` svg:x="%s" svg:y="%s" svg:width="%s" svg:height="%s"`,
 		pxToCm(o.X), pxToCm(o.Y), pxToCm(o.W), pxToCm(o.H))
 }
 
 func (b *odpBuilder) emitObject(body *strings.Builder, o *model.Object, p *model.Presentation) {
+	logger.DebugTrace("office/odf", "odpBuilder.emitObject")
 	switch o.Type {
 	case "text":
 		b.emitText(body, o, p)
@@ -132,6 +139,7 @@ func (b *odpBuilder) emitObject(body *strings.Builder, o *model.Object, p *model
 }
 
 func (b *odpBuilder) textStyleFor(o *model.Object, p *model.Presentation) string {
+	logger.DebugTrace("office/odf", "odpBuilder.textStyleFor")
 	props := ""
 	if o.Props.Bold {
 		props += ` fo:font-weight="bold"`
@@ -170,6 +178,7 @@ func (b *odpBuilder) textStyleFor(o *model.Object, p *model.Presentation) string
 // and one text:span per run, so the per-run typography an imported deck
 // carries survives a save into .odp instead of flattening to plain lines
 func (b *odpBuilder) emitText(body *strings.Builder, o *model.Object, p *model.Presentation) {
+	logger.DebugTrace("office/odf", "odpBuilder.emitText")
 	body.WriteString(`<draw:frame draw:style-name="` + b.frameStyleFor(o) + `"` +
 		odpGeom(o) + `><draw:text-box>`)
 	b.emitParagraphs(body, o, p)
@@ -178,6 +187,7 @@ func (b *odpBuilder) emitText(body *strings.Builder, o *model.Object, p *model.P
 
 // emitParagraphs renders the object's rich HTML into ODF paragraphs
 func (b *odpBuilder) emitParagraphs(body *strings.Builder, o *model.Object, p *model.Presentation) {
+	logger.DebugTrace("office/odf", "odpBuilder.emitParagraphs")
 	base := slidetext.Style{
 		SizePx: o.Props.FontSize,
 		Font:   fonts.FirstFamily(o.Props.FontFamily),
@@ -222,6 +232,9 @@ func (b *odpBuilder) emitParagraphs(body *strings.Builder, o *model.Object, p *m
 
 // paraStyleFor mints the automatic paragraph style of one paragraph
 func (b *odpBuilder) paraStyleFor(align string, para slidetext.Para, objLineHeight float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "odpBuilder.paraStyleFor: align=%.120q objLineHeight=%g", align, objLineHeight)
+	}
 	props := ""
 	switch align {
 	case "center":
@@ -257,6 +270,7 @@ func (b *odpBuilder) paraStyleFor(align string, para slidetext.Para, objLineHeig
 
 // runStyleFor mints the automatic text style of one run
 func (b *odpBuilder) runStyleFor(r slidetext.Run, base slidetext.Style) string {
+	logger.DebugTrace("office/odf", "odpBuilder.runStyleFor")
 	size := r.SizePx
 	if size <= 0 {
 		size = base.SizePx
@@ -296,6 +310,7 @@ func (b *odpBuilder) runStyleFor(r slidetext.Run, base slidetext.Style) string {
 
 // frameStyleFor carries a text object's vertical anchor and insets
 func (b *odpBuilder) frameStyleFor(o *model.Object) string {
+	logger.DebugTrace("office/odf", "odpBuilder.frameStyleFor")
 	props := ` draw:fill="none" draw:stroke="none"`
 	switch o.Props.VAlign {
 	case "middle":
@@ -315,6 +330,9 @@ func (b *odpBuilder) frameStyleFor(o *model.Object) string {
 }
 
 func (b *odpBuilder) emitImage(body *strings.Builder, o *model.Object, src string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "odpBuilder.emitImage: src=%.120q", src)
+	}
 	pic := odfPicture(src, &b.media)
 	if pic == "" {
 		return
@@ -429,6 +447,7 @@ var odpShapeTypes = map[string]string{
 }
 
 func (b *odpBuilder) emitShape(body *strings.Builder, o *model.Object) {
+	logger.DebugTrace("office/odf", "odpBuilder.emitShape")
 	props := ""
 	// the fill is always stated: leaving it out lets a reader apply the
 	// format's own default, which is not what the object says
@@ -494,6 +513,7 @@ func (b *odpBuilder) emitShape(body *strings.Builder, o *model.Object) {
 }
 
 func (b *odpBuilder) emitLine(body *strings.Builder, o *model.Object) {
+	logger.DebugTrace("office/odf", "odpBuilder.emitLine")
 	stroke := o.Props.Stroke
 	if !strings.HasPrefix(stroke, "#") {
 		stroke = "#333333"
@@ -511,6 +531,7 @@ func (b *odpBuilder) emitLine(body *strings.Builder, o *model.Object) {
 }
 
 func (b *odpBuilder) emitTable(body *strings.Builder, o *model.Object) {
+	logger.DebugTrace("office/odf", "odpBuilder.emitTable")
 	rows := o.Props.Rows
 	if len(rows) == 0 {
 		return
@@ -584,5 +605,8 @@ func (b *odpBuilder) emitTable(body *strings.Builder, o *model.Object) {
 
 // odfPxCm states a length in css px (1/96") in centimetres
 func odfPxCm(px int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "odfPxCm: px=%d", px)
+	}
 	return strconv.FormatFloat(float64(px)*2.54/96, 'f', 3, 64) + "cm"
 }

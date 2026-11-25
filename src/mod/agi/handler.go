@@ -5,11 +5,15 @@ import (
 	"os"
 	"path/filepath"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
 // Handle AGI Exectuion Request with token, design for letting other web scripting language like php to interface with AGI
 func (g *Gateway) HandleAgiExecutionRequestWithToken(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.HandleAgiExecutionRequestWithToken: r=%s", logger.RequestSummary(r))
+	}
 	token, err := utils.GetPara(r, "token")
 	if err != nil {
 		//Username not defined

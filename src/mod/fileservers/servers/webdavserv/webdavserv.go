@@ -6,6 +6,7 @@ import (
 
 	"imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/fileservers"
+	"imuslab.com/arozos/mod/info/logger"
 	awebdav "imuslab.com/arozos/mod/storage/webdav"
 	"imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
@@ -29,6 +30,7 @@ type Manager struct {
 
 // Create a new WebDAV Manager for handling related requests
 func NewWebDAVManager(option *ManagerOption) *Manager {
+	logger.Debug("fileservers/servers/webdavserv", "NewWebDAVManager")
 	m := Manager{
 		option: option,
 	}
@@ -51,6 +53,9 @@ func NewWebDAVManager(option *ManagerOption) *Manager {
 }
 
 func (m *Manager) HandleStatusChange(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/webdavserv", "Manager.HandleStatusChange: r=%s", logger.RequestSummary(r))
+	}
 	//Show status for every user, only allow change if admin
 	userinfo, _ := m.option.UserHandler.GetUserInfoFromRequest(w, r)
 	isAdmin := userinfo.IsAdmin()
@@ -78,12 +83,16 @@ func (m *Manager) HandleStatusChange(w http.ResponseWriter, r *http.Request) {
 Functions required by new service mounting infrastructure
 */
 func (m *Manager) WebDavToogle(enabled bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/webdavserv", "Manager.WebDavToogle: enabled=%t", enabled)
+	}
 	m.WebDavHandler.Enabled = enabled
 	m.option.Sysdb.Write("webdav", "enabled", enabled)
 	return nil
 }
 
 func (m *Manager) WebDavGetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
+	logger.Debug("fileservers/servers/webdavserv", "Manager.WebDavGetEndpoints")
 	protocolName := "http://"
 	if m.option.UseTls {
 		protocolName = "https://"
@@ -99,21 +108,34 @@ func (m *Manager) WebDavGetEndpoints(userinfo *user.User) []*fileservers.Endpoin
 }
 
 func (m *Manager) GetWebDavEnabled() bool {
+	logger.DebugTrace("fileservers/servers/webdavserv", "Manager.GetWebDavEnabled")
 	return m.WebDavHandler.Enabled
 }
 
 // Mapper of the original Connection related features
 func (m *Manager) HandleConnectionList(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/webdavserv", "Manager.HandleConnectionList: r=%s", logger.RequestSummary(r))
+	}
 	m.WebDavHandler.HandleConnectionList(w, r)
 }
 
 func (m *Manager) HandlePermissionEdit(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/webdavserv", "Manager.HandlePermissionEdit: r=%s", logger.RequestSummary(r))
+	}
 	m.WebDavHandler.HandlePermissionEdit(w, r)
 }
 
 func (m *Manager) HandleClearAllPending(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/webdavserv", "Manager.HandleClearAllPending: r=%s", logger.RequestSummary(r))
+	}
 	m.WebDavHandler.HandleClearAllPending(w, r)
 }
 func (m *Manager) HandleRequest(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/webdavserv", "Manager.HandleRequest: r=%s", logger.RequestSummary(r))
+	}
 	m.WebDavHandler.HandleRequest(w, r)
 }

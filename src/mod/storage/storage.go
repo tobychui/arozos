@@ -16,6 +16,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem"
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // StoragePool is where the drives of the system or of one permission group are
@@ -28,11 +29,15 @@ type StoragePool struct {
 
 // Create all the required folder structure if it didn't exists
 func init() {
+	logger.DebugTrace("storage", "init")
 	os.MkdirAll("./system/storage", 0755)
 }
 
 // Create a new StoragePool objects with given uuids
 func NewStoragePool(fsHandlers []*fs.FileSystemHandler, owner string) (*StoragePool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage", "NewStoragePool: len(fsHandlers)=%d owner=%.120q", len(fsHandlers), owner)
+	}
 	//Move all fshandler into the storageHandler
 	storageHandlers := []*fs.FileSystemHandler{}
 	for _, fsHandler := range fsHandlers {
@@ -48,6 +53,9 @@ func NewStoragePool(fsHandlers []*fs.FileSystemHandler, owner string) (*StorageP
 
 // Check if this storage pool contain this particular disk ID
 func (s *StoragePool) ContainDiskID(diskID string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("storage", "StoragePool.ContainDiskID: diskID=%.120q", diskID)
+	}
 	for _, fsh := range s.Storages {
 		if fsh.UUID == diskID {
 			return true
@@ -59,6 +67,9 @@ func (s *StoragePool) ContainDiskID(diskID string) bool {
 
 // Get fsh from virtual path
 func (s *StoragePool) GetFSHandlerFromVirtualPath(vpath string) (*fs.FileSystemHandler, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage", "StoragePool.GetFSHandlerFromVirtualPath: vpath=%.120q", vpath)
+	}
 	fshid, subpath, err := filesystem.GetIDFromVirtualPath(vpath)
 	if err != nil {
 		return nil, subpath, err
@@ -73,6 +84,9 @@ func (s *StoragePool) GetFSHandlerFromVirtualPath(vpath string) (*fs.FileSystemH
 }
 
 func (s *StoragePool) GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage", "StoragePool.GetFsHandlerByUUID: uuid=%.120q", uuid)
+	}
 	//Filter out the :/ fropm uuid if exists
 	if strings.Contains(uuid, ":") {
 		uuid = strings.Split(uuid, ":")[0]
@@ -89,6 +103,7 @@ func (s *StoragePool) GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, er
 
 // Attach a file system handler to this pool
 func (s *StoragePool) AttachFsHandler(fsh *filesystem.FileSystemHandler) error {
+	logger.Debug("storage", "StoragePool.AttachFsHandler")
 	if s.ContainDiskID(fsh.UUID) {
 		return errors.New("file system handler with same uuid already exists in this pool")
 	}
@@ -99,6 +114,9 @@ func (s *StoragePool) AttachFsHandler(fsh *filesystem.FileSystemHandler) error {
 
 // Detech a file system handler from this pool array
 func (s *StoragePool) DetachFsHandler(uuid string) {
+	if logger.IsDebug() {
+		logger.Debugf("storage", "StoragePool.DetachFsHandler: uuid=%.120q", uuid)
+	}
 	newFshList := []*fs.FileSystemHandler{}
 	for _, fsh := range s.Storages {
 		if fsh.UUID != uuid {
@@ -111,6 +129,7 @@ func (s *StoragePool) DetachFsHandler(uuid string) {
 
 // Close all fsHandler under this storage pool
 func (s *StoragePool) Close() {
+	logger.Debug("storage", "StoragePool.Close")
 	//For each storage pool, close it
 	for _, fsh := range s.Storages {
 		if !fsh.Closed {

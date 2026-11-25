@@ -59,6 +59,7 @@ var (
 
 // New opens the metadata store on top of a membership manager.
 func New(opt Option) (*Manager, error) {
+	logger.Debug("cluster/metadata", "New")
 	if opt.Membership == nil {
 		return nil, errors.New("membership manager is required")
 	}
@@ -108,6 +109,7 @@ func New(opt Option) (*Manager, error) {
 
 // Close stops the background loops.
 func (mgr *Manager) Close() {
+	logger.Debug("cluster/metadata", "Manager.Close")
 	mgr.once.Do(func() { close(mgr.stop) })
 	mgr.wg.Wait()
 	mgr.st.close()
@@ -116,6 +118,7 @@ func (mgr *Manager) Close() {
 // resetLocal forgets everything after the node left the cluster (the tables
 // were already wiped by membership; the in-memory maps must follow).
 func (mgr *Manager) resetLocal() {
+	logger.Debug("cluster/metadata", "Manager.resetLocal")
 	//Drop the old store's queued disk writes, then wipe the tables again in
 	//case one of them landed between membership's wipe and this call
 	mgr.st.discard()
@@ -134,6 +137,9 @@ func (mgr *Manager) resetLocal() {
 // KindFile / KindVolume / KindPolicy and rec the matching pointer type. The
 // record's Version is assigned here; callers never set it.
 func (mgr *Manager) Submit(kind string, rec interface{}) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "Manager.Submit: kind=%.120q", kind)
+	}
 	if !mgr.m.InCluster() {
 		return ErrNotInCluster
 	}
@@ -206,6 +212,9 @@ func (mgr *Manager) Submit(kind string, rec interface{}) error {
 
 // SubmitBatch submits several file records (e.g. a directory rename).
 func (mgr *Manager) SubmitBatch(records []*FileRecord) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "Manager.SubmitBatch: len(records)=%d", len(records))
+	}
 	for _, r := range records {
 		if err := mgr.Submit(KindFile, r); err != nil {
 			return err
@@ -220,6 +229,9 @@ func (mgr *Manager) SubmitBatch(records []*FileRecord) error {
 
 // Stat returns the live record at a logical path.
 func (mgr *Manager) Stat(p string) (*FileRecord, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "Manager.Stat: p=%.120q", p)
+	}
 	rec, ok := mgr.st.getFileByPath(p)
 	if !ok {
 		return nil, ErrNotFound
@@ -229,11 +241,17 @@ func (mgr *Manager) Stat(p string) (*FileRecord, error) {
 
 // FileByID returns a record (including tombstones) by ID.
 func (mgr *Manager) FileByID(id string) (*FileRecord, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/metadata", "Manager.FileByID: id=%.120q", id)
+	}
 	return mgr.st.getFileByID(id)
 }
 
 // ListDir lists the live children of a directory.
 func (mgr *Manager) ListDir(p string) ([]FileRecord, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "Manager.ListDir: p=%.120q", p)
+	}
 	p = NormalizePath(p)
 	if p != "/" {
 		rec, ok := mgr.st.getFileByPath(p)
@@ -249,56 +267,77 @@ func (mgr *Manager) ListDir(p string) ([]FileRecord, error) {
 
 // ListSubtree lists every live record under a directory, recursively.
 func (mgr *Manager) ListSubtree(p string) []FileRecord {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/metadata", "Manager.ListSubtree: p=%.120q", p)
+	}
 	return mgr.st.listSubtree(p)
 }
 
 // AllFiles returns every record including tombstones (planners, reconcile).
 func (mgr *Manager) AllFiles() []FileRecord {
+	logger.DebugTrace("cluster/metadata", "Manager.AllFiles")
 	return mgr.st.allFiles()
 }
 
 // Volumes lists every known volume (including removed ones).
 func (mgr *Manager) Volumes() []Volume {
+	logger.DebugTrace("cluster/metadata", "Manager.Volumes")
 	return mgr.st.allVolumes()
 }
 
 // Volume returns one volume.
 func (mgr *Manager) Volume(id string) (*Volume, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/metadata", "Manager.Volume: id=%.120q", id)
+	}
 	return mgr.st.getVolume(id)
 }
 
 // Job returns one replicated job record.
 func (mgr *Manager) Job(id string) (*Job, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/metadata", "Manager.Job: id=%.120q", id)
+	}
 	return mgr.st.getJob(id)
 }
 
 // Jobs lists every replicated job record, newest first.
 func (mgr *Manager) Jobs() []Job {
+	logger.DebugTrace("cluster/metadata", "Manager.Jobs")
 	return mgr.st.allJobs()
 }
 
 // GCJobs removes finished job records created before cutoff.
 func (mgr *Manager) GCJobs(cutoff int64, keepStatus map[string]bool) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/metadata", "Manager.GCJobs: cutoff=%d len(keepStatus)=%d", cutoff, len(keepStatus))
+	}
 	return mgr.st.gcJobs(cutoff, keepStatus)
 }
 
 // Setting returns a cluster-wide setting.
 func (mgr *Manager) Setting(key string) (*Setting, bool) {
+	logger.DebugTrace("cluster/metadata", "Manager.Setting")
 	return mgr.st.getSetting(key)
 }
 
 // Policies lists the folder policies.
 func (mgr *Manager) Policies() []Policy {
+	logger.DebugTrace("cluster/metadata", "Manager.Policies")
 	return mgr.st.allPolicies()
 }
 
 // PolicyFor returns the effective policy of a path.
 func (mgr *Manager) PolicyFor(p string) Policy {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/metadata", "Manager.PolicyFor: p=%.120q", p)
+	}
 	return mgr.st.policyFor(p)
 }
 
 // Membership exposes the underlying membership manager.
 func (mgr *Manager) Membership() *membership.Manager {
+	logger.DebugTrace("cluster/metadata", "Manager.Membership")
 	return mgr.m
 }
 
@@ -324,6 +363,7 @@ type Status struct {
 
 // Status builds the current status.
 func (mgr *Manager) Status() Status {
+	logger.Debug("cluster/metadata", "Manager.Status")
 	lease := mgr.st.getLease()
 	applied, _ := mgr.st.getApplied()
 	files, dirs := mgr.st.counts()
@@ -353,5 +393,6 @@ func (mgr *Manager) Status() Status {
 }
 
 func (mgr *Manager) logf(msg string) {
+	logger.DebugTrace("cluster/metadata", "Manager.logf")
 	logger.PrintAndLog("Cluster", msg, nil)
 }

@@ -35,6 +35,9 @@ import (
 
 // A basic file zipping function
 func ZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "ZipFile: len(filelist)=%d outputfile=%.120q includeTopLevelFolder=%t", len(filelist), outputfile, includeTopLevelFolder)
+	}
 	z := archiver.Zip{
 		CompressionLevel:       flate.DefaultCompression,
 		MkdirAll:               true,
@@ -49,6 +52,9 @@ func ZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) e
 
 // A basic file unzip function
 func Unzip(source, destination string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "Unzip: source=%.120q destination=%.120q", source, destination)
+	}
 	archive, err := zip.OpenReader(source)
 	if err != nil {
 		return err
@@ -91,6 +97,9 @@ func Unzip(source, destination string) error {
 
 // Aroz Unzip File with progress update function  (current filename / current file count / total file count / progress in percentage)
 func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHandler func(string, int, int, float64) int) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "ArozUnzipFileWithProgress: len(filelist)=%d outputfile=%.120q", len(filelist), outputfile)
+	}
 	//Gether the total number of files in all zip files
 	totalFileCounts := 0
 	unzippedFileCount := 0
@@ -193,6 +202,9 @@ Returns the following progress: (current filename / current file count / total f
 if output is local path that is out of the scope of any fsh, leave outputFsh as nil
 */
 func ArozZipFileWithProgress(targetFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, progressHandler func(string, int, int, float64) int) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem", "ArozZipFileWithProgress: len(targetFshs)=%d len(filelist)=%d outputfile=%.120q includeTopLevelFolder=%t", len(targetFshs), len(filelist), outputfile, includeTopLevelFolder)
+	}
 	return ArozZipFileWithProgressAndCompression(targetFshs, filelist, outputFsh, outputfile, includeTopLevelFolder, flate.DefaultCompression, progressHandler)
 }
 
@@ -203,6 +215,9 @@ To use it with local file system, pass in nil in fsh for each item in filelist, 
 filesystem.ArozZipFile([]*filesystem.FileSystemHandler{nil}, []string{zippingSource}, nil, targetZipFilename, false)
 */
 func ArozZipFile(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem", "ArozZipFile: len(sourceFshs)=%d len(filelist)=%d outputfile=%.120q includeTopLevelFolder=%t", len(sourceFshs), len(filelist), outputfile, includeTopLevelFolder)
+	}
 	// Call the new function with default compression level (e.g., 6)
 
 	return ArozZipFileWithCompressionLevel(sourceFshs, filelist, outputFsh, outputfile, includeTopLevelFolder, flate.DefaultCompression)
@@ -210,6 +225,9 @@ func ArozZipFile(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *
 }
 
 func ArozZipFileWithCompressionLevel(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, compressionLevel int) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem", "ArozZipFileWithCompressionLevel: len(sourceFshs)=%d len(filelist)=%d outputfile=%.120q includeTopLevelFolder=%t compressionLevel=%d", len(sourceFshs), len(filelist), outputfile, includeTopLevelFolder, compressionLevel)
+	}
 	return ArozZipFileWithProgressAndCompression(sourceFshs, filelist, outputFsh, outputfile, includeTopLevelFolder, compressionLevel, nil)
 }
 
@@ -226,6 +244,9 @@ instead of only once the scan or the current file is done. An archive that is
 cancelled or fails half way is removed rather than left behind half written.
 */
 func ArozZipFileWithProgressAndCompression(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, compressionLevel int, progressHandler func(string, int, int, float64) int) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "ArozZipFileWithProgressAndCompression: len(sourceFshs)=%d len(filelist)=%d outputfile=%.120q includeTopLevelFolder=%t compressionLevel=%d", len(sourceFshs), len(filelist), outputfile, includeTopLevelFolder, compressionLevel)
+	}
 	//The archive progress is counted in files. It goes through a progressReporter
 	//so the handler calls are rate limited and its pause / cancel signal applied
 	currentFileCount := 0
@@ -363,6 +384,7 @@ func ArozZipFileWithProgressAndCompression(sourceFshs []*FileSystemHandler, file
 // A nil handler stands for a path on the local disk, like a remote file that
 // was buffered to local first.
 func zipSourceAbstraction(fsh *FileSystemHandler) FileSystemAbstraction {
+	logger.Debug("filesystem", "zipSourceAbstraction")
 	if fsh == nil {
 		return localfs.NewLocalFileSystemAbstraction("", "", "", true)
 	}
@@ -373,6 +395,9 @@ func zipSourceAbstraction(fsh *FileSystemHandler) FileSystemAbstraction {
 // The stream reports to the reporter, so a pause or cancel also reaches a file
 // that takes minutes to compress. Pass in a nil reporter to skip the reporting.
 func addZipEntry(writer *zip.Writer, fshAbs FileSystemAbstraction, path string, relativePath string, reporter *progressReporter) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "addZipEntry: path=%.120q relativePath=%.120q", path, relativePath)
+	}
 	if reporter != nil {
 		reporter.currentFile = arozfs.Base(path)
 	}
@@ -393,6 +418,9 @@ func addZipEntry(writer *zip.Writer, fshAbs FileSystemAbstraction, path string, 
 }
 
 func insideHiddenFolder(path string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "insideHiddenFolder: path=%.120q", path)
+	}
 	FileIsHidden, err := hidden.IsHidden(path, true)
 	if err != nil {
 		//Read error. Maybe permission issue, assuem is hidden
@@ -402,6 +430,9 @@ func insideHiddenFolder(path string) bool {
 }
 
 func ViewZipFile(filepath string) ([]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "ViewZipFile: filepath=%.120q", filepath)
+	}
 	z := archiver.Zip{}
 	filelist := []string{}
 	err := z.Walk(filepath, func(f archiver.File) error {
@@ -415,12 +446,18 @@ func ViewZipFile(filepath string) ([]string, error) {
 // FileCopy copies a file or folder, reporting its progress as a percentage.
 // Prefer FileCopyWithProgress for a progress report counted in bytes.
 func FileCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, progressUpdate func(int, string) int) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem", "FileCopy: src=%.120q dest=%.120q mode=%.120q", src, dest, mode)
+	}
 	return FileCopyWithProgress(srcFsh, src, destFsh, dest, mode, legacyProgressAdapter(progressUpdate))
 }
 
 // FileCopyWithProgress copies a file or folder and reports how many of its bytes
 // are already done, see FileOperationProgressHandler.
 func FileCopyWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, progressHandler FileOperationProgressHandler) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "FileCopyWithProgress: src=%.120q dest=%.120q mode=%.120q", src, dest, mode)
+	}
 	srcFshAbs := srcFsh.FileSystemAbstraction
 	destFshAbs := destFsh.FileSystemAbstraction
 	if srcFshAbs.IsDir(src) && strings.HasPrefix(dest, src) {
@@ -498,6 +535,9 @@ being written. A cancelled transfer takes its half written destination file with
 it on the way out.
 */
 func streamFileWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, realDest string, progressHandler FileOperationProgressHandler) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "streamFileWithProgress: src=%.120q realDest=%.120q", src, realDest)
+	}
 	srcFshAbs := srcFsh.FileSystemAbstraction
 	destFshAbs := destFsh.FileSystemAbstraction
 
@@ -534,6 +574,7 @@ rename, which is instant no matter how large the file is, instead of being
 streamed out and back through ArozOS.
 */
 func SameFileSystem(srcFsh *FileSystemHandler, destFsh *FileSystemHandler) bool {
+	logger.Debug("filesystem", "SameFileSystem")
 	if srcFsh == nil || destFsh == nil {
 		return false
 	}
@@ -545,6 +586,7 @@ func SameFileSystem(srcFsh *FileSystemHandler, destFsh *FileSystemHandler) bool 
 
 // isLocalFileSystem reports whether a handler is backed by a disk of this machine
 func isLocalFileSystem(fsh *FileSystemHandler) bool {
+	logger.Debug("filesystem", "isLocalFileSystem")
 	if fsh == nil {
 		return false
 	}
@@ -555,12 +597,18 @@ func isLocalFileSystem(fsh *FileSystemHandler) bool {
 // FileMove moves a file or folder, reporting its progress as a percentage.
 // Prefer FileMoveWithProgress for a progress report counted in bytes.
 func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, fastMove bool, progressUpdate func(int, string) int) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem", "FileMove: src=%.120q dest=%.120q mode=%.120q fastMove=%t", src, dest, mode, fastMove)
+	}
 	return FileMoveWithProgress(srcFsh, src, destFsh, dest, mode, fastMove, legacyProgressAdapter(progressUpdate))
 }
 
 // FileMoveWithProgress moves a file or folder and reports how many of its bytes
 // are already done, see FileOperationProgressHandler.
 func FileMoveWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, fastMove bool, progressHandler FileOperationProgressHandler) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "FileMoveWithProgress: src=%.120q dest=%.120q mode=%.120q fastMove=%t", src, dest, mode, fastMove)
+	}
 	srcAbst := srcFsh.FileSystemAbstraction
 	destAbst := destFsh.FileSystemAbstraction
 
@@ -699,11 +747,17 @@ func FileMoveWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSy
 
 // Copy a given directory, with no progress udpate
 func CopyDir(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem", "CopyDir: src=%.120q dest=%.120q", src, dest)
+	}
 	return dirCopy(srcFsh, src, destFsh, dest, nil)
 }
 
 // Replacment of the legacy dirCopy plugin with filepath.Walk function. Allowing real time progress update to front end
 func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, realDest string, progressHandler FileOperationProgressHandler) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "dirCopy: src=%.120q realDest=%.120q", src, realDest)
+	}
 	srcFshAbs := srcFsh.FileSystemAbstraction
 	destFshAbs := destFsh.FileSystemAbstraction
 	//Get the total size of this folder. Progress is counted in bytes so a folder
@@ -777,6 +831,9 @@ func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 }
 
 func BasicFileCopy(src string, dst string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "BasicFileCopy: src=%.120q dst=%.120q", src, dst)
+	}
 	sourceFileStat, err := os.Stat(src)
 	if err != nil {
 		return err
@@ -850,6 +907,9 @@ func BufferedLargeFileCopy(src string, dst string, BUFFERSIZE int64) error {
 
 // Check if a local path is dir, do not use with file system abstraction realpath
 func IsDir(path string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem", "IsDir: path=%.120q", path)
+	}
 	if !FileExists(path) {
 		return false
 	}
@@ -870,6 +930,9 @@ func IsDir(path string) bool {
 
 // Unzip tar.gz file, use for unpacking web.tar.gz for lazy people
 func ExtractTarGzipFile(filename string, outfile string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "ExtractTarGzipFile: filename=%.120q outfile=%.120q", filename, outfile)
+	}
 	f, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -883,6 +946,9 @@ func ExtractTarGzipFile(filename string, outfile string) error {
 	return f.Close()
 }
 func ExtractTarGzipByStream(basedir string, gzipStream io.Reader, onErrorResumeNext bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "ExtractTarGzipByStream: basedir=%.120q onErrorResumeNext=%t", basedir, onErrorResumeNext)
+	}
 	uncompressedStream, err := gzip.NewReader(gzipStream)
 	if err != nil {
 		return err

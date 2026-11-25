@@ -11,9 +11,11 @@ tested) everywhere; only the syscall/js bridge in main.go is constrained.
 */
 package main
 
+import "imuslab.com/arozos/mod/info/logger"
 import "fmt"
 
 func main() {
+	logger.Debug("wasm/office", "main")
 	in, out := ConverterNames()
 	fmt.Println("ArozOS Office WebAssembly bridge")
 	fmt.Println("This package is only useful as a WebAssembly module. Build it with:")

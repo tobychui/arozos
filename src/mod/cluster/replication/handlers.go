@@ -17,6 +17,7 @@ import (
 	"net/http"
 
 	"imuslab.com/arozos/mod/cluster/acn"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -35,6 +36,7 @@ type TaskReport struct {
 }
 
 func (r *Manager) registerACNHandlers() {
+	logger.Debug("cluster/replication", "Manager.registerACNHandlers")
 	srv := r.m.Server()
 	srv.HandleFunc(pathPull, r.handlePull)
 	srv.HandleFunc(pathLease, r.handleLease)
@@ -43,6 +45,9 @@ func (r *Manager) registerACNHandlers() {
 }
 
 func (r *Manager) handlePull(w http.ResponseWriter, req *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.handlePull: req=%s", logger.RequestSummary(req))
+	}
 	if sender.NodeID != r.meta.Leader() {
 		acn.WriteError(w, http.StatusForbidden, "only the metadata leader assigns replication tasks")
 		return
@@ -61,6 +66,9 @@ func (r *Manager) handlePull(w http.ResponseWriter, req *http.Request, sender *a
 }
 
 func (r *Manager) handleLease(w http.ResponseWriter, req *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.handleLease: req=%s", logger.RequestSummary(req))
+	}
 	if !r.meta.IsLeader() {
 		acn.WriteError(w, http.StatusConflict, ErrNotLeader.Error())
 		return
@@ -74,6 +82,9 @@ func (r *Manager) handleLease(w http.ResponseWriter, req *http.Request, sender *
 }
 
 func (r *Manager) handleDone(w http.ResponseWriter, req *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.handleDone: req=%s", logger.RequestSummary(req))
+	}
 	if !r.meta.IsLeader() {
 		acn.WriteError(w, http.StatusConflict, ErrNotLeader.Error())
 		return
@@ -90,6 +101,9 @@ func (r *Manager) handleDone(w http.ResponseWriter, req *http.Request, sender *a
 }
 
 func (r *Manager) handlePlan(w http.ResponseWriter, req *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.handlePlan: req=%s", logger.RequestSummary(req))
+	}
 	if !r.meta.IsLeader() {
 		acn.WriteError(w, http.StatusConflict, ErrNotLeader.Error())
 		return
@@ -102,17 +116,24 @@ func (r *Manager) handlePlan(w http.ResponseWriter, req *http.Request, sender *a
 */
 
 func sendJSON(w http.ResponseWriter, v interface{}) {
+	logger.Debug("cluster/replication", "sendJSON")
 	js, _ := json.Marshal(v)
 	utils.SendJSONResponse(w, string(js))
 }
 
 // HandleStatus returns the replication picture.
 func (r *Manager) HandleStatus(w http.ResponseWriter, req *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/replication", "Manager.HandleStatus: req=%s", logger.RequestSummary(req))
+	}
 	sendJSON(w, r.Status())
 }
 
 // HandlePlan runs the planner now (forwarded to the leader when needed).
 func (r *Manager) HandlePlan(w http.ResponseWriter, req *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.HandlePlan: req=%s", logger.RequestSummary(req))
+	}
 	res, err := r.PlanNow()
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -123,6 +144,9 @@ func (r *Manager) HandlePlan(w http.ResponseWriter, req *http.Request) {
 
 // HandleVerify re-checksums this node's copies now. Optional budget in MB.
 func (r *Manager) HandleVerify(w http.ResponseWriter, req *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.HandleVerify: req=%s", logger.RequestSummary(req))
+	}
 	var budget int64
 	if mb, err := utils.PostInt(req, "budget"); err == nil && mb > 0 {
 		budget = int64(mb) << 20
@@ -132,6 +156,9 @@ func (r *Manager) HandleVerify(w http.ResponseWriter, req *http.Request) {
 
 // HandleEvacuate starts moving everything off a local volume.
 func (r *Manager) HandleEvacuate(w http.ResponseWriter, req *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.HandleEvacuate: req=%s", logger.RequestSummary(req))
+	}
 	id, err := utils.PostPara(req, "id")
 	if err != nil {
 		utils.SendErrorResponse(w, "volume id required")
@@ -147,6 +174,9 @@ func (r *Manager) HandleEvacuate(w http.ResponseWriter, req *http.Request) {
 
 // HandleEvacuateCancel makes an evacuating volume writable again.
 func (r *Manager) HandleEvacuateCancel(w http.ResponseWriter, req *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.HandleEvacuateCancel: req=%s", logger.RequestSummary(req))
+	}
 	id, err := utils.PostPara(req, "id")
 	if err != nil {
 		utils.SendErrorResponse(w, "volume id required")
@@ -161,6 +191,9 @@ func (r *Manager) HandleEvacuateCancel(w http.ResponseWriter, req *http.Request)
 
 // HandleEvacuateStatus reports evacuation progress: id=
 func (r *Manager) HandleEvacuateStatus(w http.ResponseWriter, req *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.HandleEvacuateStatus: req=%s", logger.RequestSummary(req))
+	}
 	id, err := utils.GetPara(req, "id")
 	if err != nil {
 		utils.SendErrorResponse(w, "volume id required")
@@ -171,6 +204,7 @@ func (r *Manager) HandleEvacuateStatus(w http.ResponseWriter, req *http.Request)
 
 // RegisterAdminRoutes mounts the admin handlers.
 func (r *Manager) RegisterAdminRoutes(register func(pattern string, handler func(http.ResponseWriter, *http.Request))) {
+	logger.Debug("cluster/replication", "Manager.RegisterAdminRoutes")
 	register("/system/cluster/repl/status", r.HandleStatus)
 	register("/system/cluster/repl/plan", r.HandlePlan)
 	register("/system/cluster/repl/verify", r.HandleVerify)

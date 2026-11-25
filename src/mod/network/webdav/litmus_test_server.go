@@ -27,11 +27,13 @@ import (
 	"os"
 
 	"golang.org/x/net/webdav"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var port = flag.Int("port", 9999, "server port")
 
 func main() {
+	logger.Debug("network/webdav", "litmus main")
 	flag.Parse()
 	log.SetFlags(0)
 	h := &webdav.Handler{

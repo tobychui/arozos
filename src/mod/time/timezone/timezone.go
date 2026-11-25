@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -51,6 +52,9 @@ type WindowsTimeZoneStruct struct {
 }
 
 func ShowTime(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("time/timezone", "ShowTime: r=%s", logger.RequestSummary(r))
+	}
 
 	now := time.Now() // current local time
 	Timezone := ""
@@ -81,6 +85,9 @@ func ShowTime(w http.ResponseWriter, r *http.Request) {
 }
 
 func ConvertWinTZtoLinuxTZ(WinTZ string) string {
+	if logger.IsDebug() {
+		logger.Debugf("time/timezone", "ConvertWinTZtoLinuxTZ: WinTZ=%.120q", WinTZ)
+	}
 	file, _ := os.ReadFile("./system/time/wintz.json")
 	WinTZLinuxTz := WindowsTimeZoneStruct{}
 	json.Unmarshal([]byte(file), &WinTZLinuxTz)

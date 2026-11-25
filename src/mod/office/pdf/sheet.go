@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	"github.com/go-pdf/fpdf"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // SheetPrintCell is one formatted cell in the print model
@@ -48,6 +50,9 @@ type SheetPrintModel struct {
 
 // ParseSheetPrintJSON decodes the print model posted by sheets.js
 func ParseSheetPrintJSON(jsonStr string) (*SheetPrintModel, error) {
+	if logger.IsDebug() {
+		logger.Debugf("office/pdf", "ParseSheetPrintJSON: jsonStr=%.120q", jsonStr)
+	}
 	m := SheetPrintModel{}
 	if err := json.Unmarshal([]byte(jsonStr), &m); err != nil {
 		return nil, errors.New("invalid print model JSON: " + err.Error())
@@ -85,6 +90,9 @@ const (
 // once the table is shrunk onto the page.
 func sheetFitColumns(pdf *fpdf.Fpdf, tr func(string) string, sheet *SheetPrintSheet,
 	widths []float64, usableW float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pdf", "sheetFitColumns: len(widths)=%d usableW=%g", len(widths), usableW)
+	}
 	for _, row := range sheet.Rows {
 		for c := 0; c < len(widths) && c < len(row); c++ {
 			cell := row[c]
@@ -107,6 +115,7 @@ func sheetFitColumns(pdf *fpdf.Fpdf, tr func(string) string, sheet *SheetPrintSh
 
 // BuildSheet renders the print model into PDF bytes
 func BuildSheet(m *SheetPrintModel) ([]byte, error) {
+	logger.Debug("office/pdf", "BuildSheet")
 	const marginMM = 12.0
 	pdf := fpdf.New("L", "mm", "A4", "")
 	pdf.SetMargins(marginMM, marginMM, marginMM)

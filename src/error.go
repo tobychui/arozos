@@ -11,9 +11,13 @@ import (
 	"strings"
 
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func errorHandleNotFound(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "errorHandleNotFound: r=%s", logger.RequestSummary(r))
+	}
 	notFoundPage := "./web/SystemAO/notfound.html"
 	if fs.FileExists(notFoundPage) {
 
@@ -37,6 +41,9 @@ func errorHandleNotFound(w http.ResponseWriter, r *http.Request) {
 }
 
 func errorHandleInternalServerError(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "errorHandleInternalServerError: r=%s", logger.RequestSummary(r))
+	}
 	internalServerErrPage := "./web/SystemAO/internalServerError.html"
 	if fs.FileExists(internalServerErrPage) {
 
@@ -60,6 +67,9 @@ func errorHandleInternalServerError(w http.ResponseWriter, r *http.Request) {
 }
 
 func errorHandlePermissionDenied(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "errorHandlePermissionDenied: r=%s", logger.RequestSummary(r))
+	}
 	unauthorizedPage := "./web/SystemAO/unauthorized.html"
 	if fs.FileExists(unauthorizedPage) {
 		notFoundTemplateBytes, err := os.ReadFile(unauthorizedPage)
@@ -81,6 +91,7 @@ func errorHandlePermissionDenied(w http.ResponseWriter, r *http.Request) {
 
 // Get escape root path, example /asd/asd => ../../
 func getRootEscapeFromCurrentPath(requestURL string) string {
+	logger.Debug("Core", "getRootEscapeFromCurrentPath")
 	rel := ""
 	if !strings.Contains(requestURL, "/") {
 		return ""

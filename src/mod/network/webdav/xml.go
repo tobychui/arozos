@@ -32,6 +32,7 @@ import (
 	// In the long term, this package should use the standard library's version
 	// only, and the internal fork deleted, once
 	// https://github.com/golang/go/issues/13400 is resolved.
+	"imuslab.com/arozos/mod/info/logger"
 	ixml "imuslab.com/arozos/mod/network/webdav/internal/xml"
 )
 
@@ -50,6 +51,7 @@ type owner struct {
 }
 
 func readLockInfo(r io.Reader) (li lockInfo, status int, err error) {
+	logger.Debug("network/webdav", "readLockInfo")
 	c := &countingReader{r: r}
 	if err = ixml.NewDecoder(c).Decode(&li); err != nil {
 		if err == io.EOF {
@@ -76,12 +78,16 @@ type countingReader struct {
 }
 
 func (c *countingReader) Read(p []byte) (int, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav", "countingReader.Read: len(p)=%d", len(p))
+	}
 	n, err := c.r.Read(p)
 	c.n += n
 	return n, err
 }
 
 func writeLockInfo(w io.Writer, token string, ld LockDetails) (int, error) {
+	logger.Debug("network/webdav", "writeLockInfo")
 	depth := "infinity"
 	if ld.ZeroDepth {
 		depth = "0"
@@ -102,6 +108,9 @@ func writeLockInfo(w io.Writer, token string, ld LockDetails) (int, error) {
 }
 
 func escape(s string) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "escape: s=%.120q", s)
+	}
 	for i := 0; i < len(s); i++ {
 		switch s[i] {
 		case '"', '&', '\'', '<', '>':
@@ -119,6 +128,7 @@ func escape(s string) string {
 // http://www.webdav.org/specs/rfc4918.html#property_values
 // http://www.webdav.org/specs/rfc4918.html#xml-extensibility
 func next(d *ixml.Decoder) (ixml.Token, error) {
+	logger.Debug("network/webdav", "next")
 	for {
 		t, err := d.Token()
 		if err != nil {
@@ -141,6 +151,7 @@ type propfindProps []xml.Name
 // It returns an error if start does not contain any properties or if
 // properties contain values. Character data between properties is ignored.
 func (pn *propfindProps) UnmarshalXML(d *ixml.Decoder, start ixml.StartElement) error {
+	logger.DebugTrace("network/webdav", "propfindProps.UnmarshalXML")
 	for {
 		t, err := next(d)
 		if err != nil {
@@ -176,6 +187,7 @@ type propfind struct {
 }
 
 func readPropfind(r io.Reader) (pf propfind, status int, err error) {
+	logger.Debug("network/webdav", "readPropfind")
 	c := countingReader{r: r}
 	if err = ixml.NewDecoder(&c).Decode(&pf); err != nil {
 		if err == io.EOF {
@@ -260,6 +272,7 @@ type ixmlPropstat struct {
 // MarshalXML prepends the "D:" namespace prefix on properties in the DAV: namespace
 // before encoding. See multistatusWriter.
 func (ps propstat) MarshalXML(e *ixml.Encoder, start ixml.StartElement) error {
+	logger.DebugTrace("network/webdav", "propstat.MarshalXML")
 	// Convert from a propstat to an ixmlPropstat.
 	ixmlPs := ixmlPropstat{
 		Prop:                make([]ixmlProperty, len(ps.Prop)),
@@ -326,6 +339,7 @@ type multistatusWriter struct {
 // of r with a multistatus tag. Callers must call close after the last response
 // has been written.
 func (w *multistatusWriter) write(r *response) error {
+	logger.Debug("network/webdav", "multistatusWriter.write")
 	switch len(r.Href) {
 	case 0:
 		return errInvalidResponse
@@ -349,6 +363,7 @@ func (w *multistatusWriter) write(r *response) error {
 // http.ResponseWriter and returns the result of the write operation.
 // After the first write attempt, writeHeader becomes a no-op.
 func (w *multistatusWriter) writeHeader() error {
+	logger.Debug("network/webdav", "multistatusWriter.writeHeader")
 	if w.enc != nil {
 		return nil
 	}
@@ -376,6 +391,7 @@ func (w *multistatusWriter) writeHeader() error {
 // return value and field enc of w are nil, then no multistatus response has
 // been written.
 func (w *multistatusWriter) close() error {
+	logger.Debug("network/webdav", "multistatusWriter.close")
 	if w.enc == nil {
 		return nil
 	}
@@ -403,6 +419,9 @@ func (w *multistatusWriter) close() error {
 var xmlLangName = ixml.Name{Space: "http://www.w3.org/XML/1998/namespace", Local: "lang"}
 
 func xmlLang(s ixml.StartElement, d string) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "xmlLang: d=%.120q", d)
+	}
 	for _, attr := range s.Attr {
 		if attr.Name == xmlLangName {
 			return attr.Value
@@ -414,6 +433,7 @@ func xmlLang(s ixml.StartElement, d string) string {
 type xmlValue []byte
 
 func (v *xmlValue) UnmarshalXML(d *ixml.Decoder, start ixml.StartElement) error {
+	logger.DebugTrace("network/webdav", "xmlValue.UnmarshalXML")
 	// The XML value of a property can be arbitrary, mixed-content XML.
 	// To make sure that the unmarshalled value contains all required
 	// namespaces, we encode all the property value XML tokens into a
@@ -452,6 +472,7 @@ type proppatchProps []Property
 // UnmarshalXML returns an error if start does not contain any properties or if
 // property values contain syntactically incorrect XML.
 func (ps *proppatchProps) UnmarshalXML(d *ixml.Decoder, start ixml.StartElement) error {
+	logger.DebugTrace("network/webdav", "proppatchProps.UnmarshalXML")
 	lang := xmlLang(start, "")
 	for {
 		t, err := next(d)
@@ -494,6 +515,7 @@ type propertyupdate struct {
 }
 
 func readProppatch(r io.Reader) (patches []Proppatch, status int, err error) {
+	logger.Debug("network/webdav", "readProppatch")
 	var pu propertyupdate
 	if err = ixml.NewDecoder(r).Decode(&pu); err != nil {
 		return nil, http.StatusBadRequest, err

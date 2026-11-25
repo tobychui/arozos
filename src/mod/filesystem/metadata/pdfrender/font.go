@@ -12,6 +12,8 @@ import (
 	"golang.org/x/image/font/gofont/gomonobolditalic"
 	"golang.org/x/image/font/gofont/gomonoitalic"
 	"golang.org/x/image/font/gofont/goregular"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -83,6 +85,7 @@ type pdfFont struct {
 
 // loadFont builds the font for a font dictionary
 func (d *Document) loadFont(o Object) *pdfFont {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.loadFont")
 	fd := d.dict(o)
 	if fd == nil {
 		return nil
@@ -113,6 +116,7 @@ func (d *Document) loadFont(o Object) *pdfFont {
 }
 
 func (d *Document) loadDescriptorProgram(f *pdfFont, desc Dict) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.loadDescriptorProgram")
 	if desc == nil {
 		return
 	}
@@ -157,6 +161,7 @@ func (d *Document) loadDescriptorProgram(f *pdfFont, desc Dict) {
 }
 
 func (d *Document) loadSimple(f *pdfFont, fd Dict) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.loadSimple")
 	desc := d.dict(fd["FontDescriptor"])
 	flags := d.integer(desc["Flags"], 0)
 	f.symbolic = flags&4 != 0
@@ -242,6 +247,7 @@ func (d *Document) loadSimple(f *pdfFont, fd Dict) {
 }
 
 func (d *Document) loadType3(f *pdfFont, fd Dict) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.loadType3")
 	f.t3procs = d.dict(fd["CharProcs"])
 	f.t3res = d.dict(fd["Resources"])
 	f.t3matrix = matrix{0.001, 0, 0, 0.001, 0, 0}
@@ -276,6 +282,7 @@ func (d *Document) loadType3(f *pdfFont, fd Dict) {
 }
 
 func (d *Document) loadType0(f *pdfFont, fd Dict) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.loadType0")
 	switch e := d.resolve(fd["Encoding"]).(type) {
 	case Name:
 		f.cmap = predefinedCMap(string(e))
@@ -391,6 +398,9 @@ func (d *Document) loadType0(f *pdfFont, fd Dict) {
 
 // decode splits a string into character codes
 func (f *pdfFont) decode(s []byte) []charCode {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "pdfFont.decode: len(s)=%d", len(s))
+	}
 	out := make([]charCode, 0, len(s))
 	if f.kind != fontType0 {
 		for _, b := range s {
@@ -408,6 +418,7 @@ func (f *pdfFont) decode(s []byte) []charCode {
 
 // advance is the horizontal advance of a code in text space (1 = font size)
 func (f *pdfFont) advance(c charCode) float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "pdfFont.advance")
 	switch f.kind {
 	case fontType3:
 		w := f.widths[int(c.code)]
@@ -437,6 +448,7 @@ func (f *pdfFont) advance(c charCode) float64 {
 // verticalMetrics returns the vertical advance and the origin offset of a
 // CID in text space
 func (f *pdfFont) verticalMetrics(c charCode) (float64, float64, float64) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "pdfFont.verticalMetrics")
 	if v, ok := f.w2[c.cid]; ok {
 		return v[0] / 1000, v[1] / 1000, v[2] / 1000
 	}
@@ -447,6 +459,7 @@ func (f *pdfFont) verticalMetrics(c charCode) (float64, float64, float64) {
 // programAdvance reads the advance from the program (TrueType hmtx or the
 // fallback font), as a fraction of the em
 func (f *pdfFont) programAdvance(c charCode) float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "pdfFont.programAdvance")
 	t := f.tt
 	if t == nil {
 		t = f.fallback
@@ -462,6 +475,9 @@ func (f *pdfFont) programAdvance(c charCode) float64 {
 }
 
 func (f *pdfFont) macCode(name string) uint32 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "pdfFont.macCode: name=%.120q", name)
+	}
 	if f.macRe == nil {
 		f.macRe = map[string]int{}
 		for c, n := range macRomanEncoding {
@@ -480,6 +496,7 @@ func (f *pdfFont) macCode(name string) uint32 {
 
 // unicodeFor finds the text of a code for the fallback font
 func (f *pdfFont) unicodeFor(c charCode) rune {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "pdfFont.unicodeFor")
 	if rs := f.toUni.unicodeOf(c.code, c.n); len(rs) > 0 {
 		return rs[0]
 	}
@@ -501,6 +518,9 @@ func (f *pdfFont) unicodeFor(c charCode) rune {
 }
 
 func winAnsiRune(b byte) rune {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "winAnsiRune: b=%d", b)
+	}
 	if r, ok := glyphNameToRune(winAnsiEncoding[b]); ok {
 		return r
 	}
@@ -509,6 +529,7 @@ func winAnsiRune(b byte) rune {
 
 // gid maps a code to a glyph index of the TrueType / CFF / fallback font
 func (f *pdfFont) gid(c charCode) int {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "pdfFont.gid")
 	if f.fallback != nil {
 		r := f.unicodeFor(c)
 		if r == 0 {
@@ -595,6 +616,7 @@ func (f *pdfFont) gid(c charCode) int {
 
 // outline returns the glyph of a code, cached per glyph
 func (f *pdfFont) outline(c charCode) *glyphOutline {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "pdfFont.outline")
 	key := int(c.code)
 	if f.kind == fontType0 {
 		key = c.cid
@@ -610,6 +632,7 @@ func (f *pdfFont) outline(c charCode) *glyphOutline {
 }
 
 func (f *pdfFont) buildOutline(c charCode) *glyphOutline {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "pdfFont.buildOutline")
 	switch {
 	case f.kind == fontType3:
 		return nil
@@ -673,6 +696,9 @@ var (
 )
 
 func fallbackFont(name string, flags int, weight float64, italicAngle float64) *ttFont {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "fallbackFont: name=%.120q flags=%d weight=%g italicAngle=%g", name, flags, weight, italicAngle)
+	}
 	fallbackOnce.Do(func() {
 		fallbackFonts = map[string]*ttFont{}
 		for key, data := range map[string][]byte{

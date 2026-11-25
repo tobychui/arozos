@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -65,9 +66,15 @@ type store struct {
 	lease   Lease
 }
 
-func logKey(seq uint64) string { return fmt.Sprintf("%020d", seq) }
+func logKey(seq uint64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/metadata", "logKey: seq=%d", seq)
+	}
+	return fmt.Sprintf("%020d", seq)
+}
 
 func newStore(db *database.Database) *store {
+	logger.Debug("cluster/metadata", "newStore")
 	s := &store{
 		db:       db,
 		files:    map[string]*FileRecord{},
@@ -88,15 +95,18 @@ func newStore(db *database.Database) *store {
 
 // close commits pending disk writes and stops the writer.
 func (s *store) close() {
+	logger.DebugTrace("cluster/metadata", "store.close")
 	s.persist.close()
 }
 
 // discard drops pending disk writes; used when the tables were wiped.
 func (s *store) discard() {
+	logger.DebugTrace("cluster/metadata", "store.discard")
 	s.persist.discard()
 }
 
 func (s *store) load() {
+	logger.Debug("cluster/metadata", "store.load")
 	if entries, err := s.db.ListTable(tableFiles); err == nil {
 		for _, kv := range entries {
 			var rec FileRecord
@@ -165,6 +175,7 @@ func (s *store) load() {
 
 // putFile merges a record last-writer-wins. Returns true when stored.
 func (s *store) putFile(in *FileRecord) bool {
+	logger.Debug("cluster/metadata", "store.putFile")
 	if in == nil || in.ID == "" || in.Path == "" {
 		return false
 	}
@@ -203,6 +214,9 @@ func (s *store) putFile(in *FileRecord) bool {
 }
 
 func (s *store) getFileByID(id string) (*FileRecord, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.getFileByID: id=%.120q", id)
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	rec, ok := s.files[id]
@@ -213,6 +227,9 @@ func (s *store) getFileByID(id string) (*FileRecord, bool) {
 }
 
 func (s *store) getFileByPath(p string) (*FileRecord, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.getFileByPath: p=%.120q", p)
+	}
 	p = NormalizePath(p)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -229,6 +246,9 @@ func (s *store) getFileByPath(p string) (*FileRecord, bool) {
 
 // listDir returns the live children of a directory path, sorted by name.
 func (s *store) listDir(dir string) []FileRecord {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.listDir: dir=%.120q", dir)
+	}
 	dir = NormalizePath(dir)
 	prefix := dir + "/"
 	if dir == "/" {
@@ -255,6 +275,9 @@ func (s *store) listDir(dir string) []FileRecord {
 
 // listSubtree returns every live record under a directory (recursive).
 func (s *store) listSubtree(dir string) []FileRecord {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.listSubtree: dir=%.120q", dir)
+	}
 	dir = NormalizePath(dir)
 	prefix := dir + "/"
 	if dir == "/" {
@@ -276,6 +299,7 @@ func (s *store) listSubtree(dir string) []FileRecord {
 }
 
 func (s *store) allFiles() []FileRecord {
+	logger.Debug("cluster/metadata", "store.allFiles")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]FileRecord, 0, len(s.files))
@@ -287,6 +311,7 @@ func (s *store) allFiles() []FileRecord {
 }
 
 func (s *store) counts() (files int, dirs int) {
+	logger.Debug("cluster/metadata", "store.counts")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, id := range s.paths {
@@ -306,6 +331,7 @@ func (s *store) counts() (files int, dirs int) {
 */
 
 func (s *store) putVolume(in *Volume) bool {
+	logger.Debug("cluster/metadata", "store.putVolume")
 	if in == nil || in.ID == "" {
 		return false
 	}
@@ -321,6 +347,9 @@ func (s *store) putVolume(in *Volume) bool {
 }
 
 func (s *store) getVolume(id string) (*Volume, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.getVolume: id=%.120q", id)
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	v, ok := s.volumes[id]
@@ -332,6 +361,7 @@ func (s *store) getVolume(id string) (*Volume, bool) {
 }
 
 func (s *store) allVolumes() []Volume {
+	logger.Debug("cluster/metadata", "store.allVolumes")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]Volume, 0, len(s.volumes))
@@ -343,6 +373,7 @@ func (s *store) allVolumes() []Volume {
 }
 
 func (s *store) putPolicy(in *Policy) bool {
+	logger.Debug("cluster/metadata", "store.putPolicy")
 	if in == nil || in.Folder == "" {
 		return false
 	}
@@ -359,6 +390,7 @@ func (s *store) putPolicy(in *Policy) bool {
 }
 
 func (s *store) allPolicies() []Policy {
+	logger.Debug("cluster/metadata", "store.allPolicies")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]Policy, 0, len(s.policies))
@@ -370,6 +402,9 @@ func (s *store) allPolicies() []Policy {
 }
 
 func (s *store) policyFor(p string) Policy {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.policyFor: p=%.120q", p)
+	}
 	folder := TopFolder(p)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -384,6 +419,7 @@ func (s *store) policyFor(p string) Policy {
 */
 
 func (s *store) putJob(in *Job) bool {
+	logger.Debug("cluster/metadata", "store.putJob")
 	if in == nil || in.ID == "" {
 		return false
 	}
@@ -399,6 +435,9 @@ func (s *store) putJob(in *Job) bool {
 }
 
 func (s *store) getJob(id string) (*Job, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.getJob: id=%.120q", id)
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	j, ok := s.jobs[id]
@@ -410,6 +449,7 @@ func (s *store) getJob(id string) (*Job, bool) {
 }
 
 func (s *store) allJobs() []Job {
+	logger.Debug("cluster/metadata", "store.allJobs")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]Job, 0, len(s.jobs))
@@ -422,6 +462,9 @@ func (s *store) allJobs() []Job {
 
 // gcJobs drops finished job records older than cutoff.
 func (s *store) gcJobs(cutoff int64, keepStatus map[string]bool) int {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.gcJobs: cutoff=%d len(keepStatus)=%d", cutoff, len(keepStatus))
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	n := 0
@@ -436,6 +479,7 @@ func (s *store) gcJobs(cutoff int64, keepStatus map[string]bool) int {
 }
 
 func (s *store) putSetting(in *Setting) bool {
+	logger.Debug("cluster/metadata", "store.putSetting")
 	if in == nil || in.Key == "" {
 		return false
 	}
@@ -451,6 +495,7 @@ func (s *store) putSetting(in *Setting) bool {
 }
 
 func (s *store) getSetting(key string) (*Setting, bool) {
+	logger.Debug("cluster/metadata", "store.getSetting")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	st, ok := s.settings[key]
@@ -467,6 +512,9 @@ func (s *store) getSetting(key string) (*Setting, bool) {
 
 // appendLog assigns the next sequence number in the given term and persists.
 func (s *store) appendLog(e Entry, term uint64) Entry {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.appendLog: term=%d", term)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastSeq++
@@ -479,6 +527,9 @@ func (s *store) appendLog(e Entry, term uint64) Entry {
 // logAfter returns up to max entries with Seq > after. ok is false when the
 // requested range was compacted away.
 func (s *store) logAfter(after uint64, max int) ([]Entry, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.logAfter: after=%d max=%d", after, max)
+	}
 	//The log is read back from disk, so commit what is still queued first
 	s.persist.flush()
 	lastSeq := s.getLastSeq()
@@ -511,6 +562,9 @@ func (s *store) logAfter(after uint64, max int) ([]Entry, bool) {
 
 // compactLog keeps only the newest keepLast entries.
 func (s *store) compactLog(keepLast int) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.compactLog: keepLast=%d", keepLast)
+	}
 	s.persist.flush()
 	entries, err := s.db.ListTableWithPrefix(tableLog, "")
 	if err != nil || len(entries) <= keepLast {
@@ -522,12 +576,16 @@ func (s *store) compactLog(keepLast int) {
 }
 
 func (s *store) getLastSeq() uint64 {
+	logger.Debug("cluster/metadata", "store.getLastSeq")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.lastSeq
 }
 
 func (s *store) setLastSeq(seq uint64) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.setLastSeq: seq=%d", seq)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if seq > s.lastSeq {
@@ -536,12 +594,16 @@ func (s *store) setLastSeq(seq uint64) {
 }
 
 func (s *store) getApplied() (uint64, uint64) {
+	logger.Debug("cluster/metadata", "store.getApplied")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.applied, s.term
 }
 
 func (s *store) setApplied(seq uint64, term uint64) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.setApplied: seq=%d term=%d", seq, term)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.applied = seq
@@ -551,12 +613,14 @@ func (s *store) setApplied(seq uint64, term uint64) {
 }
 
 func (s *store) getLease() Lease {
+	logger.Debug("cluster/metadata", "store.getLease")
 	s.leaseMu.RLock()
 	defer s.leaseMu.RUnlock()
 	return s.lease
 }
 
 func (s *store) setLease(l Lease) {
+	logger.Debug("cluster/metadata", "store.setLease")
 	s.leaseMu.Lock()
 	s.lease = l
 	s.leaseMu.Unlock()
@@ -564,6 +628,9 @@ func (s *store) setLease(l Lease) {
 }
 
 func (s *store) addPending(id string, e Entry) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.addPending: id=%.120q", id)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pending[id] = e
@@ -571,6 +638,9 @@ func (s *store) addPending(id string, e Entry) {
 }
 
 func (s *store) removePending(id string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "store.removePending: id=%.120q", id)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.pending, id)
@@ -578,6 +648,7 @@ func (s *store) removePending(id string) {
 }
 
 func (s *store) pendingEntries() map[string]Entry {
+	logger.Debug("cluster/metadata", "store.pendingEntries")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := map[string]Entry{}
@@ -588,6 +659,7 @@ func (s *store) pendingEntries() map[string]Entry {
 }
 
 func (s *store) snapshot() Snapshot {
+	logger.Debug("cluster/metadata", "store.snapshot")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	snap := Snapshot{LastSeq: s.lastSeq, Term: s.term, Files: []FileRecord{}, Volumes: []Volume{}, Policies: []Policy{}, Jobs: []Job{}, Settings: []Setting{}}

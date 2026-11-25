@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // AuthenticatedHandler is a handler that only runs for verified members.
@@ -44,6 +46,9 @@ type Server struct {
 
 // NewServer builds the ACN mux with the built-in endpoints registered.
 func NewServer(verifier *Verifier, hub *TunnelHub, version string) *Server {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "NewServer: version=%.120q", version)
+	}
 	s := &Server{
 		Verifier: verifier,
 		Hub:      hub,
@@ -63,11 +68,17 @@ func NewServer(verifier *Verifier, hub *TunnelHub, version string) *Server {
 
 // ServeHTTP lets the server be mounted in the main router.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/acn", "Server.ServeHTTP: r=%s", logger.RequestSummary(r))
+	}
 	s.mux.ServeHTTP(w, r)
 }
 
 // HandleFunc registers a signed endpoint. Requests failing verification get 401.
 func (s *Server) HandleFunc(path string, handler AuthenticatedHandler) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/acn", "Server.HandleFunc: path=%.120q", path)
+	}
 	s.mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		sender, body, err := s.Verifier.VerifyRequest(r)
 		if err != nil {
@@ -85,10 +96,16 @@ func (s *Server) HandleFunc(path string, handler AuthenticatedHandler) {
 // HandleRaw registers an endpoint without verification. Only for endpoints
 // that carry their own credentials (join tokens) or are intentionally public.
 func (s *Server) HandleRaw(path string, handler http.HandlerFunc) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/acn", "Server.HandleRaw: path=%.120q", path)
+	}
 	s.mux.HandleFunc(path, handler)
 }
 
 func (s *Server) handleHello(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/acn", "Server.handleHello: r=%s", logger.RequestSummary(r))
+	}
 	WriteJSON(w, HelloResponse{
 		ACN:       true,
 		Version:   s.Version,
@@ -100,6 +117,9 @@ func (s *Server) handleHello(w http.ResponseWriter, r *http.Request) {
 // handleRelay verifies the sender and forwards the request over the tunnel of
 // the target node. The signature (made over the original path) is preserved.
 func (s *Server) handleRelay(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "Server.handleRelay: r=%s", logger.RequestSummary(r))
+	}
 	target, original, ok := StripRelayPrefix(r.URL.Path)
 	if !ok {
 		http.Error(w, "invalid relay path", http.StatusBadRequest)
@@ -136,6 +156,7 @@ func (s *Server) handleRelay(w http.ResponseWriter, r *http.Request) {
 
 // WriteJSON encodes v as the JSON response body.
 func WriteJSON(w http.ResponseWriter, v interface{}) {
+	logger.Debug("cluster/acn", "WriteJSON")
 	js, err := json.Marshal(v)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -147,5 +168,8 @@ func WriteJSON(w http.ResponseWriter, v interface{}) {
 
 // WriteError sends a plain text error with the given status.
 func WriteError(w http.ResponseWriter, status int, msg string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/acn", "WriteError: status=%d", status)
+	}
 	http.Error(w, msg, status)
 }

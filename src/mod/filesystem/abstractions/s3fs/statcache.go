@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -46,6 +48,7 @@ type statCache struct {
 }
 
 func newStatCache(ttl time.Duration) *statCache {
+	logger.DebugTrace("filesystem/abstractions/s3fs", "newStatCache")
 	return &statCache{
 		ttl:     ttl,
 		now:     time.Now,
@@ -56,6 +59,7 @@ func newStatCache(ttl time.Duration) *statCache {
 
 // parentKey returns the folder holding key, "" being the bucket root.
 func parentKey(key string) string {
+	logger.Debug("filesystem/abstractions/s3fs", "parentKey")
 	if i := strings.LastIndexByte(key, '/'); i >= 0 {
 		return key[:i]
 	}
@@ -64,6 +68,9 @@ func parentKey(key string) string {
 
 // childKey joins a folder key and a name.
 func childKey(dir, name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/s3fs", "childKey: dir=%.120q name=%.120q", dir, name)
+	}
 	if dir == "" {
 		return name
 	}
@@ -72,6 +79,7 @@ func childKey(dir, name string) string {
 
 // generation is taken before asking the bucket and handed to put.
 func (c *statCache) generation() uint64 {
+	logger.Debug("filesystem/abstractions/s3fs", "statCache.generation")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.gen
@@ -80,6 +88,7 @@ func (c *statCache) generation() uint64 {
 // get answers from the cache. known is false when the bucket must be asked;
 // otherwise info is nil for a missing path.
 func (c *statCache) get(key string) (info os.FileInfo, known bool) {
+	logger.Debug("filesystem/abstractions/s3fs", "statCache.get")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	now := c.now()
@@ -99,6 +108,9 @@ func (c *statCache) get(key string) (info os.FileInfo, known bool) {
 // put keeps an answer, nil info for a missing path, unless something changed
 // since gen was taken.
 func (c *statCache) put(gen uint64, key string, info os.FileInfo) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/s3fs", "statCache.put: gen=%d", gen)
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if gen != c.gen {
@@ -110,6 +122,9 @@ func (c *statCache) put(gen uint64, key string, info os.FileInfo) {
 
 // putListing keeps a complete listing of the folder dir, by child name.
 func (c *statCache) putListing(gen uint64, dir string, children map[string]os.FileInfo) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/s3fs", "statCache.putListing: gen=%d dir=%.120q len(children)=%d", gen, dir, len(children))
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if gen != c.gen {
@@ -126,6 +141,9 @@ func (c *statCache) putListing(gen uint64, dir string, children map[string]os.Fi
 // makeRoom drops expired entries, then all, when n more would not fit.
 // The caller holds c.mu.
 func (c *statCache) makeRoom(n int) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/s3fs", "statCache.makeRoom: n=%d", n)
+	}
 	if len(c.entries)+n <= statCacheMax {
 		return
 	}
@@ -150,6 +168,7 @@ func (c *statCache) makeRoom(n int) {
 // wrong: the path itself and every folder above it, which may have appeared
 // or gone with it.
 func (c *statCache) changed(key string) {
+	logger.Debug("filesystem/abstractions/s3fs", "statCache.changed")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.gen++
@@ -164,6 +183,7 @@ func (c *statCache) changed(key string) {
 
 // clear drops everything, after a change to a whole folder.
 func (c *statCache) clear() {
+	logger.Debug("filesystem/abstractions/s3fs", "statCache.clear")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.gen++

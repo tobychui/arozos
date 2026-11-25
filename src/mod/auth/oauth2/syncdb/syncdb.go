@@ -6,6 +6,8 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type SyncDB struct {
@@ -18,6 +20,7 @@ type dbStructure struct {
 }
 
 func NewSyncDB() *SyncDB {
+	logger.Debug("auth/oauth2/syncdb", "NewSyncDB")
 	//Create a new SyncMap for this SyncDB Object
 	newDB := sync.Map{}
 	//Put the newly craeted syncmap into the db object
@@ -28,6 +31,7 @@ func NewSyncDB() *SyncDB {
 }
 
 func (p SyncDB) AutoCleaning() {
+	logger.Debug("auth/oauth2/syncdb", "SyncDB.AutoCleaning")
 	//create the routine for auto clean trash
 	go func() {
 		for {
@@ -43,6 +47,9 @@ func (p SyncDB) AutoCleaning() {
 }
 
 func (p SyncDB) Store(value string) string {
+	if logger.IsDebug() {
+		logger.Debugf("auth/oauth2/syncdb", "SyncDB.Store: value=%.120q", value)
+	}
 	uid := uuid.NewV4().String()
 	NewField := dbStructure{
 		timestamp: time.Now(),
@@ -53,6 +60,9 @@ func (p SyncDB) Store(value string) string {
 }
 
 func (p SyncDB) Read(uuid string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("auth/oauth2/syncdb", "SyncDB.Read: uuid=%.120q", uuid)
+	}
 	value, ok := p.db.Load(uuid)
 	if !ok {
 		return ""
@@ -62,10 +72,14 @@ func (p SyncDB) Read(uuid string) string {
 }
 
 func (p SyncDB) Delete(uuid string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("auth/oauth2/syncdb", "SyncDB.Delete: uuid=%.120q", uuid)
+	}
 	p.db.Delete(uuid)
 }
 
 func (p SyncDB) ToString() {
+	logger.DebugTrace("auth/oauth2/syncdb", "SyncDB.ToString")
 	p.db.Range(func(key, value interface{}) bool {
 		fmt.Print(key)
 		fmt.Print(" : ")

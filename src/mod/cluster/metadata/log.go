@@ -20,6 +20,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/cluster/acn"
 	"imuslab.com/arozos/mod/cluster/membership"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -33,6 +34,9 @@ const (
 )
 
 func newEntry(kind string, rec interface{}, version int64, origin string) (Entry, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "newEntry: kind=%.120q version=%d origin=%.120q", kind, version, origin)
+	}
 	js, err := json.Marshal(rec)
 	if err != nil {
 		return Entry{}, err
@@ -43,6 +47,7 @@ func newEntry(kind string, rec interface{}, version int64, origin string) (Entry
 // apply folds one entry into the local store. Returns true when it changed
 // anything.
 func (mgr *Manager) apply(e Entry) bool {
+	logger.Debug("cluster/metadata", "Manager.apply")
 	changed := false
 	switch e.Kind {
 	case KindFile:
@@ -79,6 +84,7 @@ func (mgr *Manager) apply(e Entry) bool {
 
 // dispatch replicates an entry that was already applied locally.
 func (mgr *Manager) dispatch(e Entry) {
+	logger.Debug("cluster/metadata", "Manager.dispatch")
 	if mgr.IsLeader() {
 		mgr.leaderAccept(e)
 		return
@@ -90,6 +96,7 @@ func (mgr *Manager) dispatch(e Entry) {
 
 // leaderAccept assigns a sequence number and pushes the entry to every peer.
 func (mgr *Manager) leaderAccept(e Entry) Entry {
+	logger.Debug("cluster/metadata", "Manager.leaderAccept")
 	lease := mgr.st.getLease()
 	assigned := mgr.st.appendLog(e, lease.Term)
 	mgr.st.setApplied(assigned.Seq, lease.Term)
@@ -105,6 +112,7 @@ func (mgr *Manager) leaderAccept(e Entry) Entry {
 }
 
 func (mgr *Manager) onlinePeers() []string {
+	logger.Debug("cluster/metadata", "Manager.onlinePeers")
 	out := []string{}
 	for _, n := range mgr.m.NodeViews() {
 		if n.Local {
@@ -118,6 +126,9 @@ func (mgr *Manager) onlinePeers() []string {
 }
 
 func (mgr *Manager) fanout(entries []Entry) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "Manager.fanout: len(entries)=%d", len(entries))
+	}
 	for _, peer := range mgr.onlinePeers() {
 		go func(id string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -129,6 +140,9 @@ func (mgr *Manager) fanout(entries []Entry) {
 
 // followerReceive handles entries pushed by the leader.
 func (mgr *Manager) followerReceive(entries []Entry) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "Manager.followerReceive: len(entries)=%d", len(entries))
+	}
 	applied, term := mgr.st.getApplied()
 	for _, e := range entries {
 		mgr.apply(e)
@@ -150,6 +164,7 @@ func (mgr *Manager) followerReceive(entries []Entry) {
 }
 
 func (mgr *Manager) requestCatchup() {
+	logger.Debug("cluster/metadata", "Manager.requestCatchup")
 	select {
 	case mgr.catchupCh <- struct{}{}:
 	default:
@@ -157,6 +172,7 @@ func (mgr *Manager) requestCatchup() {
 }
 
 func (mgr *Manager) catchupLoop() {
+	logger.Debug("cluster/metadata", "Manager.catchupLoop")
 	defer mgr.wg.Done()
 	for {
 		select {
@@ -170,6 +186,7 @@ func (mgr *Manager) catchupLoop() {
 
 // catchup pulls missing log entries (or a snapshot) from the leader.
 func (mgr *Manager) catchup() {
+	logger.Debug("cluster/metadata", "Manager.catchup")
 	if mgr.IsLeader() {
 		return
 	}
@@ -219,6 +236,9 @@ func (mgr *Manager) catchup() {
 }
 
 func (mgr *Manager) snapshotFromLeader(leader string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "Manager.snapshotFromLeader: leader=%.120q", leader)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	var snap Snapshot
@@ -229,6 +249,7 @@ func (mgr *Manager) snapshotFromLeader(leader string) {
 }
 
 func (mgr *Manager) applySnapshot(snap Snapshot) {
+	logger.Debug("cluster/metadata", "Manager.applySnapshot")
 	for i := range snap.Files {
 		if mgr.st.putFile(&snap.Files[i]) && mgr.OnChange != nil {
 			js, _ := json.Marshal(snap.Files[i])
@@ -265,6 +286,7 @@ func (mgr *Manager) applySnapshot(snap Snapshot) {
 
 // pendingLoop retries follower changes that no leader has accepted yet.
 func (mgr *Manager) pendingLoop() {
+	logger.Debug("cluster/metadata", "Manager.pendingLoop")
 	defer mgr.wg.Done()
 	ticker := time.NewTicker(mgr.opt.PendingRetry)
 	defer ticker.Stop()
@@ -285,6 +307,7 @@ func (mgr *Manager) pendingLoop() {
 // the running one for another round. Many concurrent drains each walking the
 // whole queue made the work grow with the square of the backlog.
 func (mgr *Manager) flushPending() {
+	logger.Debug("cluster/metadata", "Manager.flushPending")
 	mgr.flushAgain.Store(true)
 	for {
 		if !mgr.flushing.CompareAndSwap(false, true) {
@@ -304,6 +327,7 @@ func (mgr *Manager) flushPending() {
 // drainPending sends every queued change to the leader, or accepts it when
 // this node is the leader.
 func (mgr *Manager) drainPending() {
+	logger.Debug("cluster/metadata", "Manager.drainPending")
 	pending := mgr.st.pendingEntries()
 	if len(pending) == 0 {
 		return
@@ -331,6 +355,9 @@ func (mgr *Manager) drainPending() {
 }
 
 func uitoa(v uint64) string {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "uitoa: v=%d", v)
+	}
 	if v == 0 {
 		return "0"
 	}

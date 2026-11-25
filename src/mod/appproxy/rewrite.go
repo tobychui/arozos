@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"golang.org/x/net/html"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -31,6 +33,9 @@ const renamedCookiePrefix = "aoc_"
 
 // hasPrefixPath reports whether p already lives under prefix
 func hasPrefixPath(p string, prefix string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "hasPrefixPath: p=%.120q prefix=%.120q", p, prefix)
+	}
 	if !strings.HasPrefix(p, prefix) {
 		return false
 	}
@@ -41,6 +46,9 @@ func hasPrefixPath(p string, prefix string) bool {
 // rewriteURL maps a URL an app emitted into the prefixed namespace. knownHosts
 // are hosts that mean "this app" (the public host and the upstream address)
 func rewriteURL(raw string, prefix string, knownHosts []string) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "rewriteURL: prefix=%.120q len(knownHosts)=%d", prefix, len(knownHosts))
+	}
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
 		return raw
@@ -71,6 +79,9 @@ func rewriteURL(raw string, prefix string, knownHosts []string) string {
 
 // prefixPath renders a parsed URL as a prefixed, origin-relative URL
 func prefixPath(u *url.URL, prefix string) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "prefixPath: prefix=%.120q", prefix)
+	}
 	p := u.EscapedPath()
 	if p == "" {
 		p = "/"
@@ -88,6 +99,9 @@ func prefixPath(u *url.URL, prefix string) string {
 }
 
 func hostKnown(host string, knownHosts []string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "hostKnown: host=%.120q len(knownHosts)=%d", host, len(knownHosts))
+	}
 	host = strings.ToLower(host)
 	for _, h := range knownHosts {
 		if h != "" && strings.ToLower(h) == host {
@@ -104,6 +118,9 @@ var (
 
 // rewriteCSS prefixes root paths in url(...) and @import
 func rewriteCSS(css string, prefix string, knownHosts []string) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "rewriteCSS: css=%.120q prefix=%.120q len(knownHosts)=%d", css, prefix, len(knownHosts))
+	}
 	css = cssURLRegex.ReplaceAllStringFunc(css, func(m string) string {
 		parts := cssURLRegex.FindStringSubmatch(m)
 		if parts[1] != parts[3] || strings.HasPrefix(strings.ToLower(parts[2]), "data:") {
@@ -122,6 +139,9 @@ func rewriteCSS(css string, prefix string, knownHosts []string) string {
 
 // rewriteSrcset prefixes each candidate URL of a srcset attribute
 func rewriteSrcset(v string, prefix string, knownHosts []string) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "rewriteSrcset: v=%.120q prefix=%.120q len(knownHosts)=%d", v, prefix, len(knownHosts))
+	}
 	candidates := strings.Split(v, ",")
 	for i, c := range candidates {
 		fields := strings.Fields(c)
@@ -136,6 +156,9 @@ func rewriteSrcset(v string, prefix string, knownHosts []string) string {
 
 // rewriteMetaRefresh prefixes the url= part of a meta refresh value
 func rewriteMetaRefresh(v string, prefix string, knownHosts []string) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "rewriteMetaRefresh: v=%.120q prefix=%.120q len(knownHosts)=%d", v, prefix, len(knownHosts))
+	}
 	lower := strings.ToLower(v)
 	idx := strings.Index(lower, "url=")
 	if idx < 0 {
@@ -168,6 +191,9 @@ var fullSameOriginReferrer = map[string]bool{
 
 // rewriteTag rewrites the attributes of one start tag, reporting whether anything changed
 func rewriteTag(t *html.Token, prefix string, knownHosts []string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "rewriteTag: prefix=%.120q len(knownHosts)=%d", prefix, len(knownHosts))
+	}
 	changed := false
 	isMetaRefresh := false
 	isMetaReferrer := false
@@ -214,6 +240,9 @@ func rewriteTag(t *html.Token, prefix string, knownHosts []string) bool {
 // empty a blocking <script src> is placed first in <head> so it runs before
 // any script of the app
 func rewriteHTML(r io.Reader, dst io.Writer, prefix string, knownHosts []string, shimSrc string) error {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "rewriteHTML: prefix=%.120q len(knownHosts)=%d shimSrc=%.120q", prefix, len(knownHosts), shimSrc)
+	}
 	z := html.NewTokenizer(r)
 	w := &errWriter{w: dst}
 	injected := shimSrc == ""
@@ -273,6 +302,9 @@ type errWriter struct {
 }
 
 func (e *errWriter) Write(p []byte) (int, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("appproxy", "errWriter.Write: len(p)=%d", len(p))
+	}
 	if e.err != nil {
 		return 0, e.err
 	}
@@ -283,6 +315,9 @@ func (e *errWriter) Write(p []byte) (int, error) {
 
 // rewriteHTMLString is a convenience wrapper used by tests
 func rewriteHTMLString(doc string, prefix string, knownHosts []string, shimSrc string) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "rewriteHTMLString: doc=%.120q prefix=%.120q len(knownHosts)=%d shimSrc=%.120q", doc, prefix, len(knownHosts), shimSrc)
+	}
 	var buf bytes.Buffer
 	rewriteHTML(strings.NewReader(doc), &buf, prefix, knownHosts, shimSrc)
 	return buf.String()
@@ -293,6 +328,9 @@ func rewriteHTMLString(doc string, prefix string, knownHosts []string, shimSrc s
 // only ever sees the public host) and names that clash with ArozOS cookies
 // are renamed
 func rewriteSetCookie(v string, prefix string, reserved map[string]bool) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "rewriteSetCookie: v=%.120q prefix=%.120q len(reserved)=%d", v, prefix, len(reserved))
+	}
 	parts := strings.Split(v, ";")
 	if len(parts) == 0 {
 		return v
@@ -331,12 +369,18 @@ func rewriteSetCookie(v string, prefix string, reserved map[string]bool) string 
 
 // cookieNameReserved reports whether a container may not use a cookie name as is
 func cookieNameReserved(name string, reserved map[string]bool) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("appproxy", "cookieNameReserved: name=%.120q len(reserved)=%d", name, len(reserved))
+	}
 	return reserved[name] || strings.HasPrefix(name, "ao_") || strings.HasPrefix(name, renamedCookiePrefix)
 }
 
 // filterRequestCookies removes ArozOS cookies from a Cookie header and gives
 // renamed container cookies their original name back
 func filterRequestCookies(header string, reserved map[string]bool) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "filterRequestCookies: len(reserved)=%d", len(reserved))
+	}
 	kept := []string{}
 	for _, c := range strings.Split(header, ";") {
 		c = strings.TrimSpace(c)
@@ -358,6 +402,9 @@ func filterRequestCookies(header string, reserved map[string]bool) string {
 
 // stripFrameAncestors removes the frame-ancestors directive from a CSP value
 func stripFrameAncestors(policy string) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "stripFrameAncestors: policy=%.120q", policy)
+	}
 	kept := []string{}
 	for _, d := range strings.Split(policy, ";") {
 		d = strings.TrimSpace(d)
@@ -372,6 +419,9 @@ func stripFrameAncestors(policy string) string {
 // fixReferrerPolicy makes sure same-origin requests keep carrying the full
 // Referer, which the root redirect depends on. Empty means leave the header
 func fixReferrerPolicy(values []string) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "fixReferrerPolicy: len(values)=%d", len(values))
+	}
 	effective := ""
 	for _, v := range values {
 		for _, p := range strings.Split(v, ",") {

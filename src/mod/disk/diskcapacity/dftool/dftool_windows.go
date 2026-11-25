@@ -8,10 +8,14 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/disk/diskspace"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // capacityOf finds the logical disk an absolute path is on, such as C:.
 func capacityOf(rpathAbs string) (*Capacity, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskcapacity/dftool", "capacityOf: rpathAbs=%.120q", rpathAbs)
+	}
 	rpathAbs = filepath.ToSlash(filepath.Clean(rpathAbs))
 	diskRoot := strings.Split(rpathAbs, "/")[0]
 	for _, ldi := range diskspace.GetAllLogicDiskInfo() {

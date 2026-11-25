@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/sftp"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Access answers what the signed in user may do. It is asked on every
@@ -47,31 +48,41 @@ type rootEntry struct {
 }
 
 func NewVrootEmulatedDirEntry(fsh *filesystem.FileSystemHandler) *rootEntry {
+	logger.DebugTrace("storage/sftpserver", "NewVrootEmulatedDirEntry")
 	return &rootEntry{
 		thisFsh: fsh,
 	}
 }
 
 func (r *rootEntry) Name() string {
+	logger.DebugTrace("storage/sftpserver", "rootEntry.Name")
 	return r.thisFsh.UUID
 }
 func (r *rootEntry) Size() int64 {
+	logger.DebugTrace("storage/sftpserver", "rootEntry.Size")
 	return 0
 }
 func (r *rootEntry) Mode() os.FileMode {
+	logger.DebugTrace("storage/sftpserver", "rootEntry.Mode")
 	return fs.ModeDir
 }
 func (r *rootEntry) ModTime() time.Time {
+	logger.DebugTrace("storage/sftpserver", "rootEntry.ModTime")
 	return time.Now()
 }
 func (r *rootEntry) IsDir() bool {
+	logger.DebugTrace("storage/sftpserver", "rootEntry.IsDir")
 	return true
 }
 func (r *rootEntry) Sys() interface{} {
+	logger.DebugTrace("storage/sftpserver", "rootEntry.Sys")
 	return nil
 }
 
 func GetNewSFTPRoot(username string, userAccess Access) sftp.Handlers {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "GetNewSFTPRoot: username=%.120q", username)
+	}
 	root := &root{
 		username:       username,
 		rootFile:       &rootFolder{name: "/", modtime: time.Now(), isdir: true},
@@ -82,6 +93,9 @@ func GetNewSFTPRoot(username string, userAccess Access) sftp.Handlers {
 }
 
 func (fs *root) getFshFromID(fshID string) *filesystem.FileSystemHandler {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "root.getFshFromID: fshID=%.120q", fshID)
+	}
 	for _, thisFsh := range fs.access.GetAllFileSystemHandler() {
 		if thisFsh.UUID == fshID && !thisFsh.Closed {
 			return thisFsh
@@ -93,6 +107,9 @@ func (fs *root) getFshFromID(fshID string) *filesystem.FileSystemHandler {
 
 // getWritableFsh resolves a path the user is about to change
 func (fs *root) getWritableFsh(pathname string) (*filesystem.FileSystemHandler, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "root.getWritableFsh: pathname=%.120q", pathname)
+	}
 	fsh, subpath, rpath, err := fs.getFshAndSubpathFromSFTPPathname(pathname)
 	if err != nil {
 		return nil, "", err
@@ -104,6 +121,7 @@ func (fs *root) getWritableFsh(pathname string) (*filesystem.FileSystemHandler, 
 }
 
 func (fs *root) Fileread(r *sftp.Request) (io.ReaderAt, error) {
+	logger.Debug("storage/sftpserver", "root.Fileread")
 	flags := r.Pflags()
 	if !flags.Read {
 		// sanity check
@@ -125,6 +143,7 @@ func (fs *root) Fileread(r *sftp.Request) (io.ReaderAt, error) {
 }
 
 func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
+	logger.Debug("storage/sftpserver", "root.Filewrite")
 	if arozfs.ToSlash(filepath.Dir(r.Filepath)) == "/" {
 		//Uploading to virtual root folder. Return error
 		return nil, errors.New("ArozOS SFTP root is read only")
@@ -144,6 +163,7 @@ func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 }
 
 func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
+	logger.Debug("storage/sftpserver", "root.OpenFile")
 	if arozfs.ToSlash(filepath.Dir(r.Filepath)) == "/" {
 		return nil, errors.New("ArozOS SFTP root is read only")
 	}
@@ -164,6 +184,7 @@ func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
 // client over. Without the truncate flag, a smaller file uploaded over a
 // bigger one would keep the old file's tail.
 func openFlags(p sftp.FileOpenFlags) int {
+	logger.Debug("storage/sftpserver", "openFlags")
 	flags := 0
 	if p.Creat {
 		flags |= os.O_CREATE
@@ -181,6 +202,7 @@ func openFlags(p sftp.FileOpenFlags) int {
 }
 
 func (fs *root) Filecmd(r *sftp.Request) error {
+	logger.Debug("storage/sftpserver", "root.Filecmd")
 	switch r.Method {
 	case "Setstat":
 
@@ -217,6 +239,9 @@ func (fs *root) Filecmd(r *sftp.Request) error {
 }
 
 func (fs *root) rename(oldpath, newpath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "root.rename: oldpath=%.120q newpath=%.120q", oldpath, newpath)
+	}
 	oldFsh, realOldPath, err := fs.getWritableFsh(oldpath)
 	if err != nil {
 		return err
@@ -253,14 +278,19 @@ func (fs *root) rename(oldpath, newpath string) error {
 }
 
 func (fs *root) PosixRename(r *sftp.Request) error {
+	logger.DebugTrace("storage/sftpserver", "root.PosixRename")
 	return fs.rename(r.Filepath, r.Target)
 }
 
 func (fs *root) StatVFS(r *sftp.Request) (*sftp.StatVFS, error) {
+	logger.DebugTrace("storage/sftpserver", "root.StatVFS")
 	return nil, errors.New("unsupported")
 }
 
 func (fs *root) mkdir(pathname string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "root.mkdir: pathname=%.120q", pathname)
+	}
 	fsh, rpath, err := fs.getWritableFsh(pathname)
 	if err != nil {
 		return err
@@ -270,6 +300,9 @@ func (fs *root) mkdir(pathname string) error {
 }
 
 func (fs *root) rmdir(pathname string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "root.rmdir: pathname=%.120q", pathname)
+	}
 	fsh, rpath, err := fs.getWritableFsh(pathname)
 	if err != nil {
 		return err
@@ -278,16 +311,25 @@ func (fs *root) rmdir(pathname string) error {
 }
 
 func (fs *root) link(oldpath, newpath string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/sftpserver", "root.link: oldpath=%.120q newpath=%.120q", oldpath, newpath)
+	}
 	return errors.New("unsupported")
 }
 
 // symlink() creates a symbolic link named `linkpath` which contains the string `target`.
 // NOTE! This would be called with `symlink(req.Filepath, req.Target)` due to different semantics.
 func (fs *root) symlink(target, linkpath string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/sftpserver", "root.symlink: target=%.120q linkpath=%.120q", target, linkpath)
+	}
 	return errors.New("unsupported")
 }
 
 func (fs *root) unlink(pathname string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "root.unlink: pathname=%.120q", pathname)
+	}
 	fsh, rpath, err := fs.getWritableFsh(pathname)
 	if err != nil {
 		return err
@@ -306,6 +348,9 @@ type listerat []os.FileInfo
 
 // Modeled after strings.Reader's ReadAt() implementation
 func (f listerat) ListAt(ls []os.FileInfo, offset int64) (int, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "listerat.ListAt: len(ls)=%d offset=%d", len(ls), offset)
+	}
 	var n int
 	if offset >= int64(len(f)) {
 		return 0, io.EOF
@@ -318,6 +363,7 @@ func (f listerat) ListAt(ls []os.FileInfo, offset int64) (int, error) {
 }
 
 func (fs *root) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
+	logger.Debug("storage/sftpserver", "root.Filelist")
 	switch r.Method {
 	case "List":
 		files, err := fs.readdir(r.Filepath)
@@ -341,6 +387,9 @@ func (fs *root) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
 }
 
 func (fs *root) readdir(pathname string) ([]os.FileInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "root.readdir: pathname=%.120q", pathname)
+	}
 	if cleanPath(pathname) == "/" {
 		//Handle special root listing
 		results := []os.FileInfo{}
@@ -380,11 +429,15 @@ func (fs *root) readdir(pathname string) ([]os.FileInfo, error) {
 }
 
 func (fs *root) readlink(pathname string) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/sftpserver", "root.readlink: pathname=%.120q", pathname)
+	}
 	return "", errors.New("unsupported")
 }
 
 // implements LstatFileLister interface
 func (fs *root) Lstat(r *sftp.Request) (sftp.ListerAt, error) {
+	logger.Debug("storage/sftpserver", "root.Lstat")
 	file, err := fs.lfetch(r.Filepath)
 	if err != nil {
 		return nil, err
@@ -394,6 +447,9 @@ func (fs *root) Lstat(r *sftp.Request) (sftp.ListerAt, error) {
 
 // implements RealpathFileLister interface
 func (fs *root) Realpath(p string) string {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "root.Realpath: p=%.120q", p)
+	}
 	if fs.startDirectory == "" || fs.startDirectory == "/" {
 		return cleanPath(p)
 	}
@@ -402,6 +458,9 @@ func (fs *root) Realpath(p string) string {
 
 // Convert sftp raw path into fsh, subpath and realpath. return err if any
 func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.FileSystemHandler, string, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "root.getFshAndSubpathFromSFTPPathname: pathname=%.120q", pathname)
+	}
 	pathname = strings.TrimSpace(pathname)
 	if pathname[0:1] != "/" {
 		pathname = "/" + pathname
@@ -439,6 +498,9 @@ func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.F
 }
 
 func (fs *root) lfetch(path string) (os.FileInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "root.lfetch: path=%.120q", path)
+	}
 	path = strings.TrimSpace(path)
 	if path == "/" {
 		//fmt.Println("Requesting SFTP Root")
@@ -463,6 +525,9 @@ func (fs *root) lfetch(path string) (os.FileInfo, error) {
 }
 
 func (fs *root) fetch(path string) (os.FileInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "root.fetch: path=%.120q", path)
+	}
 	file, err := fs.lfetch(path)
 	if err != nil {
 		return nil, err
@@ -471,24 +536,42 @@ func (fs *root) fetch(path string) (os.FileInfo, error) {
 }
 
 // Have memFile fulfill os.FileInfo interface
-func (f *rootFolder) Name() string { return path.Base(f.name) }
+func (f *rootFolder) Name() string {
+	logger.DebugTrace("storage/sftpserver", "rootFolder.Name")
+	return path.Base(f.name)
+}
 func (f *rootFolder) Size() int64 {
+	logger.DebugTrace("storage/sftpserver", "rootFolder.Size")
 	return int64(len(f.content))
 }
 func (f *rootFolder) Mode() os.FileMode {
+	logger.DebugTrace("storage/sftpserver", "rootFolder.Mode")
 	return os.FileMode(0755) | os.ModeDir
 }
-func (f *rootFolder) ModTime() time.Time { return f.modtime }
-func (f *rootFolder) IsDir() bool        { return f.isdir }
+func (f *rootFolder) ModTime() time.Time {
+	logger.DebugTrace("storage/sftpserver", "rootFolder.ModTime")
+	return f.modtime
+}
+func (f *rootFolder) IsDir() bool {
+	logger.DebugTrace("storage/sftpserver", "rootFolder.IsDir")
+	return f.isdir
+}
 func (f *rootFolder) Sys() interface{} {
+	logger.DebugTrace("storage/sftpserver", "rootFolder.Sys")
 	return nil
 }
 
 func (f *rootFolder) ReadAt(b []byte, off int64) (int, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/sftpserver", "rootFolder.ReadAt: len(b)=%d off=%d", len(b), off)
+	}
 	return 0, errors.New("root folder not support writeAt")
 }
 
 func (f *rootFolder) WriteAt(b []byte, off int64) (int, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/sftpserver", "rootFolder.WriteAt: len(b)=%d off=%d", len(b), off)
+	}
 	// mimic write delays, should be optional
 	time.Sleep(time.Microsecond * time.Duration(len(b)))
 	return 0, errors.New("root folder not support writeAt")
@@ -502,10 +585,16 @@ func (f *rootFolder) WriteAt(b []byte, off int64) (int, error) {
 
 // Makes sure we have a clean POSIX (/) absolute path to work with
 func cleanPath(p string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/sftpserver", "cleanPath: p=%.120q", p)
+	}
 	return cleanPathWithBase("/", p)
 }
 
 func cleanPathWithBase(base, p string) string {
+	if logger.IsDebug() {
+		logger.Debugf("storage/sftpserver", "cleanPathWithBase: base=%.120q p=%.120q", base, p)
+	}
 	//SFTP paths are POSIX paths on every host: filepath.Clean would read a
 	//leading // as a Windows network path
 	p = path.Clean(filepath.ToSlash(p))

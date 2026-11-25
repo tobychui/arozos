@@ -11,10 +11,12 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/disk/diskfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Get the next avaible RAID array name
 func GetNextAvailableMDDevice() (string, error) {
+	logger.Debug("disk/raid", "GetNextAvailableMDDevice")
 	for i := 0; i < 100; i++ {
 		mdDevice := fmt.Sprintf("/dev/md%d", i)
 		if _, err := os.Stat(mdDevice); os.IsNotExist(err) {
@@ -27,6 +29,9 @@ func GetNextAvailableMDDevice() (string, error) {
 
 // Check if the given device is safe to remove from the array without losing data
 func (m *Manager) IsSafeToRemove(mdDev string, sdXDev string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.IsSafeToRemove: mdDev=%.120q sdXDev=%.120q", mdDev, sdXDev)
+	}
 	targetRAIDVol, err := m.GetRAIDDeviceByDevicePath(mdDev)
 	if err != nil {
 		return false
@@ -62,6 +67,9 @@ func (m *Manager) IsSafeToRemove(mdDev string, sdXDev string) bool {
 
 // Check if the given disk (sdX) is currently used in any volume
 func (m *Manager) DiskIsUsedInAnotherRAIDVol(sdXDev string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.DiskIsUsedInAnotherRAIDVol: sdXDev=%.120q", sdXDev)
+	}
 	raidPools, err := m.GetRAIDDevicesFromProcMDStat()
 	if err != nil {
 		return false, errors.New("unable to access RAID controller state")
@@ -80,6 +88,9 @@ func (m *Manager) DiskIsUsedInAnotherRAIDVol(sdXDev string) (bool, error) {
 
 // Check if the given disk (sdX) is root drive (the disk that install the OS, aka /)
 func (m *Manager) DiskIsRoot(sdXDev string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.DiskIsRoot: sdXDev=%.120q", sdXDev)
+	}
 	bdMeta, err := diskfs.GetBlockDeviceMeta(sdXDev)
 	if err != nil {
 		return false, err
@@ -96,6 +107,9 @@ func (m *Manager) DiskIsRoot(sdXDev string) (bool, error) {
 
 // ClearSuperblock clears the superblock of the specified disk so it can be used safely
 func (m *Manager) ClearSuperblock(devicePath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.ClearSuperblock: devicePath=%.120q", devicePath)
+	}
 	isMounted, err := diskfs.DeviceIsMounted(devicePath)
 	if err != nil {
 		return errors.New("unable to validate if the device is unmounted: " + err.Error())
@@ -120,6 +134,7 @@ func (m *Manager) ClearSuperblock(devicePath string) error {
 
 // Use to restart any not-removed RAID device
 func (m *Manager) RestartRAIDService() error {
+	logger.Debug("disk/raid", "Manager.RestartRAIDService")
 	cmd := exec.Command("sudo", "mdadm", "--assemble", "--scan")
 
 	// Run the command
@@ -137,6 +152,9 @@ func (m *Manager) RestartRAIDService() error {
 
 // Stop RAID device with given path
 func (m *Manager) StopRAIDDevice(devicePath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.StopRAIDDevice: devicePath=%.120q", devicePath)
+	}
 	cmd := exec.Command("sudo", "mdadm", "--stop", devicePath)
 
 	// Run the command
@@ -150,6 +168,9 @@ func (m *Manager) StopRAIDDevice(devicePath string) error {
 
 // RemoveRAIDDevice removes the specified RAID device member (disk).
 func (m *Manager) RemoveRAIDMember(devicePath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.RemoveRAIDMember: devicePath=%.120q", devicePath)
+	}
 	// Construct the mdadm command to remove the RAID device
 	cmd := exec.Command("sudo", "mdadm", "--remove", devicePath)
 
@@ -165,6 +186,9 @@ func (m *Manager) RemoveRAIDMember(devicePath string) error {
 
 // IsValidRAIDLevel checks if the given RAID level is valid.
 func IsValidRAIDLevel(level string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "IsValidRAIDLevel: level=%.120q", level)
+	}
 	// List of valid RAID levels
 	validLevels := []string{"raid1", "raid0", "raid6", "raid5", "raid4", "raid10"}
 
@@ -184,6 +208,9 @@ func IsValidRAIDLevel(level string) bool {
 
 // Get RAID device info from device path
 func (m *Manager) GetRAIDDeviceByDevicePath(devicePath string) (*RAIDDevice, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.GetRAIDDeviceByDevicePath: devicePath=%.120q", devicePath)
+	}
 	//Strip the /dev/ part if it was accidentally passed in
 	devicePath = filepath.Base(devicePath)
 
@@ -205,12 +232,18 @@ func (m *Manager) GetRAIDDeviceByDevicePath(devicePath string) (*RAIDDevice, err
 
 // Check if a RAID device exists, e.g. md0
 func (m *Manager) RAIDDeviceExists(devicePath string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.RAIDDeviceExists: devicePath=%.120q", devicePath)
+	}
 	_, err := m.GetRAIDDeviceByDevicePath(devicePath)
 	return err == nil
 }
 
 // Check if a RAID contain disk that failed or degraded given the devicePath, e.g. md0 or /dev/md0
 func (m *Manager) RAIDArrayContainsFailedDisks(devicePath string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "Manager.RAIDArrayContainsFailedDisks: devicePath=%.120q", devicePath)
+	}
 	raidDeviceInfo, err := m.GetRAIDInfo(devicePath)
 	if err != nil {
 		return false, err
@@ -220,6 +253,9 @@ func (m *Manager) RAIDArrayContainsFailedDisks(devicePath string) (bool, error) 
 
 // GetRAIDPartitionSize returns the size of the RAID partition in bytes as an int64
 func GetRAIDPartitionSize(devicePath string) (int64, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "GetRAIDPartitionSize: devicePath=%.120q", devicePath)
+	}
 	// Ensure devicePath is formatted correctly
 	if !strings.HasPrefix(devicePath, "/dev/") {
 		devicePath = "/dev/" + devicePath
@@ -256,6 +292,9 @@ func GetRAIDPartitionSize(devicePath string) (int64, error) {
 
 // GetRAIDUsedSize returns the used size of the RAID array in bytes as an int64
 func GetRAIDUsedSize(devicePath string) (int64, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "GetRAIDUsedSize: devicePath=%.120q", devicePath)
+	}
 	// Ensure devicePath is formatted correctly
 	if !strings.HasPrefix(devicePath, "/dev/") {
 		devicePath = "/dev/" + devicePath

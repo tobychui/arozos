@@ -30,6 +30,7 @@ import (
 	"encoding/binary"
 	"errors"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/cfb"
 	"imuslab.com/arozos/mod/office/internal/officeart"
 	"imuslab.com/arozos/mod/office/model"
@@ -119,6 +120,7 @@ type pres struct {
 
 // ToPptx converts a PowerPoint 97-2003 presentation into a .pptx file
 func ToPptx(data []byte) ([]byte, error) {
+	logger.Debug("office/ppt", "ToPptx")
 	p, err := open(data)
 	if err != nil {
 		return nil, err
@@ -128,6 +130,7 @@ func ToPptx(data []byte) ([]byte, error) {
 
 // Parse converts a PowerPoint 97-2003 presentation into the Slides model
 func Parse(data []byte) (*model.Presentation, error) {
+	logger.Debug("office/ppt", "Parse")
 	x, err := ToPptx(data)
 	if err != nil {
 		return nil, err
@@ -136,6 +139,7 @@ func Parse(data []byte) (*model.Presentation, error) {
 }
 
 func open(data []byte) (*pres, error) {
+	logger.DebugTrace("office/ppt", "open")
 	if !cfb.IsCompound(data) {
 		return nil, errors.New("not a PowerPoint 97-2003 presentation")
 	}
@@ -175,6 +179,9 @@ func open(data []byte) (*pres, error) {
 // readPersist follows the edit chain from the current edit back to the
 // first save; a newer edit's entries win
 func (p *pres) readPersist(cu []byte) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "pres.readPersist: len(cu)=%d", len(cu))
+	}
 	le := binary.LittleEndian
 	p.persist = map[uint32]int{}
 	off := -1
@@ -246,6 +253,9 @@ func (p *pres) readPersist(cu []byte) error {
 
 // record returns the record a persist id points at
 func (p *pres) record(id uint32) *officeart.Record {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "pres.record: id=%d", id)
+	}
 	off, ok := p.persist[id]
 	if !ok {
 		return nil
@@ -258,6 +268,7 @@ func (p *pres) record(id uint32) *officeart.Record {
 }
 
 func (p *pres) readDocument() error {
+	logger.DebugTrace("office/ppt", "pres.readDocument")
 	le := binary.LittleEndian
 	d := p.docRec
 	p.slideW, p.slideH = 5760, 4320 // 10 x 7.5 inches
@@ -350,6 +361,7 @@ func (p *pres) readDocument() error {
 
 // readSlide reads a slide's or master's atom, scheme and styles
 func (p *pres) readSlide(s *slideRec) {
+	logger.DebugTrace("office/ppt", "pres.readSlide")
 	le := binary.LittleEndian
 	if s.rec == nil {
 		return
@@ -391,12 +403,18 @@ func (p *pres) readSlide(s *slideRec) {
 // slideHidden reads fHidden, the third flag bit after the effect bytes of
 // a SlideShowSlideInfoAtom: PowerPoint's Hide Slide
 func slideHidden(info []byte) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "slideHidden: len(info)=%d", len(info))
+	}
 	return len(info) > 10 && info[10]&0x04 != 0
 }
 
 // transitionName maps a SlideShowSlideInfoAtom effect onto the
 // PresentationML transition element
 func transitionName(effect, dir int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "transitionName: effect=%d dir=%d", effect, dir)
+	}
 	switch effect {
 	case 0:
 		return ""
@@ -444,6 +462,9 @@ func transitionName(effect, dir int) string {
 
 // utf16z decodes UTF-16 up to the first NUL
 func utf16z(b []byte) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "utf16z: len(b)=%d", len(b))
+	}
 	u := make([]uint16, 0, len(b)/2)
 	for i := 0; i+1 < len(b); i += 2 {
 		c := binary.LittleEndian.Uint16(b[i:])

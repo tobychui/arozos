@@ -18,6 +18,8 @@ import (
 	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/emersion/go-message/charset"
 	"github.com/emersion/go-sasl"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // wordDecoder decodes RFC 2047 encoded words in any charset go-message knows
@@ -27,6 +29,7 @@ var wordDecoder = &mime.WordDecoder{CharsetReader: charset.Reader}
 
 // dialIMAP connects, authenticates and identifies a client for an account.
 func (m *Manager) dialIMAP(ctx context.Context, p Principal, account *Account) (*imapclient.Client, error) {
+	logger.Debug("email", "Manager.dialIMAP")
 	server := account.IMAP
 	if server.Security == SecurityNone && !m.allowInsecure(p) {
 		return nil, ErrInsecureBlocked
@@ -52,6 +55,7 @@ func (m *Manager) dialIMAP(ctx context.Context, p Principal, account *Account) (
 
 // connectIMAP opens the transport and waits for the greeting.
 func connectIMAP(ctx context.Context, server ServerConfig, allowPrivate bool) (*imapclient.Client, error) {
+	logger.Debug("email", "connectIMAP")
 	options := &imapclient.Options{WordDecoder: wordDecoder}
 
 	var client *imapclient.Client
@@ -91,6 +95,7 @@ func connectIMAP(ctx context.Context, server ServerConfig, allowPrivate bool) (*
 
 // authenticateIMAP signs in with a password or an OAuth access token.
 func (m *Manager) authenticateIMAP(ctx context.Context, client *imapclient.Client, account *Account) error {
+	logger.Debug("email", "Manager.authenticateIMAP")
 	username := account.IMAP.Username
 	if username == "" {
 		username = account.Email
@@ -127,6 +132,9 @@ func (m *Manager) authenticateIMAP(ctx context.Context, client *imapclient.Clien
 
 // classifyLoginError marks credential rejections as AuthError with a hint.
 func classifyLoginError(server string, account *Account, err error) error {
+	if logger.IsDebug() {
+		logger.Debugf("email", "classifyLoginError: server=%.120q err=%v", server, err)
+	}
 	var statusErr *imap.Error
 	isAuth := false
 	detail := err.Error()
@@ -166,6 +174,9 @@ func classifyLoginError(server string, account *Account, err error) error {
 // providerForServer recognises a preset from a server host name, so hints
 // also work for accounts created as "custom" with known servers.
 func providerForServer(host string) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "providerForServer: host=%.120q", host)
+	}
 	host = strings.ToLower(host)
 	for _, preset := range presets {
 		if host == preset.IMAP.Host || host == preset.SMTP.Host {
@@ -177,6 +188,9 @@ func providerForServer(host string) string {
 
 // describeDialError adds the server to connection failures.
 func describeDialError(protocol string, server ServerConfig, err error) error {
+	if logger.IsDebug() {
+		logger.Debugf("email", "describeDialError: protocol=%.120q err=%v", protocol, err)
+	}
 	if errors.Is(err, ErrBlockedAddress) {
 		return err
 	}

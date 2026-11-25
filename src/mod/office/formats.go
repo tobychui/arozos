@@ -21,6 +21,7 @@ import (
 	"errors"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/doc"
 	"imuslab.com/arozos/mod/office/internal/cfb"
 	"imuslab.com/arozos/mod/office/model"
@@ -39,6 +40,9 @@ var legacyExts = map[string]string{
 // the legacy binary ones it imports - to the app that opens it, or "".
 // Use AppForExt for where a document can be saved.
 func AppForFile(ext string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office", "AppForFile: ext=%.120q", ext)
+	}
 	ext = strings.ToLower(ext)
 	if app := AppForExt(ext); app != "" {
 		return app
@@ -49,6 +53,9 @@ func AppForFile(ext string) string {
 // IsLegacyExt reports an Office 97-2003 extension (opened by conversion,
 // never written)
 func IsLegacyExt(ext string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("office", "IsLegacyExt: ext=%.120q", ext)
+	}
 	_, ok := legacyExts[strings.ToLower(ext)]
 	return ok
 }
@@ -56,6 +63,7 @@ func IsLegacyExt(ext string) bool {
 // LegacyApp names the app a legacy binary file belongs to by its content
 // ("" when data is not one of the three Office 97-2003 formats)
 func LegacyApp(data []byte) string {
+	logger.Debug("office", "LegacyApp")
 	if !cfb.IsCompound(data) {
 		return ""
 	}
@@ -77,6 +85,7 @@ func LegacyApp(data []byte) string {
 // ConvertLegacy converts a Word, Excel or PowerPoint 97-2003 file into the
 // app's own format (.docx, .xlsx or .pptx); it returns the app as well
 func ConvertLegacy(data []byte) (string, []byte, error) {
+	logger.Debug("office", "ConvertLegacy")
 	app := LegacyApp(data)
 	var out []byte
 	var err error
@@ -99,6 +108,7 @@ func ConvertLegacy(data []byte) (string, []byte, error) {
 // ImportLegacy converts a legacy binary file straight into the editor body
 // JSON of its app
 func ImportLegacy(data []byte) (string, string, error) {
+	logger.Debug("office", "ImportLegacy")
 	switch LegacyApp(data) {
 	case AppDocument:
 		d, err := doc.Parse(data)
@@ -127,6 +137,9 @@ func ImportLegacy(data []byte) (string, string, error) {
 
 // legacyKind names a legacy format for messages
 func legacyKind(app string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office", "legacyKind: app=%.120q", app)
+	}
 	switch app {
 	case AppDocument:
 		return "Word 97-2003 document"

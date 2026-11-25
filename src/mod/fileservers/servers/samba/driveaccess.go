@@ -23,6 +23,9 @@ import (
 
 // shareNameOf returns the share a user reaches a drive through
 func shareNameOf(fsh *filesystem.FileSystemHandler, username string) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "shareNameOf: username=%.120q", username)
+	}
 	fshID := fsh.UUID
 	if fsh.RequierUserIsolation() {
 		//User seperated storage. Only mount the user one
@@ -33,6 +36,9 @@ func shareNameOf(fsh *filesystem.FileSystemHandler, username string) string {
 
 // drivePathOf returns the folder a user reaches a drive at
 func drivePathOf(fsh *filesystem.FileSystemHandler, username string) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "drivePathOf: username=%.120q", username)
+	}
 	if fsh.RequierUserIsolation() {
 		return filepath.Join(fsh.Path, "/users/", username+"/")
 	}
@@ -41,6 +47,7 @@ func drivePathOf(fsh *filesystem.FileSystemHandler, username string) string {
 
 // allDrives lists every drive of the host, whichever pool holds it
 func (s *ShareManager) allDrives() []*filesystem.FileSystemHandler {
+	logger.Debug("fileservers/servers/samba", "ShareManager.allDrives")
 	drives := []*filesystem.FileSystemHandler{}
 	if pool := s.UserHandler.GetStoragePool(); pool != nil {
 		drives = append(drives, pool.Storages...)
@@ -57,6 +64,7 @@ func (s *ShareManager) allDrives() []*filesystem.FileSystemHandler {
 // may use now. Shares an admin made by hand are not named after a drive and
 // stay as they are. The caller restarts smbd.
 func (s *ShareManager) syncUserShares(userInfo *user.User) error {
+	logger.Debug("fileservers/servers/samba", "ShareManager.syncUserShares")
 	//The shares this user should have, and the level on each
 	wanted := map[string]bool{}
 	for _, fsh := range userInfo.GetAllAccessibleFileSystemHandler() {
@@ -94,6 +102,9 @@ func (s *ShareManager) syncUserShares(userInfo *user.User) error {
 
 // ensureUserShare gives a user the share of a drive, at the given level
 func (s *ShareManager) ensureUserShare(fsh *filesystem.FileSystemHandler, username string, readOnly bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.ensureUserShare: username=%.120q readOnly=%t", username, readOnly)
+	}
 	shareName := shareNameOf(fsh, username)
 	shareExists, err := s.ShareExists(shareName)
 	if err != nil {
@@ -137,6 +148,9 @@ func (s *ShareManager) ensureUserShare(fsh *filesystem.FileSystemHandler, userna
 
 // setUserReadOnly puts a user on or off the read list of a share
 func (s *ShareManager) setUserReadOnly(shareName string, username string, readOnly bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.setUserReadOnly: shareName=%.120q username=%.120q readOnly=%t", shareName, username, readOnly)
+	}
 	share, err := s.GetShareByName(shareName)
 	if err != nil {
 		return err
@@ -169,6 +183,7 @@ func (s *ShareManager) setUserReadOnly(shareName string, username string, readOn
 // SyncDriveAccess brings the shares of every activated user in line with the
 // drive access lists, after a list has changed
 func (s *ShareManager) SyncDriveAccess() error {
+	logger.Debug("fileservers/servers/samba", "ShareManager.SyncDriveAccess")
 	shares, err := s.ReadSambaShares()
 	if err != nil {
 		return err

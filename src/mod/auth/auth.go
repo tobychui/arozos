@@ -101,6 +101,9 @@ type AuthEndpoints struct {
 
 // Constructor
 func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, allowReg bool, loginRedirectionHandler func(http.ResponseWriter, *http.Request)) *AuthAgent {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "NewAuthenticationAgent: allowReg=%t", allowReg)
+	}
 	store := sessions.NewCookieStore(key)
 	//The session cookie is never readable from page scripts, so a script
 	//that gets onto this site cannot carry the session away
@@ -179,6 +182,7 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 
 // Close the authAgent listener
 func (a *AuthAgent) Close() {
+	logger.Debug("auth", "AuthAgent.Close")
 	//Stop the token listening
 	a.terminateTokenListener <- true
 
@@ -188,6 +192,9 @@ func (a *AuthAgent) Close() {
 
 // This function will handle an http request and redirect to the given login address if not logged in
 func (a *AuthAgent) HandleCheckAuth(w http.ResponseWriter, r *http.Request, handler func(http.ResponseWriter, *http.Request)) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.HandleCheckAuth: r=%s", logger.RequestSummary(r))
+	}
 	if a.CheckAuth(r) {
 		//User already logged in
 		handler(w, r)
@@ -199,6 +206,9 @@ func (a *AuthAgent) HandleCheckAuth(w http.ResponseWriter, r *http.Request, hand
 
 // Handle login request, require POST username and password
 func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.HandleLogin: r=%s", logger.RequestSummary(r))
+	}
 
 	//Get username from request using POST mode
 	username, err := utils.PostPara(r, "username")
@@ -244,6 +254,7 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		//Check if this request origin is allowed to access
 		ok, reasons := a.ValidateLoginRequest(w, r)
 		if !ok {
+			logger.Debugf("auth", "login of %q refused by the request origin check: %v", username, reasons)
 			sendErrorResponse(w, reasons.Error())
 			return
 		}
@@ -274,12 +285,18 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AuthAgent) ValidateUsernameAndPassword(username string, password string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.ValidateUsernameAndPassword: username=%.120q", username)
+	}
 	succ, _ := a.ValidateUsernameAndPasswordWithReason(username, password)
 	return succ
 }
 
 // validate the username and password, return reasons if the auth failed
 func (a *AuthAgent) ValidateUsernameAndPasswordWithReason(username string, password string) (bool, string) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.ValidateUsernameAndPasswordWithReason: username=%.120q", username)
+	}
 	hashedPassword := Hash(password)
 	var passwordInDB string
 	err := a.Database.Read("auth", "passhash/"+username, &passwordInDB)
@@ -298,6 +315,9 @@ func (a *AuthAgent) ValidateUsernameAndPasswordWithReason(username string, passw
 
 // Validate the user request for login, return true if the target request original is not blocked
 func (a *AuthAgent) ValidateLoginRequest(w http.ResponseWriter, r *http.Request) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.ValidateLoginRequest: r=%s", logger.RequestSummary(r))
+	}
 	//Get the ip address of the request
 	clientIP, err := network.GetIpFromRequest(r)
 	if err != nil {
@@ -308,6 +328,9 @@ func (a *AuthAgent) ValidateLoginRequest(w http.ResponseWriter, r *http.Request)
 }
 
 func (a *AuthAgent) ValidateLoginIpAccess(ipv4 string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.ValidateLoginIpAccess: ipv4=%.120q", ipv4)
+	}
 	ipv4 = strings.ReplaceAll(ipv4, " ", "")
 	//Check if the account is whitelisted
 	if a.WhitelistManager.Enabled && !a.WhitelistManager.IsWhitelisted(ipv4) {
@@ -325,6 +348,9 @@ func (a *AuthAgent) ValidateLoginIpAccess(ipv4 string) (bool, error) {
 
 // Login the user by creating a valid session for this user
 func (a *AuthAgent) LoginUserByRequest(w http.ResponseWriter, r *http.Request, username string, rememberme bool) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.LoginUserByRequest: r=%s username=%.120q rememberme=%t", logger.RequestSummary(r), username, rememberme)
+	}
 	session, _ := a.SessionStore.Get(r, a.SessionName)
 
 	session.Values["authenticated"] = true
@@ -359,6 +385,9 @@ func (a *AuthAgent) LoginUserByRequest(w http.ResponseWriter, r *http.Request, u
 
 // Handle logout, reply OK after logged out. WILL NOT DO REDIRECTION
 func (a *AuthAgent) HandleLogout(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.HandleLogout: r=%s", logger.RequestSummary(r))
+	}
 	username, _ := a.GetUserName(w, r)
 	if username != "" {
 		logger.PrintAndLog("Auth", username+" logged out.", nil)
@@ -383,6 +412,9 @@ func (a *AuthAgent) HandleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AuthAgent) Logout(w http.ResponseWriter, r *http.Request) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.Logout: r=%s", logger.RequestSummary(r))
+	}
 	session, err := a.SessionStore.Get(r, a.SessionName)
 	if err != nil {
 		return err
@@ -401,6 +433,9 @@ func (a *AuthAgent) Logout(w http.ResponseWriter, r *http.Request) error {
 
 // Get the current session username from request
 func (a *AuthAgent) GetUserName(w http.ResponseWriter, r *http.Request) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.GetUserName: r=%s", logger.RequestSummary(r))
+	}
 	if a.CheckAuth(r) {
 		//This user has logged in.
 		session, _ := a.SessionStore.Get(r, a.SessionName)
@@ -413,6 +448,9 @@ func (a *AuthAgent) GetUserName(w http.ResponseWriter, r *http.Request) (string,
 
 // Check if the user has logged in, return true / false in JSON
 func (a *AuthAgent) CheckLogin(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.CheckLogin: r=%s", logger.RequestSummary(r))
+	}
 	if a.CheckAuth(r) {
 		sendJSONResponse(w, "true")
 	} else {
@@ -424,6 +462,9 @@ func (a *AuthAgent) CheckLogin(w http.ResponseWriter, r *http.Request) {
 // With no users in the system this creates the first (admin) account without
 // login, otherwise only an administrator may create accounts.
 func (a *AuthAgent) HandleRegister(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.HandleRegister: r=%s", logger.RequestSummary(r))
+	}
 	//Get username from request
 	newusername, err := utils.PostPara(r, "username")
 	if err != nil {
@@ -472,6 +513,9 @@ func (a *AuthAgent) HandleRegister(w http.ResponseWriter, r *http.Request) {
 // checkRegisterPermission decides whether the request may create an account in
 // the given group. It fails closed when no RegisterAuthorizer is wired in.
 func (a *AuthAgent) checkRegisterPermission(w http.ResponseWriter, r *http.Request, group string) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.checkRegisterPermission: r=%s group=%.120q", logger.RequestSummary(r), group)
+	}
 	authz := a.RegisterAuthorizer
 	if authz == nil || authz.CallerIsAdmin == nil || authz.GroupExists == nil || authz.GroupIsAdmin == nil {
 		return errors.New("Account registration is not available")
@@ -502,6 +546,9 @@ func (a *AuthAgent) checkRegisterPermission(w http.ResponseWriter, r *http.Reque
 
 // Check authentication from request header's session value
 func (a *AuthAgent) CheckAuth(r *http.Request) bool {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.CheckAuth: r=%s", logger.RequestSummary(r))
+	}
 	session, _ := a.SessionStore.Get(r, a.SessionName)
 	// Check if user is authenticated
 	if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
@@ -518,6 +565,9 @@ func (a *AuthAgent) CheckAuth(r *http.Request) bool {
 // Handle de-register of users. Require POST username.
 // THIS FUNCTION WILL NOT CHECK FOR PERMISSION. PLEASE USE WITH PERMISSION HANDLER
 func (a *AuthAgent) HandleUnregister(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.HandleUnregister: r=%s", logger.RequestSummary(r))
+	}
 	//Check if the user is logged in
 	if !a.CheckAuth(r) {
 		//This user has not logged in
@@ -553,6 +603,9 @@ func (a *AuthAgent) HandleUnregister(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AuthAgent) UnregisterUser(username string) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.UnregisterUser: username=%.120q", username)
+	}
 	//Check if the user exists in the system database.
 	if !a.Database.KeyExists("auth", "passhash/"+username) {
 		//This user do not exists.
@@ -575,6 +628,7 @@ func (a *AuthAgent) UnregisterUser(username string) error {
 
 // Get the number of users in the system
 func (a *AuthAgent) GetUserCounts() int {
+	logger.Debug("auth", "AuthAgent.GetUserCounts")
 	entries, _ := a.Database.ListTable("auth")
 	usercount := 0
 	for _, keypairs := range entries {
@@ -592,6 +646,7 @@ func (a *AuthAgent) GetUserCounts() int {
 
 // List all username within the system
 func (a *AuthAgent) ListUsers() []string {
+	logger.Debug("auth", "AuthAgent.ListUsers")
 	entries, _ := a.Database.ListTable("auth")
 	results := []string{}
 	for _, keypairs := range entries {
@@ -605,6 +660,9 @@ func (a *AuthAgent) ListUsers() []string {
 
 // Check if the given username exists
 func (a *AuthAgent) UserExists(username string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.UserExists: username=%.120q", username)
+	}
 	userpasswordhash := ""
 	err := a.Database.Read("auth", "passhash/"+username, &userpasswordhash)
 	if err != nil || userpasswordhash == "" {
@@ -615,6 +673,9 @@ func (a *AuthAgent) UserExists(username string) bool {
 
 // Update the session expire time given the request header.
 func (a *AuthAgent) UpdateSessionExpireTime(w http.ResponseWriter, r *http.Request) bool {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.UpdateSessionExpireTime: r=%s", logger.RequestSummary(r))
+	}
 	session, _ := a.SessionStore.Get(r, a.SessionName)
 	if a.CheckAuth(r) {
 		//User authenticated. Extend its expire time
@@ -646,6 +707,9 @@ func (a *AuthAgent) UpdateSessionExpireTime(w http.ResponseWriter, r *http.Reque
 
 // Create user account. The name must pass ValidateUsername.
 func (a *AuthAgent) CreateUserAccount(newusername string, password string, group []string) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.CreateUserAccount: newusername=%.120q len(group)=%d", newusername, len(group))
+	}
 	if err := ValidateUsername(newusername); err != nil {
 		return err
 	}
@@ -667,6 +731,7 @@ func (a *AuthAgent) CreateUserAccount(newusername string, password string, group
 
 // Hash the given raw string into sha512 hash
 func Hash(raw string) string {
+	logger.Debug("auth", "Hash")
 	h := sha512.New()
 	h.Write([]byte(raw))
 	return hex.EncodeToString(h.Sum(nil))

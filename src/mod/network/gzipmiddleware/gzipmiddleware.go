@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -28,11 +30,17 @@ type gzipResponseWriter struct {
 }
 
 func (w *gzipResponseWriter) WriteHeader(status int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/gzipmiddleware", "gzipResponseWriter.WriteHeader: status=%d", status)
+	}
 	//w.Header().Del("Content-Length")
 	w.ResponseWriter.WriteHeader(status)
 }
 
 func (w *gzipResponseWriter) Write(b []byte) (int, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/gzipmiddleware", "gzipResponseWriter.Write: len(b)=%d", len(b))
+	}
 	return w.Writer.Write(b)
 }
 
@@ -40,6 +48,7 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 Compresstion function for http.FileServer
 */
 func Compress(h http.Handler) http.Handler {
+	logger.DebugTrace("network/gzipmiddleware", "Compress")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			//If the client do not support gzip
@@ -86,6 +95,9 @@ type gzipFuncResponseWriter struct {
 }
 
 func (w gzipFuncResponseWriter) Write(b []byte) (int, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/gzipmiddleware", "gzipFuncResponseWriter.Write: len(b)=%d", len(b))
+	}
 	return w.Writer.Write(b)
 }
 
@@ -93,6 +105,7 @@ func (w gzipFuncResponseWriter) Write(b []byte) (int, error) {
 Compress Function for http.HandleFunc
 */
 func CompressFunc(fn http.HandlerFunc) http.HandlerFunc {
+	logger.DebugTrace("network/gzipmiddleware", "CompressFunc")
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			fn(w, r)

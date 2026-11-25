@@ -29,6 +29,9 @@ import (
 
 // handleShareUpload handles POST /share/upload/{uuid}/{subfolder...}
 func (s *Manager) handleShareUpload(w http.ResponseWriter, r *http.Request, id string, subfolder string) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.handleShareUpload: r=%s id=%.120q subfolder=%.120q", logger.RequestSummary(r), id, subfolder)
+	}
 	so := s.lookupActiveShare(id)
 	if so == nil {
 		http.NotFound(w, r)
@@ -163,6 +166,9 @@ func (s *Manager) handleShareUpload(w http.ResponseWriter, r *http.Request, id s
 // sanitizeUploadFilename keeps only the base name of an uploaded file and
 // refuses names that cannot be stored safely.
 func sanitizeUploadFilename(name string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "sanitizeUploadFilename: name=%.120q", name)
+	}
 	//Browsers may send a path (e.g. from a folder upload). Keep the last element.
 	name = strings.ReplaceAll(name, "\\", "/")
 	name = strings.TrimSpace(path.Base(name))
@@ -179,6 +185,9 @@ func sanitizeUploadFilename(name string) (string, error) {
 
 // uniqueDestination returns dir/name, or dir/name (n).ext if that is taken
 func uniqueDestination(exists func(string) bool, dir string, name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("share", "uniqueDestination: dir=%.120q name=%.120q", dir, name)
+	}
 	candidate := arozfs.ToSlash(filepath.Join(dir, name))
 	if !exists(candidate) {
 		return candidate

@@ -19,6 +19,7 @@ import (
 */
 
 func (g *Gateway) AudioLibRegister() {
+	logger.Debug("agi", "Gateway.AudioLibRegister")
 	err := g.RegisterLib("audio", g.injectAudioFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -27,6 +28,7 @@ func (g *Gateway) AudioLibRegister() {
 }
 
 func (g *Gateway) injectAudioFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.DebugTrace("agi", "Gateway.injectAudioFunctions")
 	//vm := payload.VM
 	//u := payload.User
 	//scriptFsh := payload.ScriptFsh

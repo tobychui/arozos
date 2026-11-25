@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/info/logger"
+	arozlog "imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -31,21 +32,29 @@ import (
 */
 //Send text response with given w and message as string
 func sendTextResponse(w http.ResponseWriter, msg string) {
+	arozlog.DebugTrace("subservice", "sendTextResponse")
 	w.Write([]byte(msg))
 }
 
 // Send JSON response, with an extra json header
 func sendJSONResponse(w http.ResponseWriter, json string) {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "sendJSONResponse: json=%.120q", json)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(json))
 }
 
 func sendErrorResponse(w http.ResponseWriter, errMsg string) {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "sendErrorResponse: errMsg=%.120q", errMsg)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("{\"error\":\"" + errMsg + "\"}"))
 }
 
 func sendOK(w http.ResponseWriter) {
+	arozlog.Debug("subservice", "sendOK")
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("\"OK\""))
 }
@@ -62,6 +71,9 @@ Paramter string (if any)
 Error (if error)
 */
 func mv(r *http.Request, getParamter string, postMode bool) (string, error) {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "mv: r=%s getParamter=%.120q postMode=%t", arozlog.RequestSummary(r), getParamter, postMode)
+	}
 	if postMode == false {
 		//Access the paramter via GET
 		keys, ok := r.URL.Query()[getParamter]
@@ -88,6 +100,9 @@ func mv(r *http.Request, getParamter string, postMode bool) (string, error) {
 }
 
 func stringInSlice(a string, list []string) bool {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "stringInSlice: a=%.120q len(list)=%d", a, len(list))
+	}
 	for _, b := range list {
 		if b == a {
 			return true
@@ -97,6 +112,9 @@ func stringInSlice(a string, list []string) bool {
 }
 
 func fileExists(filename string) bool {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "fileExists: filename=%.120q", filename)
+	}
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false
@@ -105,6 +123,9 @@ func fileExists(filename string) bool {
 }
 
 func isDir(path string) bool {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "isDir: path=%.120q", path)
+	}
 	if fileExists(path) == false {
 		return false
 	}
@@ -124,6 +145,9 @@ func isDir(path string) bool {
 }
 
 func inArray(arr []string, str string) bool {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "inArray: len(arr)=%d str=%.120q", len(arr), str)
+	}
 	for _, a := range arr {
 		if a == str {
 			return true
@@ -133,18 +157,28 @@ func inArray(arr []string, str string) bool {
 }
 
 func timeToString(targetTime time.Time) string {
+	arozlog.DebugTrace("subservice", "timeToString")
 	return targetTime.Format("2006-01-02 15:04:05")
 }
 
 func intToString(number int) string {
+	if arozlog.IsDebugTrace() {
+		arozlog.DebugTracef("subservice", "intToString: number=%d", number)
+	}
 	return strconv.Itoa(number)
 }
 
 func stringToInt(number string) (int, error) {
+	if arozlog.IsDebugTrace() {
+		arozlog.DebugTracef("subservice", "stringToInt: number=%.120q", number)
+	}
 	return strconv.Atoi(number)
 }
 
 func stringToInt64(number string) (int64, error) {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "stringToInt64: number=%.120q", number)
+	}
 	i, err := strconv.ParseInt(number, 10, 64)
 	if err != nil {
 		return -1, err
@@ -153,15 +187,22 @@ func stringToInt64(number string) (int64, error) {
 }
 
 func int64ToString(number int64) string {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "int64ToString: number=%d", number)
+	}
 	convedNumber := strconv.FormatInt(number, 10)
 	return convedNumber
 }
 
 func getUnixTime() int64 {
+	arozlog.DebugTrace("subservice", "getUnixTime")
 	return time.Now().Unix()
 }
 
 func loadImageAsBase64(filepath string) (string, error) {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "loadImageAsBase64: filepath=%.120q", filepath)
+	}
 	if !fileExists(filepath) {
 		return "", errors.New("File not exists")
 	}
@@ -173,6 +214,9 @@ func loadImageAsBase64(filepath string) (string, error) {
 }
 
 func pushToSliceIfNotExist(slice []string, newItem string) []string {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "pushToSliceIfNotExist: len(slice)=%d newItem=%.120q", len(slice), newItem)
+	}
 	itemExists := false
 	for _, item := range slice {
 		if item == newItem {
@@ -188,6 +232,9 @@ func pushToSliceIfNotExist(slice []string, newItem string) []string {
 }
 
 func removeFromSliceIfExists(slice []string, target string) []string {
+	if arozlog.IsDebug() {
+		arozlog.Debugf("subservice", "removeFromSliceIfExists: len(slice)=%d target=%.120q", len(slice), target)
+	}
 	newSlice := []string{}
 	for _, item := range slice {
 		if item != target {

@@ -6,6 +6,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var procGetLogicalProcessorInformation = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetLogicalProcessorInformation")
@@ -13,6 +15,7 @@ var procGetLogicalProcessorInformation = windows.NewLazySystemDLL("kernel32.dll"
 // physicalCores asks kernel32 for the processor topology and counts the core
 // records. Returns 0 when the call is unavailable or fails.
 func physicalCores() int {
+	logger.Debug("info/usageinfo", "physicalCores")
 	if procGetLogicalProcessorInformation.Find() != nil {
 		return 0
 	}

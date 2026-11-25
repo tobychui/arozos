@@ -6,10 +6,15 @@ package fonts
 
 import (
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // FirstFamily picks the first concrete family out of a CSS font stack
 func FirstFamily(stack string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/fonts", "FirstFamily: stack=%.120q", stack)
+	}
 	for _, part := range strings.Split(stack, ",") {
 		name := strings.TrimSpace(part)
 		name = strings.Trim(name, "'\"")
@@ -30,6 +35,9 @@ func FirstFamily(stack string) string {
 // The east-asian face is kept as a second entry so a browser picks it per
 // glyph, exactly the way PowerPoint switches fonts mid-run for CJK text.
 func StackFor(latin, ea string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/fonts", "StackFor: latin=%.120q ea=%.120q", latin, ea)
+	}
 	var parts []string
 	seen := map[string]bool{}
 	add := func(name string) {
@@ -93,6 +101,9 @@ var shippedFontFallbacks = []string{
 }
 
 func QuoteName(n string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/fonts", "QuoteName: n=%.120q", n)
+	}
 	if strings.ContainsAny(n, " '\"") {
 		return "'" + strings.ReplaceAll(n, "'", "") + "'"
 	}
@@ -112,6 +123,9 @@ var fontWeightSuffixes = []struct {
 // BaseName strips a trailing weight word ("Open Sans SemiBold" ->
 // "Open Sans"); returns the name unchanged when there is none
 func BaseName(n string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/fonts", "BaseName: n=%.120q", n)
+	}
 	l := strings.ToLower(n)
 	for _, w := range fontWeightSuffixes {
 		if strings.HasSuffix(l, w.suffix) {
@@ -123,6 +137,9 @@ func BaseName(n string) string {
 
 // WeightOf reads the weight a font name implies, 0 when it implies none
 func WeightOf(n string) int {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/fonts", "WeightOf: n=%.120q", n)
+	}
 	l := strings.ToLower(n)
 	for _, w := range fontWeightSuffixes {
 		if strings.HasSuffix(l, w.suffix) {

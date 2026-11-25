@@ -8,6 +8,7 @@ import (
 
 	reg "imuslab.com/arozos/mod/auth/register"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -17,6 +18,7 @@ var (
 )
 
 func RegisterSystemInit() {
+	logger.Debug("Core", "RegisterSystemInit")
 	//Register the endpoints for public registration
 	imgsrc := filepath.Join(vendorResRoot, "vendor_icon.png")
 	if !fs.FileExists(imgsrc) {
@@ -90,12 +92,18 @@ func RegisterSystemInit() {
 }
 
 func register_handleRegisterCleaning(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "register_handleRegisterCleaning: r=%s", logger.RequestSummary(r))
+	}
 	//Get all user emails from the registerHandler
 	registerHandler.CleanRegisters()
 	utils.SendOK(w)
 }
 
 func register_handleEmailListing(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "register_handleEmailListing: r=%s", logger.RequestSummary(r))
+	}
 	//Get all user emails from the registerHandler
 	userRegisterInfos := registerHandler.ListAllUserEmails()
 
@@ -124,6 +132,9 @@ func register_handleEmailListing(w http.ResponseWriter, r *http.Request) {
 }
 
 func register_handleSetDefaultGroup(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "register_handleSetDefaultGroup: r=%s", logger.RequestSummary(r))
+	}
 	getDefaultGroup, _ := utils.PostPara(r, "get")
 	if getDefaultGroup == "true" {
 		jsonString, _ := json.Marshal(registerHandler.DefaultUserGroup)
@@ -144,11 +155,17 @@ func register_handleSetDefaultGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func register_handleGetAllowRegistry(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "register_handleGetAllowRegistry: r=%s", logger.RequestSummary(r))
+	}
 	jsonString, _ := json.Marshal(registerHandler.AllowRegistry)
 	utils.SendJSONResponse(w, string(jsonString))
 }
 
 func register_handleToggleRegistry(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "register_handleToggleRegistry: r=%s", logger.RequestSummary(r))
+	}
 	allowReg, err := utils.PostPara(r, "allow")
 	if err != nil {
 		allowReg = "false"

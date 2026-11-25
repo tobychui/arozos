@@ -15,6 +15,7 @@ import (
 	"errors"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/units"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 	"imuslab.com/arozos/mod/office/metafile"
@@ -37,6 +38,7 @@ type odtStyleInfo struct {
 
 // ParseOdt converts raw .odt bytes into a Document
 func ParseOdt(data []byte) (*model.Document, error) {
+	logger.Debug("office/odf", "ParseOdt")
 	files, mime, err := readOdfZip(data)
 	if err != nil {
 		return nil, err
@@ -83,6 +85,7 @@ func ParseOdt(data []byte) (*model.Document, error) {
 }
 
 func odtCollectStyles(root *onode) map[string]odtStyleInfo {
+	logger.DebugTrace("office/odf", "odtCollectStyles")
 	out := map[string]odtStyleInfo{}
 	auto := root.first("automatic-styles")
 	if auto == nil {
@@ -163,10 +166,12 @@ type odtConverter struct {
 }
 
 func (cv *odtConverter) styleOf(n *onode) odtStyleInfo {
+	logger.DebugTrace("office/odf", "odtConverter.styleOf")
 	return cv.styles[n.attr("style-name")]
 }
 
 func (cv *odtConverter) block(n *onode, sb *strings.Builder) {
+	logger.DebugTrace("office/odf", "odtConverter.block")
 	switch n.name {
 	case "h":
 		lvl := n.attr("outline-level")
@@ -212,6 +217,7 @@ func (cv *odtConverter) block(n *onode, sb *strings.Builder) {
 }
 
 func alignAttrOf(st odtStyleInfo) string {
+	logger.DebugTrace("office/odf", "alignAttrOf")
 	if st.alignCSS == "" {
 		return ""
 	}
@@ -221,6 +227,7 @@ func alignAttrOf(st odtStyleInfo) string {
 // unwrapSinglePara removes the <p> wrapper when the content is exactly one
 // paragraph (list items / table cells hold inline HTML in the editor)
 func unwrapSinglePara(html string) string {
+	logger.DebugTrace("office/odf", "unwrapSinglePara")
 	if strings.HasPrefix(html, "<p>") && strings.HasSuffix(html, "</p>") &&
 		strings.Count(html, "<p>") == 1 {
 		return strings.TrimSuffix(strings.TrimPrefix(html, "<p>"), "</p>")
@@ -229,6 +236,7 @@ func unwrapSinglePara(html string) string {
 }
 
 func (cv *odtConverter) table(n *onode, sb *strings.Builder) {
+	logger.DebugTrace("office/odf", "odtConverter.table")
 	var widths []float64
 	total := 0.0
 	for _, col := range n.all("table-column") {
@@ -281,6 +289,7 @@ func (cv *odtConverter) table(n *onode, sb *strings.Builder) {
 }
 
 func (cv *odtConverter) inline(n *onode, sb *strings.Builder) {
+	logger.DebugTrace("office/odf", "odtConverter.inline")
 	for _, c := range n.children {
 		if c.el == nil {
 			sb.WriteString(xmltree.Escape(c.text))
@@ -315,6 +324,7 @@ func (cv *odtConverter) inline(n *onode, sb *strings.Builder) {
 }
 
 func odtSpanTags(st odtStyleInfo) (string, string) {
+	logger.DebugTrace("office/odf", "odtSpanTags")
 	open, close := "", ""
 	wrap := func(tag string) {
 		open += "<" + tag + ">"
@@ -353,6 +363,7 @@ func odtSpanTags(st odtStyleInfo) (string, string) {
 }
 
 func (cv *odtConverter) frameImage(frame *onode, sb *strings.Builder) {
+	logger.DebugTrace("office/odf", "odtConverter.frameImage")
 	img := frame.first("image")
 	if img == nil {
 		return
@@ -382,6 +393,7 @@ func (cv *odtConverter) frameImage(frame *onode, sb *strings.Builder) {
 }
 
 func odtReadPageStyles(root *onode, doc *model.Document) {
+	logger.DebugTrace("office/odf", "odtReadPageStyles")
 	if auto := root.first("automatic-styles"); auto != nil {
 		if pl := auto.first("page-layout"); pl != nil {
 			if pp := pl.first("page-layout-properties"); pp != nil {
@@ -435,6 +447,9 @@ func odtReadPageStyles(root *onode, doc *model.Document) {
 }
 
 func atoiSafe(s string) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "atoiSafe: s=%.120q", s)
+	}
 	n := 0
 	for _, r := range s {
 		if r < '0' || r > '9' {
@@ -446,6 +461,9 @@ func atoiSafe(s string) int {
 }
 
 func absF(v float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "absF: v=%g", v)
+	}
 	if v < 0 {
 		return -v
 	}
@@ -453,6 +471,9 @@ func absF(v float64) float64 {
 }
 
 func pathExtOf(p string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "pathExtOf: p=%.120q", p)
+	}
 	i := strings.LastIndex(p, ".")
 	if i < 0 {
 		return ""

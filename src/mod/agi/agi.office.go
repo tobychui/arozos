@@ -94,6 +94,7 @@ import (
 */
 
 func (g *Gateway) OfficeLibRegister() {
+	logger.Debug("agi", "Gateway.OfficeLibRegister")
 	err := g.RegisterLib("office", g.injectOfficeLibFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -104,6 +105,7 @@ func (g *Gateway) OfficeLibRegister() {
 // officeVpathReader resolves the media?file= links a document carries,
 // through the same read permission the user has everywhere else
 func officeVpathReader(u *user.User) func(string) ([]byte, error) {
+	logger.DebugTrace("agi", "officeVpathReader")
 	return func(vp string) ([]byte, error) {
 		if !u.CanRead(vp) {
 			return nil, errors.New("read access denied")
@@ -125,6 +127,7 @@ func officeVpathReader(u *user.User) func(string) ([]byte, error) {
 const officeMaxPayload = 512 << 20
 
 func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectOfficeLibFunctions")
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh

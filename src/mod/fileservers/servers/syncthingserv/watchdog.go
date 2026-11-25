@@ -38,6 +38,7 @@ type progressMark struct {
 }
 
 func markOf(st FolderStatus) progressMark {
+	logger.DebugTrace("fileservers/servers/syncthingserv", "markOf")
 	return progressMark{localFiles: st.LocalFiles, localBytes: st.LocalBytes, pulledBytes: st.PulledBytes}
 }
 
@@ -45,6 +46,7 @@ func markOf(st FolderStatus) progressMark {
 // pulled bytes also change when a restarted folder picks up its temporary
 // files again, so only these count as real progress for the backoff.
 func (p progressMark) finished(other progressMark) bool {
+	logger.DebugTrace("fileservers/servers/syncthingserv", "progressMark.finished")
 	return p.localFiles != other.localFiles || p.localBytes != other.localBytes
 }
 
@@ -61,12 +63,16 @@ type stallWatch struct {
 }
 
 func newStallWatch() *stallWatch {
+	logger.DebugTrace("fileservers/servers/syncthingserv", "newStallWatch")
 	return &stallWatch{folders: map[string]*stallState{}}
 }
 
 // observe takes the status of a folder and reports whether it has been
 // syncing with nothing arriving long enough to be restarted.
 func (w *stallWatch) observe(id string, st FolderStatus, now time.Time) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "stallWatch.observe: id=%.120q", id)
+	}
 	mark := markOf(st)
 	syncing := st.State == stateSyncing
 	s, ok := w.folders[id]
@@ -96,6 +102,9 @@ func (w *stallWatch) observe(id string, st FolderStatus, now time.Time) bool {
 
 // restarted starts the wait of a folder again, twice as long as before.
 func (w *stallWatch) restarted(id string, now time.Time) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "stallWatch.restarted: id=%.120q", id)
+	}
 	s, ok := w.folders[id]
 	if !ok {
 		return
@@ -106,6 +115,9 @@ func (w *stallWatch) restarted(id string, now time.Time) {
 
 // keep forgets the folders that are not in ids.
 func (w *stallWatch) keep(ids map[string]bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "stallWatch.keep: len(ids)=%d", len(ids))
+	}
 	for id := range w.folders {
 		if !ids[id] {
 			delete(w.folders, id)
@@ -116,6 +128,7 @@ func (w *stallWatch) keep(ids map[string]bool) {
 // checkStallsLocked restarts the folders that stopped receiving while
 // syncing. The caller holds m.mu.
 func (m *Manager) checkStallsLocked(now time.Time) {
+	logger.Debug("fileservers/servers/syncthingserv", "Manager.checkStallsLocked")
 	active := map[string]bool{}
 	for _, f := range m.result.Plan.Folders {
 		if f.Paused {

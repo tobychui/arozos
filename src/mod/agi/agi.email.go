@@ -64,6 +64,7 @@ var (
 )
 
 func (g *Gateway) EmailLibRegister() {
+	logger.Debug("agi", "Gateway.EmailLibRegister")
 	err := g.RegisterLib("email", g.injectEmailLibFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -82,6 +83,7 @@ type emailComposeInput struct {
 }
 
 func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectEmailLibFunctions")
 	vm := payload.VM
 	u := payload.User
 	manager := g.Option.EmailManager
@@ -817,6 +819,9 @@ const emailLibJavaScript = `
 
 // emailResponse builds the {success, data} / {success, error, …} envelope.
 func emailResponse(vm *otto.Otto, data interface{}, err error) otto.Value {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "emailResponse: err=%v", err)
+	}
 	if err != nil {
 		return emailFailureWith(vm, err, nil)
 	}
@@ -830,6 +835,9 @@ func emailResponse(vm *otto.Otto, data interface{}, err error) otto.Value {
 
 // emailFailureWith reports an error, classifying it for the front-end.
 func emailFailureWith(vm *otto.Otto, err error, extra map[string]interface{}) otto.Value {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "emailFailureWith: err=%v len(extra)=%d", err, len(extra))
+	}
 	payload := map[string]interface{}{"success": false, "error": err.Error()}
 	if email.IsAuthError(err) {
 		payload["authFailed"] = true
@@ -867,6 +875,9 @@ func emailFailureWith(vm *otto.Otto, err error, extra map[string]interface{}) ot
 
 // emailResolveFile resolves a readable file path for the calling user.
 func emailResolveFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, vpath string) (*filesystem.FileSystemHandler, string, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "emailResolveFile: vpath=%.120q", vpath)
+	}
 	vpath = strings.TrimSpace(vpath)
 	if vpath == "" {
 		return nil, "", "", errors.New("no file selected")
@@ -887,6 +898,9 @@ func emailResolveFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm 
 
 // emailReadUserFile reads a whole file (an .eml) with a size cap.
 func emailReadUserFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, vpath string, maxBytes int64) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "emailReadUserFile: vpath=%.120q maxBytes=%d", vpath, maxBytes)
+	}
 	fsh, rpath, _, err := emailResolveFile(u, scriptFsh, vm, vpath)
 	if err != nil {
 		return nil, err
@@ -900,6 +914,9 @@ func emailReadUserFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm
 // emailAttachmentFromPath turns a file the user picked into an attachment
 // that is streamed when the message is rendered.
 func emailAttachmentFromPath(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, vpath string, name string) (*email.ComposeAttachment, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "emailAttachmentFromPath: vpath=%.120q name=%.120q", vpath, name)
+	}
 	fsh, rpath, resolved, err := emailResolveFile(u, scriptFsh, vm, vpath)
 	if err != nil {
 		return nil, err
@@ -918,6 +935,9 @@ func emailAttachmentFromPath(u *user.User, scriptFsh *filesystem.FileSystemHandl
 // emailWriteUserFile saves data into a folder of the user's file system under
 // a name that does not overwrite anything, and charges it to their quota.
 func emailWriteUserFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, vdir string, filename string, data []byte) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "emailWriteUserFile: vdir=%.120q filename=%.120q", vdir, filename)
+	}
 	vdir = strings.TrimSpace(vdir)
 	if vdir == "" {
 		return "", errors.New("choose a folder to save into")
@@ -972,6 +992,9 @@ func emailWriteUserFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, v
 
 // emailSafeName keeps a server supplied file name inside its folder.
 func emailSafeName(name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "emailSafeName: name=%.120q", name)
+	}
 	name = strings.TrimSpace(strings.NewReplacer("/", "_", "\\", "_", "\x00", "").Replace(name))
 	name = strings.Trim(name, ". ")
 	if name == "" {
@@ -982,6 +1005,7 @@ func emailSafeName(name string) string {
 
 // emailCleanTemp prunes old scratch files under tmp:/Mail, at most hourly.
 func emailCleanTemp(u *user.User) {
+	logger.Debug("agi", "emailCleanTemp")
 	emailTempCleanMutex.Lock()
 	last, seen := emailTempCleaned[u.Username]
 	if seen && time.Since(last) < time.Hour {
@@ -1012,6 +1036,9 @@ func emailCleanTemp(u *user.User) {
 }
 
 func randomHex(n int) string {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "randomHex: n=%d", n)
+	}
 	buf := make([]byte, n)
 	if _, err := rand.Read(buf); err != nil {
 		return fmt.Sprintf("%x", time.Now().UnixNano())

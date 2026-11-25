@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"math"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -66,6 +68,9 @@ type Document struct {
 // Open reads the structure of a PDF. The reader must stay usable for as
 // long as the Document is.
 func Open(r io.ReaderAt, size int64) (*Document, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata/pdfrender", "Open: size=%d", size)
+	}
 	d := &Document{
 		r:         r,
 		size:      size,
@@ -107,6 +112,9 @@ func Open(r io.ReaderAt, size int64) (*Document, error) {
 
 // readAt reads up to n bytes at off, clamped to the file
 func (d *Document) readAt(off int64, n int64) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.readAt: off=%d n=%d", off, n)
+	}
 	if off < 0 || off >= d.size || n <= 0 {
 		return nil
 	}
@@ -119,6 +127,7 @@ func (d *Document) readAt(off int64, n int64) []byte {
 }
 
 func (d *Document) catalog() Dict {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.catalog")
 	if d.trailer == nil {
 		return nil
 	}
@@ -134,6 +143,7 @@ func (d *Document) catalog() Dict {
 */
 
 func (d *Document) loadXref() error {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.loadXref")
 	tail := d.size - 2048
 	if tail < 0 {
 		tail = 0
@@ -182,6 +192,9 @@ func (d *Document) loadXref() error {
 }
 
 func (d *Document) setXref(num int, e xrefEntry) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.setXref: num=%d", num)
+	}
 	if num <= 0 {
 		return
 	}
@@ -193,6 +206,9 @@ func (d *Document) setXref(num int, e xrefEntry) {
 // readXrefSection reads a classic table + trailer, or an xref stream, at
 // off and returns its trailer dictionary
 func (d *Document) readXrefSection(off int64) (Dict, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.readXrefSection: off=%d", off)
+	}
 	window := int64(64 << 10)
 	for {
 		buf := d.readAt(off, window)
@@ -228,6 +244,7 @@ func (d *Document) readXrefSection(off int64) (Dict, error) {
 }
 
 func (d *Document) parseXrefTable(p *parser) (Dict, error) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.parseXrefTable")
 	entries := map[int]xrefEntry{}
 	for {
 		t := p.nextToken()
@@ -271,6 +288,7 @@ func (d *Document) parseXrefTable(p *parser) (Dict, error) {
 }
 
 func (d *Document) parseXrefStream(s *Stream) error {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.parseXrefStream")
 	data, err := d.decodeStream(s, 64<<20)
 	if err != nil {
 		return err
@@ -338,6 +356,9 @@ func (d *Document) parseXrefStream(s *Stream) error {
 
 // parseIndirectAt parses "n g obj ... endobj" at a file offset
 func (d *Document) parseIndirectAt(off int64, want Ref) (Object, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.parseIndirectAt: off=%d", off)
+	}
 	window := int64(16 << 10)
 	for {
 		buf := d.readAt(off, window)
@@ -394,6 +415,7 @@ func (d *Document) parseIndirectAt(off int64, want Ref) (Object, error) {
 // streamLength checks /Length against the "endstream" keyword and searches
 // for the keyword when the length is wrong
 func (d *Document) streamLength(s *Stream) int64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.streamLength")
 	length := int64(-1)
 	if l, ok := toFloat(d.resolve(s.Dict["Length"])); ok && l >= 0 && l <= float64(d.size) {
 		length = int64(l)
@@ -436,6 +458,7 @@ func (d *Document) streamLength(s *Stream) int64 {
 
 // get loads an indirect object
 func (d *Document) get(ref Ref) Object {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.get")
 	if obj, ok := d.cache[ref]; ok {
 		return obj
 	}
@@ -480,6 +503,9 @@ func (d *Document) get(ref Ref) Object {
 }
 
 func (d *Document) getCompressed(stmNum int, index int, num int) Object {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.getCompressed: stmNum=%d index=%d num=%d", stmNum, index, num)
+	}
 	os, ok := d.objStms[stmNum]
 	if !ok {
 		os = d.loadObjStm(stmNum)
@@ -505,6 +531,9 @@ func (d *Document) getCompressed(stmNum int, index int, num int) Object {
 }
 
 func (d *Document) loadObjStm(num int) *objStm {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.loadObjStm: num=%d", num)
+	}
 	s, ok := d.get(Ref{Num: num}).(*Stream)
 	if !ok {
 		//Object streams always have generation 0, but look up by xref too
@@ -547,6 +576,7 @@ func (d *Document) loadObjStm(num int) *objStm {
 */
 
 func (d *Document) reconstruct() error {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.reconstruct")
 	if d.reconstructed {
 		return ErrNotPDF
 	}
@@ -703,6 +733,7 @@ func (d *Document) reconstruct() error {
 */
 
 func (d *Document) resolve(o Object) Object {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.resolve")
 	for i := 0; i < 32; i++ {
 		ref, ok := o.(Ref)
 		if !ok {
@@ -714,6 +745,7 @@ func (d *Document) resolve(o Object) Object {
 }
 
 func (d *Document) dict(o Object) Dict {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.dict")
 	switch v := d.resolve(o).(type) {
 	case Dict:
 		return v
@@ -724,16 +756,21 @@ func (d *Document) dict(o Object) Dict {
 }
 
 func (d *Document) array(o Object) Array {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.array")
 	a, _ := d.resolve(o).(Array)
 	return a
 }
 
 func (d *Document) name(o Object) Name {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.name")
 	n, _ := d.resolve(o).(Name)
 	return n
 }
 
 func (d *Document) num(o Object, def float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.num: def=%g", def)
+	}
 	if v, ok := toFloat(d.resolve(o)); ok && !math.IsNaN(v) && !math.IsInf(v, 0) {
 		return v
 	}
@@ -741,6 +778,9 @@ func (d *Document) num(o Object, def float64) float64 {
 }
 
 func (d *Document) integer(o Object, def int) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.integer: def=%d", def)
+	}
 	if v, ok := toInt(d.resolve(o)); ok {
 		return v
 	}
@@ -748,12 +788,14 @@ func (d *Document) integer(o Object, def int) int {
 }
 
 func (d *Document) stream(o Object) *Stream {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.stream")
 	s, _ := d.resolve(o).(*Stream)
 	return s
 }
 
 // numbers reads an array of numbers
 func (d *Document) numbers(o Object) []float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.numbers")
 	arr := d.array(o)
 	out := make([]float64, 0, len(arr))
 	for _, v := range arr {
@@ -777,6 +819,7 @@ type Page struct {
 
 // NumPages returns the page count from the page tree
 func (d *Document) NumPages() int {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.NumPages")
 	cat := d.catalog()
 	if cat == nil {
 		return 0
@@ -796,6 +839,7 @@ func (d *Document) NumPages() int {
 
 // walkPages visits the leaves of the page tree in order until fn returns false
 func (d *Document) walkPages(root Object, fn func(Dict) bool) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.walkPages")
 	visited := map[Ref]bool{}
 	var walk func(o Object, depth int) bool
 	walk = func(o Object, depth int) bool {
@@ -828,6 +872,9 @@ func (d *Document) walkPages(root Object, fn func(Dict) bool) {
 
 // Page returns page n (0 based)
 func (d *Document) Page(n int) (*Page, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.Page: n=%d", n)
+	}
 	cat := d.catalog()
 	if cat == nil || n < 0 {
 		return nil, ErrNoPage
@@ -910,6 +957,7 @@ func (d *Document) Page(n int) (*Page, error) {
 
 // rect reads a normalised rectangle, or def when it is missing or degenerate
 func (d *Document) rect(o Object, def [4]float64) [4]float64 {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.rect")
 	v := d.numbers(o)
 	if len(v) < 4 {
 		return def
@@ -923,6 +971,7 @@ func (d *Document) rect(o Object, def [4]float64) [4]float64 {
 
 // Size returns the displayed page size in points, rotation applied
 func (p *Page) Size() (float64, float64) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Page.Size")
 	w := p.CropBox[2] - p.CropBox[0]
 	h := p.CropBox[3] - p.CropBox[1]
 	if p.Rotate == 90 || p.Rotate == 270 {

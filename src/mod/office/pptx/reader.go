@@ -43,6 +43,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/fonts"
 	"imuslab.com/arozos/mod/office/internal/media"
 	"imuslab.com/arozos/mod/office/internal/units"
@@ -274,6 +275,9 @@ type slideCtx struct {
 // walkPart walks one part's shape tree with that part's relationships in
 // scope, then restores the previous scope
 func (sc *slideCtx) walkPart(tree *xmltree.Node, rels map[string]string, dir string, slide *model.Slide, z *int, phOnly bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "slideCtx.walkPart: len(rels)=%d dir=%.120q phOnly=%t", len(rels), dir, phOnly)
+	}
 	spTree := tree.Path("cSld", "spTree")
 	if spTree == nil {
 		return
@@ -295,15 +299,22 @@ type coordMap struct {
 }
 
 func (c coordMap) px(emuX, emuY float64) (float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "coordMap.px: emuX=%g emuY=%g", emuX, emuY)
+	}
 	return c.bx + (emuX-c.cx)*c.kx, c.by + (emuY-c.cy)*c.ky
 }
 
 func (c coordMap) size(emuW, emuH float64) (float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "coordMap.size: emuW=%g emuH=%g", emuW, emuH)
+	}
 	return emuW * c.kx, emuH * c.ky
 }
 
 // Parse converts raw .pptx bytes into a Presentation
 func Parse(data []byte) (*model.Presentation, error) {
+	logger.Debug("office/pptx", "Parse")
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, errors.New("not a valid pptx (zip) file")
@@ -400,6 +411,9 @@ func Parse(data []byte) (*model.Presentation, error) {
 
 // tree parses (and caches) one XML part
 func (d *pptxDoc) tree(part string) *xmltree.Node {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "pptxDoc.tree: part=%.120q", part)
+	}
 	if t, ok := d.trees[part]; ok {
 		return t
 	}
@@ -418,6 +432,9 @@ func (d *pptxDoc) tree(part string) *xmltree.Node {
 
 // relsFor loads (and caches) the relationship map of a part
 func (d *pptxDoc) relsFor(part string) map[string]string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "pptxDoc.relsFor: part=%.120q", part)
+	}
 	if r, ok := d.rels[part]; ok {
 		return r
 	}
@@ -436,6 +453,7 @@ func (d *pptxDoc) relsFor(part string) map[string]string {
 
 // slideOrder resolves sldIdLst into slide part paths
 func (d *pptxDoc) slideOrder() []string {
+	logger.DebugTrace("office/pptx", "pptxDoc.slideOrder")
 	var out []string
 	if lst := d.pres.First("sldIdLst"); lst != nil {
 		for _, sid := range lst.All("sldId") {
@@ -468,6 +486,9 @@ func (d *pptxDoc) slideOrder() []string {
 // relTarget finds the first relationship whose type ends with the given
 // suffix and returns the part path it points at
 func relTarget(rels map[string]string, baseDir, typeSuffix string, files map[string][]byte) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "relTarget: len(rels)=%d baseDir=%.120q typeSuffix=%.120q len(files)=%d", len(rels), baseDir, typeSuffix, len(files))
+	}
 	for _, target := range rels {
 		if strings.Contains(target, typeSuffix) {
 			p := xmltree.ResolvePart(baseDir, target)
@@ -481,6 +502,9 @@ func relTarget(rels map[string]string, baseDir, typeSuffix string, files map[str
 
 // slideContext resolves a slide's layout, master, theme and colour map
 func (d *pptxDoc) slideContext(slidePath string, slide *xmltree.Node) *slideCtx {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "pptxDoc.slideContext: slidePath=%.120q", slidePath)
+	}
 	sc := &slideCtx{doc: d, baseDir: path.Dir(slidePath), rels: d.relsFor(slidePath)}
 
 	layoutPath := relTarget(sc.rels, sc.baseDir, "slideLayout", d.files)
@@ -552,6 +576,7 @@ func (d *pptxDoc) slideContext(slidePath string, slide *xmltree.Node) *slideCtx 
 /* ---------------- slide parsing ---------------- */
 
 func (sc *slideCtx) rootMap() coordMap {
+	logger.DebugTrace("office/pptx", "slideCtx.rootMap")
 	return coordMap{
 		kx: sc.doc.sx / units.EmuPerPx, ky: sc.doc.sy / units.EmuPerPx,
 		fs: math.Sqrt(sc.doc.sx * sc.doc.sy),
@@ -560,6 +585,7 @@ func (sc *slideCtx) rootMap() coordMap {
 
 // parseSlide converts one slide part into the editor model
 func (sc *slideCtx) parseSlide(tree *xmltree.Node) *model.Slide {
+	logger.DebugTrace("office/pptx", "slideCtx.parseSlide")
 	slide := &model.Slide{Objects: []*model.Object{}}
 	slide.Bg, slide.BgImage, slide.BgGrad = sc.slideBackground(tree)
 
@@ -582,6 +608,9 @@ func (sc *slideCtx) parseSlide(tree *xmltree.Node) *model.Slide {
 // walkShapes appends every drawable descendant of a shape tree, recursing
 // into group shapes with the transform their child space implies
 func (sc *slideCtx) walkShapes(spTree *xmltree.Node, cm coordMap, slide *model.Slide, z *int, skipPh bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "slideCtx.walkShapes: skipPh=%t", skipPh)
+	}
 	for i := range spTree.Nodes {
 		node := &spTree.Nodes[i]
 		if skipPh {
@@ -622,6 +651,7 @@ func (sc *slideCtx) walkShapes(spTree *xmltree.Node, cm coordMap, slide *model.S
 }
 
 func (sc *slideCtx) addObject(slide *model.Slide, obj *model.Object, z *int) {
+	logger.DebugTrace("office/pptx", "slideCtx.addObject")
 	if obj == nil {
 		return
 	}
@@ -633,6 +663,7 @@ func (sc *slideCtx) addObject(slide *model.Slide, obj *model.Object, z *int) {
 
 // groupMap builds the coordinate map of a group's children
 func groupMap(grp *xmltree.Node, parent coordMap) coordMap {
+	logger.DebugTrace("office/pptx", "groupMap")
 	xf := grp.Path("grpSpPr", "xfrm")
 	if xf == nil {
 		return parent
@@ -670,6 +701,7 @@ type xfrmBox struct {
 
 // parseXfrm extracts position/size/rotation/flips from an xfrm block
 func parseXfrm(xf *xmltree.Node, cm coordMap) xfrmBox {
+	logger.DebugTrace("office/pptx", "parseXfrm")
 	if xf == nil {
 		return xfrmBox{}
 	}
@@ -697,6 +729,7 @@ type phKey struct {
 }
 
 func phOf(node *xmltree.Node) (phKey, bool) {
+	logger.DebugTrace("office/pptx", "phOf")
 	ph := node.Path("nvSpPr", "nvPr", "ph")
 	if ph == nil {
 		ph = node.Path("nvPicPr", "nvPr", "ph")
@@ -719,6 +752,7 @@ func phOf(node *xmltree.Node) (phKey, bool) {
 // index match last, which is how PowerPoint pairs body placeholders whose
 // type was omitted.
 func findPh(root *xmltree.Node, want phKey) *xmltree.Node {
+	logger.DebugTrace("office/pptx", "findPh")
 	spTree := root.Path("cSld", "spTree")
 	if spTree == nil {
 		return nil
@@ -751,6 +785,7 @@ func findPh(root *xmltree.Node, want phKey) *xmltree.Node {
 // "title", "subtitle" or "body"; "" for anything else, a date or a slide
 // number placeholder included
 func phRole(node *xmltree.Node) string {
+	logger.DebugTrace("office/pptx", "phRole")
 	key, ok := phOf(node)
 	if !ok {
 		return ""
@@ -768,6 +803,9 @@ func phRole(node *xmltree.Node) string {
 
 // phTypeAlike treats the title variants as one kind, the way PowerPoint does
 func phTypeAlike(a, b string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "phTypeAlike: a=%.120q b=%.120q", a, b)
+	}
 	norm := func(s string) string {
 		switch s {
 		case "ctrTitle":
@@ -782,6 +820,7 @@ func phTypeAlike(a, b string) bool {
 
 // phChain returns the layout's and master's shape for a placeholder
 func (sc *slideCtx) phChain(node *xmltree.Node) (layoutSp, masterSp *xmltree.Node) {
+	logger.DebugTrace("office/pptx", "slideCtx.phChain")
 	key, ok := phOf(node)
 	if !ok {
 		return nil, nil
@@ -797,6 +836,9 @@ func (sc *slideCtx) phChain(node *xmltree.Node) (layoutSp, masterSp *xmltree.Nod
 
 // masterTxStyle picks the master text style block a placeholder kind uses
 func (sc *slideCtx) masterTxStyle(key phKey, isPh bool) *xmltree.Node {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "slideCtx.masterTxStyle: isPh=%t", isPh)
+	}
 	ts := sc.master.First("txStyles")
 	if ts == nil {
 		return nil
@@ -816,6 +858,7 @@ func (sc *slideCtx) masterTxStyle(key phKey, isPh bool) *xmltree.Node {
 // styleChain builds the list of <a:lstStyle>-shaped nodes to fold, lowest
 // priority first, for the text inside one shape
 func (sc *slideCtx) styleChain(node, layoutSp, masterSp *xmltree.Node) []*xmltree.Node {
+	logger.DebugTrace("office/pptx", "slideCtx.styleChain")
 	key, isPh := phOf(node)
 	var chain []*xmltree.Node
 	if !isPh && sc.doc.defTxStyle != nil {
@@ -842,6 +885,9 @@ func (sc *slideCtx) styleChain(node, layoutSp, masterSp *xmltree.Node) []*xmltre
 
 // firstNonNil returns the first node in the list that is not nil
 func firstNonNil(nodes ...*xmltree.Node) *xmltree.Node {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "firstNonNil: len(nodes)=%d", len(nodes))
+	}
 	for _, n := range nodes {
 		if n != nil {
 			return n
@@ -874,6 +920,9 @@ const (
 )
 
 func (sc *slideCtx) resolveBodyPr(nodes []*xmltree.Node, cm coordMap) bodyProps {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "slideCtx.resolveBodyPr: len(nodes)=%d", len(nodes))
+	}
 	bp := bodyProps{Anchor: "t", FontScale: 1, LnSpcScale: 1, Wrap: true,
 		LIns: defaultLIns, TIns: defaultTIns, RIns: defaultLIns, BIns: defaultTIns}
 	for _, n := range nodes {
@@ -919,6 +968,9 @@ func (sc *slideCtx) resolveBodyPr(nodes []*xmltree.Node, cm coordMap) bodyProps 
 }
 
 func anchorToVAlign(a string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "anchorToVAlign: a=%.120q", a)
+	}
 	switch a {
 	case "ctr":
 		return "middle"
@@ -948,6 +1000,9 @@ type textResult struct {
 
 // buildTextBody renders a <p:txBody> into the editor's storage HTML
 func (sc *slideCtx) buildTextBody(tx *xmltree.Node, chain []*xmltree.Node, bp bodyProps, cm coordMap) textResult {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "slideCtx.buildTextBody: len(chain)=%d", len(chain))
+	}
 	res := textResult{Empty: true, Align: "left"}
 	if tx == nil {
 		return res
@@ -1245,6 +1300,7 @@ func (sc *slideCtx) buildTextBody(tx *xmltree.Node, chain []*xmltree.Node, bp bo
 
 // resolveThemeFonts expands the +mj-lt / +mn-lt theme font references
 func (sc *slideCtx) resolveThemeFonts(rs *runStyle) {
+	logger.DebugTrace("office/pptx", "slideCtx.resolveThemeFonts")
 	fix := func(s string) string {
 		switch {
 		case strings.HasPrefix(s, "+mj"):
@@ -1265,6 +1321,7 @@ func (sc *slideCtx) resolveThemeFonts(rs *runStyle) {
 
 // lineHeightOf converts a paragraph's line spacing into a CSS multiplier
 func lineHeightOf(ps paraStyle, bp bodyProps) float64 {
+	logger.DebugTrace("office/pptx", "lineHeightOf")
 	if ps.LnSpcPt > 0 {
 		// exact spacing: express it relative to the paragraph's own size
 		size := ps.DefRun.SizePt
@@ -1283,6 +1340,9 @@ func lineHeightOf(ps paraStyle, bp bodyProps) float64 {
 // spaceOf resolves a paragraph space to points, given the paragraph's
 // largest run size for the percentage form
 func spaceOf(pts, pct, sizePt float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "spaceOf: pts=%g pct=%g sizePt=%g", pts, pct, sizePt)
+	}
 	if pts > 0 {
 		return pts
 	}
@@ -1296,6 +1356,9 @@ func spaceOf(pts, pct, sizePt float64) float64 {
 }
 
 func algnToCSS(a string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "algnToCSS: a=%.120q", a)
+	}
 	switch a {
 	case "ctr":
 		return "center"
@@ -1311,6 +1374,7 @@ func algnToCSS(a string) string {
 
 // parseSp handles p:sp - a text box or a preset-geometry shape
 func (sc *slideCtx) parseSp(node *xmltree.Node, cm coordMap) *model.Object {
+	logger.DebugTrace("office/pptx", "slideCtx.parseSp")
 	// a shape drawn with a line or connector preset is a line, whatever
 	// element it came in - and a straight one is routinely zero wide or
 	// zero tall, which the box test below would throw away
@@ -1488,6 +1552,9 @@ func (sc *slideCtx) parseSp(node *xmltree.Node, cm coordMap) *model.Object {
 
 // cornerRadius resolves the corner radius of a rounded rectangle, in px
 func (sc *slideCtx) cornerRadius(spPr *xmltree.Node, prst string, box xfrmBox) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "slideCtx.cornerRadius: prst=%.120q", prst)
+	}
 	if !strings.Contains(strings.ToLower(prst), "round") {
 		return 0
 	}
@@ -1519,6 +1586,9 @@ func (sc *slideCtx) cornerRadius(spPr *xmltree.Node, prst string, box xfrmBox) f
 // styleRefColor resolves the colour of a <p:style> fillRef / lnRef, which
 // is how PowerPoint's shape gallery states a theme fill
 func (sc *slideCtx) styleRefColor(node *xmltree.Node, ref string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "slideCtx.styleRefColor: ref=%.120q", ref)
+	}
 	st := node.First("style")
 	if st == nil {
 		return ""
@@ -1540,6 +1610,7 @@ func (sc *slideCtx) styleRefColor(node *xmltree.Node, ref string) string {
 
 // dashStyleOfLn is the editor's dash style for an <a:ln> ("" for solid)
 func dashStyleOfLn(spPr *xmltree.Node) string {
+	logger.DebugTrace("office/pptx", "dashStyleOfLn")
 	if ln := spPr.First("ln"); ln != nil {
 		if d := ln.First("prstDash"); d != nil {
 			return dashStyleForPrst(d.Attr("val"))
@@ -1550,6 +1621,7 @@ func dashStyleOfLn(spPr *xmltree.Node) string {
 
 // lineOf resolves an <a:ln> into colour, width (px) and dash
 func (sc *slideCtx) lineOf(spPr *xmltree.Node, cm coordMap) (string, float64, bool) {
+	logger.DebugTrace("office/pptx", "slideCtx.lineOf")
 	ln := spPr.First("ln")
 	if ln == nil {
 		return "", 0, false
@@ -1575,6 +1647,7 @@ func (sc *slideCtx) lineOf(spPr *xmltree.Node, cm coordMap) (string, float64, bo
 
 // parseCxnSp handles p:cxnSp - connectors, drawn as straight lines
 func (sc *slideCtx) parseCxnSp(node *xmltree.Node, cm coordMap) *model.Object {
+	logger.DebugTrace("office/pptx", "slideCtx.parseCxnSp")
 	spPr := node.First("spPr")
 	if spPr == nil {
 		return nil
@@ -1621,6 +1694,9 @@ func (sc *slideCtx) parseCxnSp(node *xmltree.Node, cm coordMap) *model.Object {
 // isLinePreset reports whether a preset geometry is a line rather than an
 // area: the straight line and every connector
 func isLinePreset(prst string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "isLinePreset: prst=%.120q", prst)
+	}
 	return prst == "line" || prst == "lineInv" || strings.HasSuffix(prst, "Connector1") ||
 		strings.HasPrefix(prst, "bentConnector") || strings.HasPrefix(prst, "curvedConnector")
 }
@@ -1629,6 +1705,9 @@ func isLinePreset(prst string) bool {
 // editor pixels: the preset's own path, mirrored by the flips and turned
 // by the shape's rotation about the centre of its bounding box.
 func connectorPath(prst string, spPr *xmltree.Node, box xfrmBox) [][2]float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "connectorPath: prst=%.120q", prst)
+	}
 	w, h := box.W, box.H
 	var local [][2]float64
 	switch prst {
@@ -1683,6 +1762,7 @@ func connectorPath(prst string, spPr *xmltree.Node, box xfrmBox) [][2]float64 {
 
 // parsePic handles p:pic - embedded pictures become data URLs
 func (sc *slideCtx) parsePic(node *xmltree.Node, cm coordMap) *model.Object {
+	logger.DebugTrace("office/pptx", "slideCtx.parsePic")
 	spPr := node.First("spPr")
 	if spPr == nil {
 		return nil
@@ -1777,6 +1857,7 @@ func (sc *slideCtx) parsePic(node *xmltree.Node, cm coordMap) *model.Object {
 
 // parseGraphicFrame handles p:graphicFrame - tables (charts are skipped)
 func (sc *slideCtx) parseGraphicFrame(node *xmltree.Node, cm coordMap) *model.Object {
+	logger.DebugTrace("office/pptx", "slideCtx.parseGraphicFrame")
 	box := parseXfrm(node.First("xfrm"), cm)
 	if !box.OK || box.W <= 0 || box.H <= 0 {
 		return nil
@@ -1936,6 +2017,9 @@ func (sc *slideCtx) parseGraphicFrame(node *xmltree.Node, cm coordMap) *model.Ob
 
 // anyFilled reports whether a cell-fill grid states at least one colour
 func anyFilled(grid [][]string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "anyFilled: len(grid)=%d", len(grid))
+	}
 	for _, row := range grid {
 		for _, c := range row {
 			if c != "" {
@@ -1952,6 +2036,7 @@ func anyFilled(grid [][]string) bool {
 // The slide-number and date placeholders that ride along in the same part
 // are skipped - they are chrome, not the speaker's notes.
 func (sc *slideCtx) extractNotes() string {
+	logger.DebugTrace("office/pptx", "slideCtx.extractNotes")
 	notesPath := relTarget(sc.rels, sc.baseDir, "notesSlide", sc.doc.files)
 	if notesPath == "" {
 		return ""
@@ -2000,6 +2085,7 @@ func (sc *slideCtx) extractNotes() string {
 // partRels / partDir name the relationship scope of the part being walked,
 // falling back to the slide's own when nothing else is in scope
 func (sc *slideCtx) partRels() map[string]string {
+	logger.DebugTrace("office/pptx", "slideCtx.partRels")
 	if sc.curRels != nil {
 		return sc.curRels
 	}
@@ -2007,6 +2093,7 @@ func (sc *slideCtx) partRels() map[string]string {
 }
 
 func (sc *slideCtx) partDir() string {
+	logger.DebugTrace("office/pptx", "slideCtx.partDir")
 	if sc.curDir != "" {
 		return sc.curDir
 	}
@@ -2016,6 +2103,7 @@ func (sc *slideCtx) partDir() string {
 // freeformLine turns an unfilled custGeom of straight segments into a line
 // object with its polyline. Returns nil when the shape is anything else.
 func (sc *slideCtx) freeformLine(node, spPr *xmltree.Node, box xfrmBox, cm coordMap) *model.Object {
+	logger.DebugTrace("office/pptx", "slideCtx.freeformLine")
 	if c := sc.cc.fillColorOf(spPr); c != "" && c != "none" {
 		return nil
 	}
@@ -2082,6 +2170,7 @@ func (sc *slideCtx) freeformLine(node, spPr *xmltree.Node, box xfrmBox, cm coord
 
 // parseChartFrame resolves a graphicFrame that holds a DrawingML chart
 func (sc *slideCtx) parseChartFrame(gdata *xmltree.Node, box xfrmBox) *model.Object {
+	logger.DebugTrace("office/pptx", "slideCtx.parseChartFrame")
 	ref := gdata.First("chart")
 	if ref == nil {
 		return nil
@@ -2113,6 +2202,7 @@ func (sc *slideCtx) parseChartFrame(gdata *xmltree.Node, box xfrmBox) *model.Obj
 // luminance (brightness / contrast) pair. They map onto the editor's
 // re-colour presets and adjustment offsets.
 func readPictureEffects(blip *xmltree.Node, props *model.Props) {
+	logger.DebugTrace("office/pptx", "readPictureEffects")
 	if blip == nil {
 		return
 	}
@@ -2163,6 +2253,9 @@ var recolorTints = map[string]string{
 
 // nearestRecolor picks the preset whose tint is closest to a colour
 func nearestRecolor(hex string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "nearestRecolor: hex=%.120q", hex)
+	}
 	r, g, b := hexToRGB(hex)
 	best, bestD := "gray", 0.0
 	first := true
@@ -2181,6 +2274,7 @@ func nearestRecolor(hex string) string {
 // hiddenSlide reports PowerPoint's Hide Slide: <p:sld show="0"> (an
 // xsd:boolean, so "false" says the same), which the slide show skips
 func hiddenSlide(sld *xmltree.Node) bool {
+	logger.DebugTrace("office/pptx", "hiddenSlide")
 	v := strings.TrimSpace(sld.Attr("show"))
 	return v == "0" || v == "false"
 }
@@ -2189,6 +2283,7 @@ func hiddenSlide(sld *xmltree.Node) bool {
 // fade, slide (anything that moves the slide in) and zoom. PowerPoint 2010
 // and later wrap it in mc:AlternateContent, with a plain fallback.
 func transitionOf(sld *xmltree.Node) string {
+	logger.DebugTrace("office/pptx", "transitionOf")
 	tr := sld.First("transition")
 	if tr == nil {
 		if ac := sld.First("AlternateContent"); ac != nil {
@@ -2225,6 +2320,7 @@ func transitionOf(sld *xmltree.Node) string {
 // isGoogleShape reports whether Google Slides made this shape: its export
 // names every one "Google Shape;<id>;<page>", and no other producer does
 func isGoogleShape(node *xmltree.Node) bool {
+	logger.DebugTrace("office/pptx", "isGoogleShape")
 	for i := range node.Nodes {
 		if strings.HasPrefix(node.Nodes[i].XMLName.Local, "nv") {
 			if c := node.Nodes[i].First("cNvPr"); c != nil {
@@ -2239,6 +2335,7 @@ func isGoogleShape(node *xmltree.Node) bool {
 // withLink reads a shape's click action into props.link: a jump to another
 // slide becomes "#N", an external address stays as it is (http(s) only)
 func (sc *slideCtx) withLink(node *xmltree.Node, obj *model.Object) *model.Object {
+	logger.DebugTrace("office/pptx", "slideCtx.withLink")
 	if obj == nil {
 		return nil
 	}

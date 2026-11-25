@@ -21,6 +21,7 @@ import (
 
 	"imuslab.com/arozos/mod/cluster/acn"
 	"imuslab.com/arozos/mod/cluster/capability"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -42,6 +43,7 @@ type DoneReport struct {
 }
 
 func (j *Manager) registerACNHandlers() {
+	logger.Debug("cluster/jobs", "Manager.registerACNHandlers")
 	srv := j.m.Server()
 	srv.HandleFunc(pathRun, j.handleRun)
 	srv.HandleFunc(pathDone, j.handleDone)
@@ -49,6 +51,9 @@ func (j *Manager) registerACNHandlers() {
 }
 
 func (j *Manager) handleRun(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.handleRun: r=%s", logger.RequestSummary(r))
+	}
 	if sender.NodeID != j.meta.Leader() {
 		acn.WriteError(w, http.StatusForbidden, "only the metadata leader assigns jobs")
 		return
@@ -72,6 +77,9 @@ func (j *Manager) handleRun(w http.ResponseWriter, r *http.Request, sender *acn.
 }
 
 func (j *Manager) handleDone(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.handleDone: r=%s", logger.RequestSummary(r))
+	}
 	var rep DoneReport
 	if err := json.Unmarshal(body, &rep); err != nil {
 		acn.WriteError(w, http.StatusBadRequest, "invalid report")
@@ -84,6 +92,9 @@ func (j *Manager) handleDone(w http.ResponseWriter, r *http.Request, sender *acn
 }
 
 func (j *Manager) handleSubmitNode(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.handleSubmitNode: r=%s", logger.RequestSummary(r))
+	}
 	var spec Spec
 	if err := json.Unmarshal(body, &spec); err != nil {
 		acn.WriteError(w, http.StatusBadRequest, "invalid job spec")
@@ -102,6 +113,7 @@ func (j *Manager) handleSubmitNode(w http.ResponseWriter, r *http.Request, sende
 */
 
 func sendJSON(w http.ResponseWriter, v interface{}) {
+	logger.Debug("cluster/jobs", "sendJSON")
 	js, _ := json.Marshal(v)
 	utils.SendJSONResponse(w, string(js))
 }
@@ -117,6 +129,7 @@ type CallerResolver func(w http.ResponseWriter, r *http.Request) (Caller, error)
 
 // HandleStatus lists jobs and counters for the caller.
 func (j *Manager) HandleStatus(resolve CallerResolver) func(http.ResponseWriter, *http.Request) {
+	logger.DebugTrace("cluster/jobs", "Manager.HandleStatus")
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := resolve(w, r)
 		if err != nil {
@@ -133,6 +146,7 @@ func (j *Manager) HandleStatus(resolve CallerResolver) func(http.ResponseWriter,
 
 // HandleGet returns one job: id=
 func (j *Manager) HandleGet(resolve CallerResolver) func(http.ResponseWriter, *http.Request) {
+	logger.DebugTrace("cluster/jobs", "Manager.HandleGet")
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := resolve(w, r)
 		if err != nil {
@@ -155,6 +169,7 @@ func (j *Manager) HandleGet(resolve CallerResolver) func(http.ResponseWriter, *h
 
 // HandleCancel cancels a job: id=
 func (j *Manager) HandleCancel(resolve CallerResolver) func(http.ResponseWriter, *http.Request) {
+	logger.DebugTrace("cluster/jobs", "Manager.HandleCancel")
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := resolve(w, r)
 		if err != nil {
@@ -203,6 +218,9 @@ type SubmitRequest struct {
 // SpecFrom builds a Spec from a submit request for the given owner. A
 // request carrying a dataset becomes a map/reduce job.
 func SpecFrom(req SubmitRequest, owner string) Spec {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "SpecFrom: owner=%.120q", owner)
+	}
 	spec := Spec{
 		Name:         req.Name,
 		Owner:        owner,
@@ -226,6 +244,9 @@ func SpecFrom(req SubmitRequest, owner string) Spec {
 }
 
 func firstNonEmpty(vals ...string) string {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "firstNonEmpty: len(vals)=%d", len(vals))
+	}
 	for _, v := range vals {
 		if v != "" {
 			return v
@@ -236,6 +257,9 @@ func firstNonEmpty(vals ...string) string {
 
 // WaitFor is the HTTP-friendly form of Wait.
 func (j *Manager) WaitFor(id string, seconds int) (Record, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "Manager.WaitFor: id=%.120q seconds=%d", id, seconds)
+	}
 	if seconds <= 0 {
 		seconds = 60
 	}
@@ -245,6 +269,7 @@ func (j *Manager) WaitFor(id string, seconds int) (Record, error) {
 // RegisterUserRoutes mounts the user-facing handlers. submit is supplied by
 // the core because it must read the script from the caller's file system.
 func (j *Manager) RegisterUserRoutes(register func(pattern string, handler func(http.ResponseWriter, *http.Request)), resolve CallerResolver, submit func(http.ResponseWriter, *http.Request)) {
+	logger.Debug("cluster/jobs", "Manager.RegisterUserRoutes")
 	register("/system/cluster/jobs/status", j.HandleStatus(resolve))
 	register("/system/cluster/jobs/get", j.HandleGet(resolve))
 	register("/system/cluster/jobs/cancel", j.HandleCancel(resolve))
@@ -253,6 +278,9 @@ func (j *Manager) RegisterUserRoutes(register func(pattern string, handler func(
 
 // parseIntDefault is a small helper for query parameters.
 func parseIntDefault(s string, def int) int {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/jobs", "parseIntDefault: s=%.120q def=%d", s, def)
+	}
 	if v, err := strconv.Atoi(s); err == nil {
 		return v
 	}
@@ -262,6 +290,7 @@ func parseIntDefault(s string, def int) int {
 // capabilityRequirements maps a submit request onto the scheduler's
 // requirement matcher.
 func capabilityRequirements(req SubmitRequest) capability.Requirements {
+	logger.DebugTrace("cluster/jobs", "capabilityRequirements")
 	return capability.Requirements{
 		Features: req.Features,
 		MinRAM:   req.MinRAM,

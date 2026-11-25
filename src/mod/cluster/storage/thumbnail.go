@@ -33,6 +33,7 @@ import (
 	"imuslab.com/arozos/mod/cluster/acn"
 	"imuslab.com/arozos/mod/cluster/metadata"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -66,6 +67,9 @@ type ThumbnailResponse struct {
 // Thumbnail returns the thumbnail of a namespace file, rendered by a node
 // holding a copy. feature names a tool the renderer needs ("" for none).
 func (s *Service) Thumbnail(ctx context.Context, logical string, feature string) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.Thumbnail: logical=%.120q feature=%.120q", logical, feature)
+	}
 	if !s.Ready() {
 		return nil, metadata.ErrNotInCluster
 	}
@@ -108,6 +112,9 @@ func (s *Service) Thumbnail(ctx context.Context, logical string, feature string)
 // first, then the other holders nearest first, leaving out the nodes that
 // lack the feature. One entry per node, as a node renders any of its copies.
 func (s *Service) thumbnailCandidates(locs []metadata.Location, feature string) []metadata.Location {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.thumbnailCandidates: len(locs)=%d feature=%.120q", len(locs), feature)
+	}
 	views := map[string]struct {
 		latency float64
 		capable bool
@@ -153,6 +160,9 @@ func (s *Service) thumbnailCandidates(locs []metadata.Location, feature string) 
 
 // renderLocalThumbnail renders the copy on one of this node's volumes.
 func (s *Service) renderLocalThumbnail(ctx context.Context, volumeID string, logical string) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.renderLocalThumbnail: volumeID=%.120q logical=%.120q", volumeID, logical)
+	}
 	if s.opt.Thumbnailer == nil {
 		return nil, ErrNoThumbnailer
 	}
@@ -190,6 +200,9 @@ func (s *Service) renderLocalThumbnail(ctx context.Context, volumeID string, log
 
 // remoteThumbnail asks the node holding loc to render the thumbnail.
 func (s *Service) remoteThumbnail(ctx context.Context, loc metadata.Location, logical string) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.remoteThumbnail: logical=%.120q", logical)
+	}
 	resp, err := s.client.Transport.DoJSON2(ctx, loc.NodeID, http.MethodPost, pathThumbnail,
 		ThumbnailRequest{VolumeID: loc.VolumeID, Path: logical})
 	if err != nil {
@@ -216,6 +229,9 @@ func (s *Service) remoteThumbnail(ctx context.Context, loc metadata.Location, lo
 
 // handleThumbnail renders a thumbnail of a copy on this node for another one.
 func (s *Service) handleThumbnail(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Service.handleThumbnail: r=%s", logger.RequestSummary(r))
+	}
 	var req ThumbnailRequest
 	if err := json.Unmarshal(body, &req); err != nil {
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")

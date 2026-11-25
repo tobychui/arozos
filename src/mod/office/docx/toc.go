@@ -23,6 +23,7 @@ import (
 
 	"golang.org/x/net/html"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/htmlutil"
 )
 
@@ -46,6 +47,7 @@ type tocField struct {
 // hyperlinks, without tab leaders or page numbers in Web view, keeping
 // outline levels (and no page numbers at all when the table shows none)
 func tocFieldBegin(f tocField) string {
+	logger.DebugTrace("office/docx", "tocFieldBegin")
 	instr := ` TOC \o "` + strconv.Itoa(f.from) + `-` + strconv.Itoa(f.to) + `" \h \z \u `
 	if f.noPages {
 		instr += `\n `
@@ -65,6 +67,7 @@ type tocCfg struct {
 // editor's data-toc-cfg, else data-toc-max (an imported field's range),
 // else Heading 1-3
 func tocFieldOf(c *html.Node) tocField {
+	logger.DebugTrace("office/docx", "tocFieldOf")
 	f := tocField{from: 1, to: 3}
 	max := 0
 	for n := c; isTocEntry(n); n = nextBlockSibling(n) {
@@ -103,16 +106,19 @@ func tocFieldOf(c *html.Node) tocField {
 
 // isTocPara reports a line of a table of contents (title or entry)
 func isTocPara(n *html.Node) bool {
+	logger.DebugTrace("office/docx", "isTocPara")
 	return n != nil && n.Type == html.ElementNode && n.Data == "p" && hasClass(n, "doc-toc")
 }
 
 // isTocEntry reports a line that lists a heading (not the title)
 func isTocEntry(n *html.Node) bool {
+	logger.DebugTrace("office/docx", "isTocEntry")
 	return isTocPara(n) && !hasClass(n, "doc-toc-title")
 }
 
 // tocStyleOf names the Word paragraph style of a table of contents line
 func tocStyleOf(n *html.Node) string {
+	logger.DebugTrace("office/docx", "tocStyleOf")
 	if hasClass(n, "doc-toc-title") {
 		return tocHeadingStyle
 	}
@@ -127,6 +133,7 @@ func tocStyleOf(n *html.Node) string {
 
 // nextBlockSibling is the element after n, past whitespace and comments
 func nextBlockSibling(n *html.Node) *html.Node {
+	logger.DebugTrace("office/docx", "nextBlockSibling")
 	for c := n.NextSibling; c != nil; c = c.NextSibling {
 		switch c.Type {
 		case html.TextNode:
@@ -150,6 +157,7 @@ type tocRun struct {
 // table's first line and hands the paragraph writer the field's begin
 // (first entry) and end (last entry)
 func (t *tocRun) before(c *html.Node, sb *strings.Builder, b *docxBuilder) {
+	logger.DebugTrace("office/docx", "tocRun.before")
 	if !isTocPara(c) {
 		return
 	}
@@ -172,6 +180,7 @@ func (t *tocRun) before(c *html.Node, sb *strings.Builder, b *docxBuilder) {
 
 // close ends the control after a table's last line
 func (t *tocRun) close(sb *strings.Builder) {
+	logger.DebugTrace("office/docx", "tocRun.close")
 	if !t.open {
 		return
 	}
@@ -196,6 +205,7 @@ const tocLevelUnknown = 99
 
 // tocFieldOpen reports a TOC field whose result is being read
 func (cv *docxConv) tocFieldOpen() bool {
+	logger.DebugTrace("office/docx", "docxConv.tocFieldOpen")
 	for _, f := range cv.fields {
 		if f.inResult && isTocInstr(f.instr) {
 			return true
@@ -206,6 +216,9 @@ func (cv *docxConv) tocFieldOpen() bool {
 
 // isTocInstr reports a TOC field instruction (upper-cased by the reader)
 func isTocInstr(instr string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "isTocInstr: instr=%.120q", instr)
+	}
 	w := strings.Fields(instr)
 	return len(w) > 0 && strings.EqualFold(w[0], "TOC")
 }
@@ -221,6 +234,9 @@ var (
 // names (\t "Heading 1,1,Heading 2,2,"); 3 when it says neither, as the
 // editor's own table does
 func tocInstrMaxLevel(instr string) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "tocInstrMaxLevel: instr=%.120q", instr)
+	}
 	max := 0
 	if m := tocOutlineSwitch.FindStringSubmatch(instr); m != nil {
 		if n, err := strconv.Atoi(m[2]); err == nil {
@@ -250,6 +266,9 @@ func tocInstrMaxLevel(instr string) int {
 // paragraph Word ends the field in: it has text, and a page number after
 // a tab or a link to its heading
 func looksLikeTocEntry(inner string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "looksLikeTocEntry: inner=%.120q", inner)
+	}
 	if strings.TrimSpace(stripTags(inner)) == "" {
 		return false
 	}
@@ -265,6 +284,7 @@ var (
 // resolveTocLevels gives each table of contents entry that has no level
 // the level of the heading its link points at
 func resolveTocLevels(body string) string {
+	logger.DebugTrace("office/docx", "resolveTocLevels")
 	if !strings.Contains(body, `class="doc-toc"`) {
 		return body
 	}
@@ -305,6 +325,9 @@ func resolveTocLevels(body string) string {
 // tocStyleLevel reports which table of contents line a paragraph style
 // is: 1-9 for "toc 1".."toc 9", -1 for "TOC Heading", 0 for none
 func tocStyleLevel(id, name string) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "tocStyleLevel: id=%.120q name=%.120q", id, name)
+	}
 	n := strings.ToLower(id)
 	if name != "" {
 		n = strings.ToLower(name)
@@ -323,6 +346,9 @@ func tocStyleLevel(id, name string) int {
 // nearest style first: "TOC Heading" is based on Heading 1 in Word, and
 // is a title, not a heading
 func (ss *docxStyleSheet) tocLevel(id string) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxStyleSheet.tocLevel: id=%.120q", id)
+	}
 	if id == "" {
 		return 0
 	}

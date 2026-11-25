@@ -26,28 +26,39 @@ import (
 
 // Response related
 func SendTextResponse(w http.ResponseWriter, msg string) {
+	logger.DebugTrace("utils", "SendTextResponse")
 	w.Write([]byte(msg))
 }
 
 // Send JSON response, with an extra json header
 func SendJSONResponse(w http.ResponseWriter, json string) {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "SendJSONResponse: json=%.120q", json)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(json))
 }
 
 func SendErrorResponse(w http.ResponseWriter, errMsg string) {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "SendErrorResponse: errMsg=%.120q", errMsg)
+	}
 	payload, _ := json.Marshal(map[string]string{"error": errMsg})
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(payload)
 }
 
 func SendOK(w http.ResponseWriter) {
+	logger.Debug("utils", "SendOK")
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("\"OK\""))
 }
 
 // Get GET parameter
 func GetPara(r *http.Request, key string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "GetPara: r=%s", logger.RequestSummary(r))
+	}
 	keys, ok := r.URL.Query()[key]
 	if !ok || len(keys[0]) < 1 {
 		return "", errors.New("invalid " + key + " given")
@@ -57,6 +68,9 @@ func GetPara(r *http.Request, key string) (string, error) {
 }
 
 func GetBool(r *http.Request, key string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "GetBool: r=%s", logger.RequestSummary(r))
+	}
 	x, err := GetPara(r, key)
 	if err != nil {
 		return false, err
@@ -75,6 +89,9 @@ func GetBool(r *http.Request, key string) (bool, error) {
 
 // Get GET paramter as int
 func GetInt(r *http.Request, key string) (int, error) {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "GetInt: r=%s", logger.RequestSummary(r))
+	}
 	x, err := GetPara(r, key)
 	if err != nil {
 		return 0, err
@@ -91,6 +108,9 @@ func GetInt(r *http.Request, key string) (int, error) {
 
 // Get POST paramter
 func PostPara(r *http.Request, key string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "PostPara: r=%s", logger.RequestSummary(r))
+	}
 	r.ParseForm()
 	x := r.Form.Get(key)
 	if x == "" {
@@ -101,6 +121,9 @@ func PostPara(r *http.Request, key string) (string, error) {
 }
 
 func PostBool(r *http.Request, key string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "PostBool: r=%s", logger.RequestSummary(r))
+	}
 	x, err := PostPara(r, key)
 	if err != nil {
 		return false, err
@@ -119,6 +142,9 @@ func PostBool(r *http.Request, key string) (bool, error) {
 
 // Get POST paramter as int
 func PostInt(r *http.Request, key string) (int, error) {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "PostInt: r=%s", logger.RequestSummary(r))
+	}
 	x, err := PostPara(r, key)
 	if err != nil {
 		return 0, err
@@ -134,6 +160,9 @@ func PostInt(r *http.Request, key string) (int, error) {
 }
 
 func FileExists(filename string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "FileExists: filename=%.120q", filename)
+	}
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false
@@ -142,6 +171,9 @@ func FileExists(filename string) bool {
 }
 
 func IsDir(path string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("utils", "IsDir: path=%.120q", path)
+	}
 	if FileExists(path) == false {
 		return false
 	}
@@ -161,10 +193,14 @@ func IsDir(path string) bool {
 }
 
 func TimeToString(targetTime time.Time) string {
+	logger.DebugTrace("utils", "TimeToString")
 	return targetTime.Format("2006-01-02 15:04:05")
 }
 
 func LoadImageAsBase64(filepath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "LoadImageAsBase64: filepath=%.120q", filepath)
+	}
 	if !FileExists(filepath) {
 		return "", errors.New("File not exists")
 	}
@@ -177,6 +213,9 @@ func LoadImageAsBase64(filepath string) (string, error) {
 
 // Use for redirections
 func ConstructRelativePathFromRequestURL(requestURI string, redirectionLocation string) string {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "ConstructRelativePathFromRequestURL: redirectionLocation=%.120q", redirectionLocation)
+	}
 	if strings.Count(requestURI, "/") == 1 {
 		//Already root level
 		return redirectionLocation
@@ -190,6 +229,9 @@ func ConstructRelativePathFromRequestURL(requestURI string, redirectionLocation 
 
 // Check if given string in a given slice
 func StringInArray(arr []string, str string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "StringInArray: len(arr)=%d str=%.120q", len(arr), str)
+	}
 	for _, a := range arr {
 		if a == str {
 			return true
@@ -199,6 +241,9 @@ func StringInArray(arr []string, str string) bool {
 }
 
 func StringInArrayIgnoreCase(arr []string, str string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "StringInArrayIgnoreCase: len(arr)=%d str=%.120q", len(arr), str)
+	}
 	smallArray := []string{}
 	for _, item := range arr {
 		smallArray = append(smallArray, strings.ToLower(item))
@@ -209,6 +254,9 @@ func StringInArrayIgnoreCase(arr []string, str string) bool {
 
 // Load template and replace keys within
 func Templateload(templateFile string, data map[string]string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "Templateload: templateFile=%.120q", templateFile)
+	}
 	content, err := os.ReadFile(templateFile)
 	if err != nil {
 		return "", err
@@ -224,6 +272,9 @@ func Templateload(templateFile string, data map[string]string) (string, error) {
 
 // Apply template from a pre-loaded string
 func TemplateApply(templateString string, data map[string]string) string {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "TemplateApply: templateString=%.120q", templateString)
+	}
 	content := []byte(templateString)
 	for key, value := range data {
 		key = "{{" + key + "}}"
@@ -240,6 +291,9 @@ func TemplateApply(templateString string, data map[string]string) string {
 // could escape the containing directory or that no supported file system
 // accepts are rejected here.
 func ValidateFilename(filename string) error {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "ValidateFilename: filename=%.120q", filename)
+	}
 	if filename == "" {
 		return errors.New("filename cannot be empty")
 	}
@@ -267,6 +321,9 @@ func ValidateFilename(filename string) error {
 // paths, dot segments, empty segments and segments that ValidateFilename
 // rejects, and returns the path with forward slashes.
 func ValidateRelativePath(relativePath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "ValidateRelativePath: relativePath=%.120q", relativePath)
+	}
 	//Browsers use forward slashes, but a crafted request may use backslashes.
 	relativePath = strings.ReplaceAll(relativePath, "\\", "/")
 	if relativePath == "" {

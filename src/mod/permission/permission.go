@@ -36,6 +36,7 @@ type PermissionHandler struct {
 }
 
 func NewPermissionHandler(database *db.Database) (*PermissionHandler, error) {
+	logger.Debug("permission", "NewPermissionHandler")
 	//Create the permission table if it is not exists
 	err := database.NewTable("permission")
 	if err != nil {
@@ -59,6 +60,9 @@ func NewPermissionHandler(database *db.Database) (*PermissionHandler, error) {
 }
 
 func (h *PermissionHandler) GroupExists(groupName string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionHandler.GroupExists: groupName=%.120q", groupName)
+	}
 	exists := false
 	for _, gp := range h.PermissionGroups {
 		if strings.ToLower(groupName) == strings.ToLower(gp.Name) {
@@ -69,6 +73,7 @@ func (h *PermissionHandler) GroupExists(groupName string) bool {
 }
 
 func (h *PermissionHandler) LoadPermissionGroupsFromDatabase() error {
+	logger.Debug("permission", "PermissionHandler.LoadPermissionGroupsFromDatabase")
 	entries, err := h.database.ListTable("permission")
 	if err != nil {
 		return err
@@ -123,6 +128,9 @@ func (h *PermissionHandler) LoadPermissionGroupsFromDatabase() error {
 
 // Get the user permission groups
 func (h *PermissionHandler) GetUsersPermissionGroup(username string) ([]*PermissionGroup, error) {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionHandler.GetUsersPermissionGroup: username=%.120q", username)
+	}
 	//Get user permission group name from database
 	targetUserGroup := []string{}
 	err := h.database.Read("auth", "group/"+username, &targetUserGroup)
@@ -146,6 +154,9 @@ func (h *PermissionHandler) GetUsersPermissionGroup(username string) ([]*Permiss
 }
 
 func (h *PermissionHandler) UpdatePermissionGroup(name string, isadmin bool, storageQuota int64, moduleNames []string, interfaceModule string) error {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionHandler.UpdatePermissionGroup: name=%.120q isadmin=%t storageQuota=%d len(moduleNames)=%d interfaceModule=%.120q", name, isadmin, storageQuota, len(moduleNames), interfaceModule)
+	}
 	if !h.GroupExists(name) {
 		return errors.New("Permission group not exists or not loaded")
 	}
@@ -180,6 +191,9 @@ func (h *PermissionHandler) UpdatePermissionGroup(name string, isadmin bool, sto
 
 // SetInterfaceModule changes only the interface module a group boots into
 func (h *PermissionHandler) SetInterfaceModule(name string, interfaceModule string) error {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionHandler.SetInterfaceModule: name=%.120q interfaceModule=%.120q", name, interfaceModule)
+	}
 	if strings.TrimSpace(interfaceModule) == "" {
 		return errors.New("Interface module cannot be empty")
 	}
@@ -196,6 +210,9 @@ func (h *PermissionHandler) SetInterfaceModule(name string, interfaceModule stri
 }
 
 func (h *PermissionHandler) NewPermissionGroup(name string, isadmin bool, storageQuota int64, moduleNames []string, interfaceModule string) *PermissionGroup {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionHandler.NewPermissionGroup: name=%.120q isadmin=%t storageQuota=%d len(moduleNames)=%d interfaceModule=%.120q", name, isadmin, storageQuota, len(moduleNames), interfaceModule)
+	}
 	//Create a new storage pool for this permission group
 	newPool, err := storage.NewStoragePool([]*fs.FileSystemHandler{}, name)
 	if err != nil {
@@ -232,6 +249,9 @@ func (h *PermissionHandler) NewPermissionGroup(name string, isadmin bool, storag
 }
 
 func (h *PermissionHandler) GetPermissionGroupByNameList(namelist []string) []*PermissionGroup {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionHandler.GetPermissionGroupByNameList: len(namelist)=%d", len(namelist))
+	}
 	results := []*PermissionGroup{}
 	for _, gp := range h.PermissionGroups {
 		if utils.StringInArray(namelist, gp.Name) {
@@ -244,6 +264,9 @@ func (h *PermissionHandler) GetPermissionGroupByNameList(namelist []string) []*P
 }
 
 func (h *PermissionHandler) GetPermissionGroupByName(name string) *PermissionGroup {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionHandler.GetPermissionGroupByName: name=%.120q", name)
+	}
 	for _, gp := range h.PermissionGroups {
 		if name == gp.Name {
 			return gp
@@ -255,6 +278,9 @@ func (h *PermissionHandler) GetPermissionGroupByName(name string) *PermissionGro
 // SetGroupCronJobPermission sets whether users in the given group can create cron jobs.
 // Admin groups always retain cron job permission regardless of this setting.
 func (h *PermissionHandler) SetGroupCronJobPermission(groupName string, allow bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionHandler.SetGroupCronJobPermission: groupName=%.120q allow=%t", groupName, allow)
+	}
 	if !h.GroupExists(groupName) {
 		return errors.New("permission group not exists")
 	}
@@ -279,6 +305,7 @@ func (h *PermissionHandler) SetGroupCronJobPermission(groupName string, allow bo
 
 // GetGroupCronJobPermissionList returns a map of groupName -> canCreateCronJob for all groups
 func (h *PermissionHandler) GetGroupCronJobPermissionList() map[string]bool {
+	logger.Debug("permission", "PermissionHandler.GetGroupCronJobPermissionList")
 	result := map[string]bool{}
 	for _, gp := range h.PermissionGroups {
 		if gp.IsAdmin {

@@ -1,5 +1,7 @@
 package icons
 
+import "imuslab.com/arozos/mod/info/logger"
+
 /*
 	options.go
 
@@ -63,6 +65,7 @@ type Options struct {
 
 // DefaultOptions returns the rendering options used by NewGenerator.
 func DefaultOptions() Options {
+	logger.DebugTrace("desktop/icons", "DefaultOptions")
 	return Options{
 		SquircleFactor: DefaultSquircleFactor,
 		IconSize:       DefaultIconSize,
@@ -77,6 +80,7 @@ func DefaultOptions() Options {
 // withDefaults fills in any unset field with its default so a caller can
 // override just the parameters it cares about.
 func (o Options) withDefaults() Options {
+	logger.Debug("desktop/icons", "Options.withDefaults")
 	defaults := DefaultOptions()
 	if o.SquircleFactor <= 0 {
 		o.SquircleFactor = defaults.SquircleFactor

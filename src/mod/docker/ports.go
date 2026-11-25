@@ -4,6 +4,8 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -27,6 +29,7 @@ type PublishedPort struct {
 
 // Target is the address this host reaches the published port on
 func (p PublishedPort) Target() string {
+	logger.Debug("docker", "PublishedPort.Target")
 	ip := p.HostIP
 	if ip == "" || ip == "0.0.0.0" || ip == "::" {
 		ip = "127.0.0.1"
@@ -36,6 +39,9 @@ func (p PublishedPort) Target() string {
 
 // parsePortRange parses "80" or "8000-8003"
 func parsePortRange(s string) (int, int, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "parsePortRange: s=%.120q", s)
+	}
 	lo, hi, isRange := strings.Cut(s, "-")
 	start, err := strconv.Atoi(lo)
 	if err != nil || start < 1 || start > 65535 {
@@ -54,6 +60,9 @@ func parsePortRange(s string) (int, int, bool) {
 // ParsePublishedPorts returns the tcp ports of a `docker ps` Ports value that
 // are published on the host, without the IPv4/IPv6 duplicates
 func ParsePublishedPorts(ports string) []PublishedPort {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "ParsePublishedPorts: ports=%.120q", ports)
+	}
 	results := []PublishedPort{}
 	seen := map[string]bool{}
 	for _, entry := range strings.Split(ports, ",") {

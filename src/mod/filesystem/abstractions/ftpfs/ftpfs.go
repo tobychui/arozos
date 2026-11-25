@@ -36,6 +36,9 @@ type FTPFSAbstraction struct {
 }
 
 func NewFTPFSAbstraction(uuid string, hierarchy string, hostname string, username string, password string) (FTPFSAbstraction, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "NewFTPFSAbstraction: uuid=%.120q hierarchy=%.120q hostname=%.120q username=%.120q", uuid, hierarchy, hostname, username)
+	}
 
 	//Create a ticker to prevent connection close
 	/*
@@ -64,6 +67,7 @@ func NewFTPFSAbstraction(uuid string, hierarchy string, hostname string, usernam
 }
 
 func (l FTPFSAbstraction) makeConn() (*ftp.ServerConn, error) {
+	logger.Debug("filesystem/abstractions/ftpfs", "FTPFSAbstraction.makeConn")
 	username := l.username
 	password := l.password
 
@@ -106,18 +110,33 @@ func (l FTPFSAbstraction) makeConn() (*ftp.ServerConn, error) {
 }
 
 func (l FTPFSAbstraction) Chmod(filename string, mode os.FileMode) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Chmod: filename=%.120q", filename)
+	}
 	return arozfs.ErrOperationNotSupported
 }
 func (l FTPFSAbstraction) Chown(filename string, uid int, gid int) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Chown: filename=%.120q uid=%d gid=%d", filename, uid, gid)
+	}
 	return arozfs.ErrOperationNotSupported
 }
 func (l FTPFSAbstraction) Chtimes(filename string, atime time.Time, mtime time.Time) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Chtimes: filename=%.120q", filename)
+	}
 	return arozfs.ErrOperationNotSupported
 }
 func (l FTPFSAbstraction) Create(filename string) (arozfs.File, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Create: filename=%.120q", filename)
+	}
 	return nil, arozfs.ErrOperationNotSupported
 }
 func (l FTPFSAbstraction) Mkdir(filename string, mode os.FileMode) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Mkdir: filename=%.120q", filename)
+	}
 	c, err := l.makeConn()
 	if err != nil {
 		return err
@@ -144,6 +163,9 @@ var errNotDir = errors.New("not a directory")
 // so each level is made in turn; a folder that is already there is fine, as
 // with os.MkdirAll.
 func (l FTPFSAbstraction) MkdirAll(filename string, mode os.FileMode) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.MkdirAll: filename=%.120q", filename)
+	}
 	filename = filterFilepath(filename)
 	c, err := l.makeConn()
 	if err != nil {
@@ -154,6 +176,9 @@ func (l FTPFSAbstraction) MkdirAll(filename string, mode os.FileMode) error {
 }
 
 func (l FTPFSAbstraction) mkdirAllWith(c *ftp.ServerConn, dir string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "FTPFSAbstraction.mkdirAllWith: dir=%.120q", dir)
+	}
 	if dir == "/" || dir == "." || dir == "" {
 		return nil
 	}
@@ -176,15 +201,25 @@ func (l FTPFSAbstraction) mkdirAllWith(c *ftp.ServerConn, dir string) error {
 	return nil
 }
 func (l FTPFSAbstraction) Name() string {
+	logger.DebugTrace("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Name")
 	return ""
 }
 func (l FTPFSAbstraction) Open(filename string) (arozfs.File, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Open: filename=%.120q", filename)
+	}
 	return nil, arozfs.ErrOperationNotSupported
 }
 func (l FTPFSAbstraction) OpenFile(filename string, flag int, perm os.FileMode) (arozfs.File, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "FTPFSAbstraction.OpenFile: filename=%.120q flag=%d", filename, flag)
+	}
 	return nil, arozfs.ErrOperationNotSupported
 }
 func (l FTPFSAbstraction) Remove(filename string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Remove: filename=%.120q", filename)
+	}
 	filename = filterFilepath(filename)
 	c, err := l.makeConn()
 	if err != nil {
@@ -200,10 +235,16 @@ func (l FTPFSAbstraction) Remove(filename string) error {
 	return nil
 }
 func (l FTPFSAbstraction) RemoveAll(path string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.RemoveAll: path=%.120q", path)
+	}
 	path = filterFilepath(path)
 	return l.Remove(path)
 }
 func (l FTPFSAbstraction) Rename(oldname, newname string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Rename: oldname=%.120q newname=%.120q", oldname, newname)
+	}
 	oldname = filterFilepath(oldname)
 	newname = filterFilepath(newname)
 	c, err := l.makeConn()
@@ -222,6 +263,9 @@ func (l FTPFSAbstraction) Rename(oldname, newname string) error {
 // Stat looks a file up with MLST, or in the listing of its folder when the
 // server has no MLST.
 func (l FTPFSAbstraction) Stat(filename string) (os.FileInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Stat: filename=%.120q", filename)
+	}
 	filename = filterFilepath(filename)
 	c, err := l.makeConn()
 	if err != nil {
@@ -232,6 +276,9 @@ func (l FTPFSAbstraction) Stat(filename string) (os.FileInfo, error) {
 }
 
 func (l FTPFSAbstraction) statWith(c *ftp.ServerConn, filename string) (os.FileInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.statWith: filename=%.120q", filename)
+	}
 	name := path.Base(filename)
 	entry, err := c.GetEntry(filename)
 	if err == nil {
@@ -261,6 +308,9 @@ func (l FTPFSAbstraction) statWith(c *ftp.ServerConn, filename string) (os.FileI
 // isUnavailable reports a 550. Servers answer it for a missing file, but
 // also for a refused permission and most other failures.
 func isUnavailable(err error) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "isUnavailable: err=%v", err)
+	}
 	var te *textproto.Error
 	return errors.As(err, &te) && te.Code == ftp.StatusFileUnavailable
 }
@@ -268,17 +318,26 @@ func isUnavailable(err error) bool {
 // answered reports an error the server replied with, as opposed to a lost
 // connection, which says nothing about the path.
 func answered(err error) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "answered: err=%v", err)
+	}
 	var te *textproto.Error
 	return errors.As(err, &te)
 }
 
 func notExist(op, filename string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "notExist: op=%.120q filename=%.120q", op, filename)
+	}
 	return &fs.PathError{Op: op, Path: filename, Err: fs.ErrNotExist}
 }
 
 // missing reports whether a path is confirmed absent: its folder lists
 // without it, or the folder is missing itself.
 func (l FTPFSAbstraction) missing(c *ftp.ServerConn, filename string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "FTPFSAbstraction.missing: filename=%.120q", filename)
+	}
 	filename = path.Clean(filename)
 	if filename == "/" || filename == "." {
 		return false
@@ -304,12 +363,16 @@ func (l FTPFSAbstraction) missing(c *ftp.ServerConn, filename string) bool {
 // refusal for a path that is there, such as a denied delete, stays as it was:
 // taken for absence, it would make a failed delete look done.
 func (l FTPFSAbstraction) classify(c *ftp.ServerConn, op, filename string, err error) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.classify: op=%.120q filename=%.120q err=%v", op, filename, err)
+	}
 	if answered(err) && l.missing(c, filename) {
 		return notExist(op, filename)
 	}
 	return err
 }
 func (l FTPFSAbstraction) Close() error {
+	logger.Debug("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Close")
 	time.Sleep(500 * time.Millisecond)
 	return nil
 }
@@ -319,28 +382,46 @@ func (l FTPFSAbstraction) Close() error {
 */
 
 func (l FTPFSAbstraction) VirtualPathToRealPath(subpath string, username string) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "FTPFSAbstraction.VirtualPathToRealPath: subpath=%.120q username=%.120q", subpath, username)
+	}
 	return arozfs.GenericVirtualPathToRealPathTranslator(l.uuid, l.hierarchy, subpath, username)
 }
 
 func (l FTPFSAbstraction) RealPathToVirtualPath(fullpath string, username string) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "FTPFSAbstraction.RealPathToVirtualPath: fullpath=%.120q username=%.120q", fullpath, username)
+	}
 	return arozfs.GenericRealPathToVirtualPathTranslator(l.uuid, l.hierarchy, fullpath, username)
 }
 
 func (l FTPFSAbstraction) FileExists(realpath string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.FileExists: realpath=%.120q", realpath)
+	}
 	_, err := l.Stat(realpath)
 	return err == nil
 }
 
 func (l FTPFSAbstraction) IsDir(realpath string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "FTPFSAbstraction.IsDir: realpath=%.120q", realpath)
+	}
 	info, err := l.Stat(realpath)
 	return err == nil && info.IsDir()
 }
 
 func (l FTPFSAbstraction) Glob(realpathWildcard string) ([]string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Glob: realpathWildcard=%.120q", realpathWildcard)
+	}
 	return []string{}, arozfs.ErrOperationNotSupported
 }
 
 func (l FTPFSAbstraction) GetFileSize(realpath string) int64 {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.GetFileSize: realpath=%.120q", realpath)
+	}
 	info, err := l.Stat(realpath)
 	if err != nil {
 		return 0
@@ -349,6 +430,9 @@ func (l FTPFSAbstraction) GetFileSize(realpath string) int64 {
 }
 
 func (l FTPFSAbstraction) GetModTime(realpath string) (int64, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.GetModTime: realpath=%.120q", realpath)
+	}
 	info, err := l.Stat(realpath)
 	if err != nil {
 		return 0, err
@@ -357,6 +441,9 @@ func (l FTPFSAbstraction) GetModTime(realpath string) (int64, error) {
 }
 
 func (l FTPFSAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.WriteFile: filename=%.120q", filename)
+	}
 	filename = filterFilepath(filename)
 	c, err := l.makeConn()
 	if err != nil {
@@ -368,6 +455,9 @@ func (l FTPFSAbstraction) WriteFile(filename string, content []byte, mode os.Fil
 }
 
 func (l FTPFSAbstraction) ReadFile(filename string) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.ReadFile: filename=%.120q", filename)
+	}
 	filename = filterFilepath(filename)
 	c, err := l.makeConn()
 	if err != nil {
@@ -384,6 +474,9 @@ func (l FTPFSAbstraction) ReadFile(filename string) ([]byte, error) {
 	return io.ReadAll(r)
 }
 func (l FTPFSAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.ReadDir: filename=%.120q", filename)
+	}
 	results := []fs.DirEntry{}
 	filename = filterFilepath(filename)
 	c, err := l.makeConn()
@@ -405,6 +498,9 @@ func (l FTPFSAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
 	return results, nil
 }
 func (l FTPFSAbstraction) WriteStream(filename string, stream io.Reader, mode os.FileMode) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.WriteStream: filename=%.120q", filename)
+	}
 	filename = filterFilepath(filename)
 	c, err := l.makeConn()
 	if err != nil {
@@ -414,6 +510,9 @@ func (l FTPFSAbstraction) WriteStream(filename string, stream io.Reader, mode os
 	return c.Stor(filename, stream)
 }
 func (l FTPFSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.ReadStream: filename=%.120q", filename)
+	}
 	filename = filterFilepath(filename)
 	c, err := l.makeConn()
 	if err != nil {
@@ -449,15 +548,24 @@ type retrStream struct {
 	conn *ftp.ServerConn
 }
 
-func (r *retrStream) Read(p []byte) (int, error) { return r.resp.Read(p) }
+func (r *retrStream) Read(p []byte) (int, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "retrStream.Read: len(p)=%d", len(p))
+	}
+	return r.resp.Read(p)
+}
 
 func (r *retrStream) Close() error {
+	logger.Debug("filesystem/abstractions/ftpfs", "retrStream.Close")
 	err := r.resp.Close()
 	r.conn.Quit()
 	return err
 }
 
 func (l FTPFSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Walk: root=%.120q", root)
+	}
 	root = filterFilepath(root)
 	logger.PrintAndLog("Ftpfs", "[FTP FS] Walking a root on FTP is extremely slow. Please consider rewritting this function. Scanning: "+root, nil)
 	c, err := l.makeConn()
@@ -475,11 +583,13 @@ func (l FTPFSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
 }
 
 func (l FTPFSAbstraction) Heartbeat() error {
+	logger.DebugTrace("filesystem/abstractions/ftpfs", "FTPFSAbstraction.Heartbeat")
 	return nil
 }
 
 // Utilities
 func filterFilepath(rawpath string) string {
+	logger.Debug("filesystem/abstractions/ftpfs", "filterFilepath")
 	rawpath = arozfs.ToSlash(filepath.Clean(strings.TrimSpace(rawpath)))
 	if strings.HasPrefix(rawpath, "./") {
 		return rawpath[1:]
@@ -490,6 +600,9 @@ func filterFilepath(rawpath string) string {
 }
 
 func (l FTPFSAbstraction) walk(thisPath string, walkFun filepath.WalkFunc) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/abstractions/ftpfs", "FTPFSAbstraction.walk: thisPath=%.120q", thisPath)
+	}
 	files, err := l.ReadDir(thisPath)
 	if err != nil {
 		return err

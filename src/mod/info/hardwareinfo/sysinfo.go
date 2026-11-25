@@ -17,6 +17,9 @@ import (
 )
 
 func Ifconfig(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "Ifconfig: r=%s", logger.RequestSummary(r))
+	}
 	cmdin := `ip link show`
 	cmd := exec.Command("bash", "-c", cmdin)
 	networkInterfaces, err := cmd.CombinedOutput()
@@ -41,6 +44,9 @@ func Ifconfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetDriveStat(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "GetDriveStat: r=%s", logger.RequestSummary(r))
+	}
 	//Get drive status using df command
 	cmdin := `df -k | sed -e /Filesystem/d`
 	cmd := exec.Command("bash", "-c", cmdin)
@@ -86,6 +92,9 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetUSB(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "GetUSB: r=%s", logger.RequestSummary(r))
+	}
 	cmdin := `lsusb`
 	cmd := exec.Command("bash", "-c", cmdin)
 	usbd, err := cmd.CombinedOutput()
@@ -109,6 +118,9 @@ func GetUSB(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "GetCPUInfo: r=%s", logger.RequestSummary(r))
+	}
 	cmdin := `cat /proc/cpuinfo | grep -m1 "[mM]odel [nN]ame"`
 	cmd := exec.Command("bash", "-c", cmdin)
 	hardware, err := cmd.CombinedOutput()
@@ -189,6 +201,9 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetRamInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "GetRamInfo: r=%s", logger.RequestSummary(r))
+	}
 	cmd := exec.Command("grep", "MemTotal", "/proc/meminfo")
 	out, _ := cmd.CombinedOutput()
 	strOut := string(out)

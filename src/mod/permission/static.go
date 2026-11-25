@@ -1,7 +1,12 @@
 package permission
 
+import "imuslab.com/arozos/mod/info/logger"
+
 // Get the largest storage quota from all the given groups. Return int64
 func GetLargestStorageQuotaFromGroups(groups []*PermissionGroup) int64 {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "GetLargestStorageQuotaFromGroups: len(groups)=%d", len(groups))
+	}
 	maxQuota := int64(0)
 	for _, group := range groups {
 		if group.DefaultStorageQuota > maxQuota {

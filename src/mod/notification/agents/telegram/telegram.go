@@ -45,6 +45,9 @@ type Agent struct {
 // config file. The config file only holds the bot token; per-user chat ids are
 // resolved via the provided chatIDResolver.
 func NewTelegramNotificationAgent(configFile string, chatIDResolver func(string) (string, error)) (*Agent, error) {
+	if logger.IsDebug() {
+		logger.Debugf("notification/agents/telegram", "NewTelegramNotificationAgent: configFile=%.120q", configFile)
+	}
 	content, err := os.ReadFile(configFile)
 	if err != nil {
 		return nil, errors.New("Unable to load config from file: " + err.Error())
@@ -67,6 +70,9 @@ func NewTelegramNotificationAgent(configFile string, chatIDResolver func(string)
 // GenerateEmptyConfigFile writes an empty Telegram config file (no bot token)
 // to the given path so the admin can fill it in later.
 func GenerateEmptyConfigFile(configFilepath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("notification/agents/telegram", "GenerateEmptyConfigFile: configFilepath=%.120q", configFilepath)
+	}
 	js, err := json.MarshalIndent(config{}, "", " ")
 	if err != nil {
 		return err
@@ -75,30 +81,36 @@ func GenerateEmptyConfigFile(configFilepath string) error {
 }
 
 func (a *Agent) Name() string {
+	logger.DebugTrace("notification/agents/telegram", "Agent.Name")
 	return "telegram"
 }
 
 func (a *Agent) Desc() string {
+	logger.DebugTrace("notification/agents/telegram", "Agent.Desc")
 	return "Notify user through a Telegram bot"
 }
 
 func (a *Agent) IsConsumer() bool {
+	logger.DebugTrace("notification/agents/telegram", "Agent.IsConsumer")
 	return true
 }
 
 func (a *Agent) IsProducer() bool {
+	logger.DebugTrace("notification/agents/telegram", "Agent.IsProducer")
 	return false
 }
 
 // IsConfigured reports whether the agent has a bot token set. When it is not
 // configured, delivery is skipped instead of erroring per user.
 func (a *Agent) IsConfigured() bool {
+	logger.DebugTrace("notification/agents/telegram", "Agent.IsConfigured")
 	return strings.TrimSpace(a.BotToken) != ""
 }
 
 // FormatMessage renders the notification into the plain text body sent to
 // Telegram, prefixing the priority so users can triage at a glance.
 func FormatMessage(payload *notification.NotificationPayload) string {
+	logger.Debug("notification/agents/telegram", "FormatMessage")
 	priorityTag := strings.ToUpper(notification.PriorityToString(notification.NormalizePriority(payload.Priority)))
 	sender := payload.Sender
 	if sender == "" {
@@ -108,6 +120,7 @@ func FormatMessage(payload *notification.NotificationPayload) string {
 }
 
 func (a *Agent) ConsumerNotification(incomingNotification *notification.NotificationPayload) error {
+	logger.Debug("notification/agents/telegram", "Agent.ConsumerNotification")
 	if !a.IsConfigured() {
 		return errors.New("Telegram agent is not configured (missing bot token)")
 	}
@@ -138,6 +151,9 @@ func (a *Agent) ConsumerNotification(incomingNotification *notification.Notifica
 // sendMessage delivers a single text message to the given chat id via the
 // Telegram Bot API sendMessage method.
 func (a *Agent) sendMessage(chatID string, message string) error {
+	if logger.IsDebug() {
+		logger.Debugf("notification/agents/telegram", "Agent.sendMessage: chatID=%.120q", chatID)
+	}
 	endpoint := a.Endpoint
 	if endpoint == "" {
 		endpoint = DefaultAPIEndpoint
@@ -165,5 +181,6 @@ func (a *Agent) sendMessage(chatID string, message string) error {
 }
 
 func (a *Agent) ProduceNotification(producerListeningEndpoint *notification.AgentProducerFunction) {
+	logger.DebugTrace("notification/agents/telegram", "Agent.ProduceNotification")
 	return
 }

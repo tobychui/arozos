@@ -18,6 +18,8 @@ import (
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const maxUnifiedWindow = 400
@@ -34,6 +36,9 @@ const (
 // UnifiedList merges one view across accounts. accountIDs limits the
 // accounts (empty means all).
 func (m *Manager) UnifiedList(ctx context.Context, p Principal, view string, accountIDs []string, query ListQuery) (*MessageList, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.UnifiedList: view=%.120q len(accountIDs)=%d", view, len(accountIDs))
+	}
 	query.normalise()
 	accounts, err := m.store.listAccounts(p.Username)
 	if err != nil {
@@ -164,6 +169,9 @@ func (m *Manager) UnifiedList(ctx context.Context, p Principal, view string, acc
 // previewsForMixed fills previews of a page that spans several accounts and
 // folders, grouping fetches per account and folder.
 func (m *Manager) previewsForMixed(ctx context.Context, p Principal, accounts []*Account, messages []MessageSummary) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.previewsForMixed: len(accounts)=%d len(messages)=%d", len(accounts), len(messages))
+	}
 	byAccount := map[string]*Account{}
 	for _, account := range accounts {
 		byAccount[account.ID] = account
@@ -245,6 +253,7 @@ type InboxStatus struct {
 // CheckInboxes runs STATUS on every account's INBOX. The browser compares
 // UIDNext with the previous poll to find newly arrived mail.
 func (m *Manager) CheckInboxes(ctx context.Context, p Principal) ([]InboxStatus, error) {
+	logger.Debug("email", "Manager.CheckInboxes")
 	accounts, err := m.store.listAccounts(p.Username)
 	if err != nil {
 		return nil, err
@@ -292,6 +301,9 @@ func (m *Manager) CheckInboxes(ctx context.Context, p Principal) ([]InboxStatus,
 // NewSince lists INBOX messages with a UID at or above since, used to word
 // new-mail notifications.
 func (m *Manager) NewSince(ctx context.Context, p Principal, accountID string, since uint32, limit int) ([]MessageSummary, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.NewSince: accountID=%.120q since=%d limit=%d", accountID, since, limit)
+	}
 	account, err := m.account(p, accountID)
 	if err != nil {
 		return nil, err

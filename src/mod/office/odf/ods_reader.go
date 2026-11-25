@@ -14,11 +14,13 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/model"
 )
 
 // ParseOds converts raw .ods bytes into a Workbook
 func ParseOds(data []byte) (*model.Workbook, error) {
+	logger.Debug("office/odf", "ParseOds")
 	files, mime, err := readOdfZip(data)
 	if err != nil {
 		return nil, err
@@ -240,6 +242,9 @@ func ParseOds(data []byte) (*model.Workbook, error) {
 }
 
 func repeatOf(s string, max int) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "repeatOf: s=%.120q max=%d", s, max)
+	}
 	n := atoiSafe(s)
 	if n < 1 {
 		return 1
@@ -252,6 +257,7 @@ func repeatOf(s string, max int) int {
 
 // content = a value, a formula, a span (merge anchor) or an annotation
 func odsRowHasContent(row *onode) bool {
+	logger.DebugTrace("office/odf", "odsRowHasContent")
 	for _, c := range row.children {
 		if c.el == nil || c.el.name != "table-cell" {
 			continue
@@ -268,6 +274,9 @@ func odsRowHasContent(row *onode) bool {
 
 // odsCellOf converts one table:table-cell to a WorkCell (nil when empty)
 func odsCellOf(cn *onode, styles map[string]*model.CellStyle) *model.WorkCell {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "odsCellOf: len(styles)=%d", len(styles))
+	}
 	v := ""
 	if f := cn.attr("formula"); f != "" {
 		v = formulaFromOdf(f)

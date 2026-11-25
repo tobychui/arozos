@@ -17,6 +17,8 @@ package access
 import (
 	"errors"
 	"sort"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // The levels a drive can be used at, from low to high. These are the values of
@@ -80,6 +82,9 @@ type Decision struct {
 
 // IsFixed reports whether a drive is open to every user, with no rule
 func IsFixed(uuid string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/access", "IsFixed: uuid=%.120q", uuid)
+	}
 	return uuid == UserDriveID || uuid == TmpDriveID
 }
 
@@ -87,12 +92,18 @@ func IsFixed(uuid string) bool {
 // configured by an admin. Built-in drives have no config row and cannot be
 // edited, stopped or removed.
 func IsBuiltin(uuid string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/access", "IsBuiltin: uuid=%.120q", uuid)
+	}
 	return IsFixed(uuid) || uuid == ShareDriveID || uuid == ClusterDriveID
 }
 
 // DefaultRule is the rule of a drive nobody changed: what the system pool
 // and the group pools gave their users before access lists existed.
 func DefaultRule(uuid string, homeGroup string) Rule {
+	if logger.IsDebug() {
+		logger.Debugf("storage/access", "DefaultRule: uuid=%.120q homeGroup=%.120q", uuid, homeGroup)
+	}
 	switch {
 	case uuid == ShareDriveID:
 		return Rule{Other: Read}
@@ -105,12 +116,18 @@ func DefaultRule(uuid string, homeGroup string) Rule {
 
 // IsLevel reports whether a value is a level a rule may hold
 func IsLevel(level string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/access", "IsLevel: level=%.120q", level)
+	}
 	return level == None || level == Read || level == ReadWrite
 }
 
 // rank orders the levels. Anything that is not a level ranks as None, so a
 // damaged rule can only take access away.
 func rank(level string) int {
+	if logger.IsDebug() {
+		logger.Debugf("storage/access", "rank: level=%.120q", level)
+	}
 	switch level {
 	case ReadWrite:
 		return 2
@@ -123,6 +140,9 @@ func rank(level string) int {
 
 // Higher returns the higher of two levels
 func Higher(a string, b string) string {
+	if logger.IsDebug() {
+		logger.Debugf("storage/access", "Higher: a=%.120q b=%.120q", a, b)
+	}
 	if rank(b) > rank(a) {
 		return b
 	}
@@ -131,6 +151,7 @@ func Higher(a string, b string) string {
 
 // Validate reports whether a rule can be saved
 func (r Rule) Validate() error {
+	logger.Debug("storage/access", "Rule.Validate")
 	if !IsLevel(r.Other) {
 		return errors.New("invalid default access level: " + r.Other)
 	}
@@ -147,6 +168,7 @@ func (r Rule) Validate() error {
 
 // Clone returns a copy that shares nothing with r
 func (r Rule) Clone() Rule {
+	logger.Debug("storage/access", "Rule.Clone")
 	clone := Rule{Other: r.Other}
 	if len(r.Groups) > 0 {
 		clone.Groups = make(map[string]string, len(r.Groups))
@@ -168,6 +190,7 @@ func (r Rule) Clone() Rule {
 //
 // The result is then capped at Read on a read only drive.
 func Explain(drive Drive, subject Subject, rule Rule) Decision {
+	logger.Debug("storage/access", "Explain")
 	decision := decide(drive, subject, rule)
 	decision.Level = normalize(decision.Level)
 	if drive.ReadOnly && rank(decision.Level) > rank(Read) {
@@ -178,6 +201,7 @@ func Explain(drive Drive, subject Subject, rule Rule) Decision {
 }
 
 func decide(drive Drive, subject Subject, rule Rule) Decision {
+	logger.Debug("storage/access", "decide")
 	if IsFixed(drive.UUID) {
 		return Decision{Level: ReadWrite, Reason: ReasonFixed}
 	}
@@ -217,6 +241,9 @@ func decide(drive Drive, subject Subject, rule Rule) Decision {
 
 // normalize turns anything that is not a level into None
 func normalize(level string) string {
+	if logger.IsDebug() {
+		logger.Debugf("storage/access", "normalize: level=%.120q", level)
+	}
 	if IsLevel(level) {
 		return level
 	}
@@ -225,5 +252,6 @@ func normalize(level string) string {
 
 // Level returns a user's level on a drive, see Explain
 func Level(drive Drive, subject Subject, rule Rule) string {
+	logger.DebugTrace("storage/access", "Level")
 	return Explain(drive, subject, rule).Level
 }

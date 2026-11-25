@@ -12,10 +12,14 @@ import (
 	"github.com/nfnt/resize"
 	"github.com/oliamb/cutter"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Generate thumbnail for RAW image files by extracting embedded JPEG
 func generateThumbnailForRAW(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "generateThumbnailForRAW: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
+	}
 	fshAbs := fsh.FileSystemAbstraction
 
 	// Check file size - skip files larger than 100MB to prevent memory issues
@@ -128,6 +132,7 @@ func generateThumbnailForRAW(fsh *filesystem.FileSystemHandler, cacheFolder stri
 // Most RAW files (ARW, CR2, DNG, NEF, etc.) are TIFF-based and contain embedded JPEG previews
 // This follows the approach used by dcraw.c for thumbnail extraction
 func extractLargestJPEG(data []byte) ([]byte, error) {
+	logger.Debug("filesystem/metadata", "extractLargestJPEG")
 	// JPEG markers
 	jpegSOI := []byte{0xFF, 0xD8} // Start of Image (SOI)
 	jpegEOI := []byte{0xFF, 0xD9} // End of Image (EOI)
@@ -213,6 +218,7 @@ func extractLargestJPEG(data []byte) ([]byte, error) {
 // This handles DNG files where the main image is JPEG-compressed within TIFF structure
 // Based on dcraw.c approach for parsing TIFF IFDs
 func extractJPEGFromTIFF(data []byte) ([]byte, error) {
+	logger.Debug("filesystem/metadata", "extractJPEGFromTIFF")
 	if len(data) < 8 {
 		return nil, errors.New("file too small to be valid TIFF")
 	}
@@ -262,6 +268,9 @@ func extractJPEGFromTIFF(data []byte) ([]byte, error) {
 
 // Extract uncompressed thumbnail from TIFF (fallback for DNG with compression=1)
 func extractUncompressedThumbnail(data []byte, order binary.ByteOrder, ifdOffset uint64) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "extractUncompressedThumbnail: ifdOffset=%d", ifdOffset)
+	}
 	if ifdOffset >= uint64(len(data))-2 {
 		return nil, errors.New("IFD offset out of bounds")
 	}
@@ -350,6 +359,9 @@ func extractUncompressedThumbnail(data []byte, order binary.ByteOrder, ifdOffset
 // Parse TIFF IFD chain recursively to find all JPEG data
 // DNG files have multiple IFDs linked together and SubIFDs
 func parseTIFFIFDChain(data []byte, order binary.ByteOrder, ifdOffset uint64, candidates *[][]byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata", "parseTIFFIFDChain: ifdOffset=%d", ifdOffset)
+	}
 	if ifdOffset == 0 || ifdOffset >= uint64(len(data))-2 {
 		return
 	}
@@ -470,6 +482,9 @@ func parseTIFFIFDChain(data []byte, order binary.ByteOrder, ifdOffset uint64, ca
 
 // Read a single IFD value
 func readIFDValue(data []byte, order binary.ByteOrder, fieldType uint16, offset uint64) uint32 {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "readIFDValue: fieldType=%d offset=%d", fieldType, offset)
+	}
 	if offset+4 > uint64(len(data)) {
 		return 0
 	}
@@ -486,6 +501,9 @@ func readIFDValue(data []byte, order binary.ByteOrder, fieldType uint16, offset 
 
 // Read an array of IFD values
 func readIFDArray(data []byte, order binary.ByteOrder, fieldType uint16, count uint32, valueOffset uint64) []uint64 {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "readIFDArray: fieldType=%d count=%d valueOffset=%d", fieldType, count, valueOffset)
+	}
 	var result []uint64
 
 	// If count * size <= 4, values are stored inline
@@ -526,6 +544,9 @@ func readIFDArray(data []byte, order binary.ByteOrder, fieldType uint16, count u
 // Get size in bytes for TIFF field type
 // Based on TIFF spec and dcraw.c logic
 func getSizeForType(fieldType uint16) uint32 {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "getSizeForType: fieldType=%d", fieldType)
+	}
 	// Type sizes: BYTE=1, ASCII=1, SHORT=2, LONG=4, RATIONAL=8, etc.
 	// dcraw uses: "11124811248484"[type]-'0'
 	typeSizes := []uint32{0, 1, 1, 2, 4, 8, 1, 1, 2, 4, 8, 4, 8, 4}
@@ -539,6 +560,9 @@ func getSizeForType(fieldType uint16) uint32 {
 // Works on all filesystem types, including buffered ones (S3, FTP, WebDAV),
 // because it only uses ReadFile / GetFileSize and never opens a file handle.
 func RenderRAWImage(fsh *filesystem.FileSystemHandler, file string) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "RenderRAWImage: file=%.120q", file)
+	}
 	fshAbs := fsh.FileSystemAbstraction
 
 	// Check file size - skip files larger than 100MB to prevent memory issues

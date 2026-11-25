@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -27,6 +28,9 @@ type Manager struct {
 // NewManager creates a preference manager storing values in the given database
 // table. The table is created if it does not exist yet.
 func NewManager(db *database.Database, tableName string) (*Manager, error) {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/prefs", "NewManager: tableName=%.120q", tableName)
+	}
 	if db == nil {
 		return nil, errors.New("no database given")
 	}
@@ -42,6 +46,9 @@ func NewManager(db *database.Database, tableName string) (*Manager, error) {
 // GetPreference returns a stored preference value, or an empty string when the
 // user has never set it.
 func (m *Manager) GetPreference(username string, preferenceType string) string {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/prefs", "Manager.GetPreference: username=%.120q preferenceType=%.120q", username, preferenceType)
+	}
 	storedValue := ""
 	m.db.Read(m.table, m.preferenceKey(username, preferenceType), &storedValue)
 	return storedValue
@@ -49,17 +56,26 @@ func (m *Manager) GetPreference(username string, preferenceType string) string {
 
 // SetPreference stores a preference value for a user
 func (m *Manager) SetPreference(username string, preferenceType string, value string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("desktop/prefs", "Manager.SetPreference: username=%.120q preferenceType=%.120q value=%.120q", username, preferenceType, value)
+	}
 	return m.db.Write(m.table, m.preferenceKey(username, preferenceType), value)
 }
 
 // RemovePreference forgets a stored preference, reverting the user to default
 func (m *Manager) RemovePreference(username string, preferenceType string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("desktop/prefs", "Manager.RemovePreference: username=%.120q preferenceType=%.120q", username, preferenceType)
+	}
 	return m.db.Delete(m.table, m.preferenceKey(username, preferenceType))
 }
 
 // GetTheme returns the wallpaper theme picked by a user, falling back to
 // DefaultTheme when none has been set.
 func (m *Manager) GetTheme(username string) string {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/prefs", "Manager.GetTheme: username=%.120q", username)
+	}
 	selectedTheme := ""
 	m.db.Read(m.table, m.themeKey(username), &selectedTheme)
 	if selectedTheme == "" {
@@ -70,15 +86,24 @@ func (m *Manager) GetTheme(username string) string {
 
 // SetTheme stores the wallpaper theme picked by a user
 func (m *Manager) SetTheme(username string, theme string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("desktop/prefs", "Manager.SetTheme: username=%.120q theme=%.120q", username, theme)
+	}
 	return m.db.Write(m.table, m.themeKey(username), theme)
 }
 
 // preferenceKey builds the database key holding one user's preference value
 func (m *Manager) preferenceKey(username string, preferenceType string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("desktop/prefs", "Manager.preferenceKey: username=%.120q preferenceType=%.120q", username, preferenceType)
+	}
 	return username + "/preference/" + preferenceType
 }
 
 // themeKey builds the database key holding one user's wallpaper theme
 func (m *Manager) themeKey(username string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("desktop/prefs", "Manager.themeKey: username=%.120q", username)
+	}
 	return username + "/theme"
 }

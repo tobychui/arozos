@@ -4,11 +4,14 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // FileETag identifies one version of a file. Last-Modified alone only resolves
 // to a second, which is not enough to tell two quick saves of a file apart.
 func FileETag(info os.FileInfo) string {
+	logger.DebugTrace("utils", "FileETag")
 	return `"` + strconv.FormatInt(info.ModTime().UnixNano(), 16) + "-" + strconv.FormatInt(info.Size(), 16) + `"`
 }
 
@@ -24,6 +27,7 @@ func FileETag(info os.FileInfo) string {
 // info may be nil when the file cannot be stat cheaply: the check is then still
 // forced, but there is no ETag to compare.
 func SetRevalidationHeaders(w http.ResponseWriter, info os.FileInfo) {
+	logger.Debug("utils", "SetRevalidationHeaders")
 	w.Header().Set("Cache-Control", "private, no-cache")
 	if info != nil && !info.ModTime().IsZero() {
 		w.Header().Set("ETag", FileETag(info))

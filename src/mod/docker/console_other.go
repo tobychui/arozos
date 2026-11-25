@@ -13,9 +13,13 @@ package docker
 	wifi_windows.go uses for unsupported operations.
 */
 
+import "imuslab.com/arozos/mod/info/logger"
 import "errors"
 
 // startDockerExecPTY is unsupported on this host platform.
 func startDockerExecPTY(ref, shell string) (ptySession, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("docker", "startDockerExecPTY: ref=%.120q shell=%.120q", ref, shell)
+	}
 	return nil, errors.New("interactive container console is not supported when ArozOS runs on this host platform")
 }

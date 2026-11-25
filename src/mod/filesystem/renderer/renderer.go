@@ -42,12 +42,16 @@ type Renderer struct {
 }
 
 func NewRenderer(option RenderOption) *Renderer {
+	logger.DebugTrace("filesystem/renderer", "NewRenderer")
 	return &Renderer{
 		Option: option,
 	}
 }
 
 func (r *Renderer) RenderModel(filename string) (image.Image, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/renderer", "Renderer.RenderModel: filename=%.120q", filename)
+	}
 	// load a mesh
 	var mesh *Mesh
 	if strings.ToLower(filepath.Ext(filename)) == ".stl" {
@@ -97,6 +101,9 @@ func (r *Renderer) RenderModel(filename string) (image.Image, error) {
 }
 
 func fileExists(filename string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/renderer", "fileExists: filename=%.120q", filename)
+	}
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false

@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/afero"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
 )
 
@@ -27,6 +28,9 @@ type aofs struct {
 }
 
 func (a aofs) Create(name string) (afero.File, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.Create: name=%.120q", name)
+	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return nil, err
@@ -38,6 +42,9 @@ func (a aofs) Create(name string) (afero.File, error) {
 }
 
 func (a aofs) Chown(name string, uid, gid int) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.Chown: name=%.120q uid=%d gid=%d", name, uid, gid)
+	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return err
@@ -49,6 +56,9 @@ func (a aofs) Chown(name string, uid, gid int) error {
 }
 
 func (a aofs) Mkdir(name string, perm os.FileMode) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.Mkdir: name=%.120q", name)
+	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return err
@@ -60,6 +70,9 @@ func (a aofs) Mkdir(name string, perm os.FileMode) error {
 }
 
 func (a aofs) MkdirAll(path string, perm os.FileMode) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.MkdirAll: path=%.120q", path)
+	}
 	fsh, rewritePath, err := a.pathRewrite(path)
 	if err != nil {
 		return err
@@ -71,6 +84,9 @@ func (a aofs) MkdirAll(path string, perm os.FileMode) error {
 }
 
 func (a aofs) Open(name string) (afero.File, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.Open: name=%.120q", name)
+	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return nil, err
@@ -83,6 +99,9 @@ func (a aofs) Open(name string) (afero.File, error) {
 }
 
 func (a aofs) Stat(name string) (os.FileInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.Stat: name=%.120q", name)
+	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return nil, err
@@ -94,6 +113,9 @@ func (a aofs) Stat(name string) (os.FileInfo, error) {
 }
 
 func (a aofs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.OpenFile: name=%.120q flag=%d", name, flag)
+	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return nil, err
@@ -105,6 +127,9 @@ func (a aofs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, err
 }
 
 func (a aofs) AllocateSpace(size int) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.AllocateSpace: size=%d", size)
+	}
 	if a.userinfo.StorageQuota.HaveSpace(int64(size)) {
 		return nil
 	}
@@ -112,6 +137,9 @@ func (a aofs) AllocateSpace(size int) error {
 }
 
 func (a aofs) Remove(name string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.Remove: name=%.120q", name)
+	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return err
@@ -124,6 +152,9 @@ func (a aofs) Remove(name string) error {
 }
 
 func (a aofs) RemoveAll(path string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.RemoveAll: path=%.120q", path)
+	}
 	fsh, rewritePath, err := a.pathRewrite(path)
 	if err != nil {
 		return err
@@ -135,6 +166,9 @@ func (a aofs) RemoveAll(path string) error {
 }
 
 func (a aofs) Rename(oldname, newname string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.Rename: oldname=%.120q newname=%.120q", oldname, newname)
+	}
 	fshsrc, rewritePathsrc, err := a.pathRewrite(oldname)
 	if err != nil {
 		return err
@@ -180,10 +214,14 @@ func (a aofs) Rename(oldname, newname string) error {
 }
 
 func (a aofs) Name() string {
+	logger.DebugTrace("storage/tftp", "aofs.Name")
 	return "arozos virtualFS (TFTP)"
 }
 
 func (a aofs) Chmod(name string, mode os.FileMode) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.Chmod: name=%.120q", name)
+	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return err
@@ -195,6 +233,9 @@ func (a aofs) Chmod(name string, mode os.FileMode) error {
 }
 
 func (a aofs) Chtimes(name string, atime time.Time, mtime time.Time) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.Chtimes: name=%.120q", name)
+	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return err
@@ -208,6 +249,9 @@ func (a aofs) Chtimes(name string, atime time.Time, mtime time.Time) error {
 // arozos adaptive functions
 // This function rewrite the path from tftp representation to real filepath on disk
 func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.pathRewrite: path=%.120q", path)
+	}
 	path = filepath.ToSlash(filepath.Clean(path))
 
 	if path == "/" {
@@ -242,6 +286,9 @@ func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, e
 
 // Check if user has access to the given path, mode can be {read / write}
 func (a aofs) checkAllowAccess(fsh *filesystem.FileSystemHandler, path string, mode int) bool {
+	if logger.IsDebug() {
+		logger.Debugf("storage/tftp", "aofs.checkAllowAccess: path=%.120q mode=%d", path, mode)
+	}
 	vpath, err := fsh.FileSystemAbstraction.RealPathToVirtualPath(path, a.userinfo.Username)
 	if err != nil {
 		return false

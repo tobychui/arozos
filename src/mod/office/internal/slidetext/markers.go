@@ -4,11 +4,16 @@ package slidetext
 
 import (
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // AlphaMarker is the n-th letter marker of an "a." / "A." list (1 = a, 27 =
 // aa), counted from base ('a' or 'A')
 func AlphaMarker(n int, base byte) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/slidetext", "AlphaMarker: n=%d base=%d", n, base)
+	}
 	if n < 1 {
 		n = 1
 	}
@@ -23,6 +28,9 @@ func AlphaMarker(n int, base byte) string {
 
 // RomanMarker is n in upper-case Roman numerals ("" below 1)
 func RomanMarker(n int) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/slidetext", "RomanMarker: n=%d", n)
+	}
 	if n < 1 {
 		return ""
 	}

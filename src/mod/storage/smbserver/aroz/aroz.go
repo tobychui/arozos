@@ -106,6 +106,7 @@ type Backend struct {
 
 // New returns a Backend.
 func New(opt Options) (*Backend, error) {
+	logger.Debug("storage/smbserver/aroz", "New")
 	if opt.Credentials == nil || opt.LookupUser == nil {
 		return nil, errors.New("smbserver/aroz: credentials and a user lookup are required")
 	}
@@ -114,11 +115,17 @@ func New(opt Options) (*Backend, error) {
 
 // LookupHash implements smbsrv.Backend.
 func (b *Backend) LookupHash(username string) (string, []byte, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/smbserver/aroz", "Backend.LookupHash: username=%.120q", username)
+	}
 	return b.opt.Credentials.Lookup(username)
 }
 
 // Login implements smbsrv.Backend.
 func (b *Backend) Login(username string) (smbsrv.UserView, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "Backend.Login: username=%.120q", username)
+	}
 	account, quota, err := b.opt.LookupUser(username)
 	if err != nil {
 		return nil, err
@@ -128,6 +135,7 @@ func (b *Backend) Login(username string) (smbsrv.UserView, error) {
 
 // Allow implements smbsrv.Backend.
 func (b *Backend) Allow(ip net.IP) bool {
+	logger.Debug("storage/smbserver/aroz", "Backend.Allow")
 	if ip == nil {
 		return false
 	}
@@ -142,6 +150,9 @@ func (b *Backend) Allow(ip net.IP) bool {
 
 // AuthLog implements smbsrv.Backend.
 func (b *Backend) AuthLog(username, remote string, ok bool) time.Duration {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "Backend.AuthLog: username=%.120q remote=%.120q ok=%t", username, remote, ok)
+	}
 	if b.opt.LogAuth != nil {
 		b.opt.LogAuth(username, remote, ok)
 	}
@@ -171,10 +182,14 @@ type usageEntry struct {
 
 const usageCacheTTL = 5 * time.Second
 
-func (v *view) Username() string { return v.username }
+func (v *view) Username() string {
+	logger.DebugTrace("storage/smbserver/aroz", "view.Username")
+	return v.username
+}
 
 // Shares lists one share per drive.
 func (v *view) Shares() []smbsrv.Share {
+	logger.Debug("storage/smbserver/aroz", "view.Shares")
 	out := []smbsrv.Share{}
 	for _, fsh := range v.account.GetAllFileSystemHandler() {
 		if fsh.Closed {
@@ -205,10 +220,12 @@ type share struct {
 }
 
 func newShare(fsh *filesystem.FileSystemHandler, v *view) *share {
+	logger.DebugTrace("storage/smbserver/aroz", "newShare")
 	return &share{fsh: fsh, v: v, local: !fsh.IsNetworkDrive()}
 }
 
 func (s *share) Name() string {
+	logger.DebugTrace("storage/smbserver/aroz", "share.Name")
 	if s.timeMachine {
 		return TimeMachineShareName
 	}
@@ -216,6 +233,7 @@ func (s *share) Name() string {
 }
 
 func (s *share) Comment() string {
+	logger.Debug("storage/smbserver/aroz", "share.Comment")
 	if s.timeMachine {
 		return "Time Machine backups on " + s.fsh.Name
 	}
@@ -225,6 +243,7 @@ func (s *share) Comment() string {
 // Key tells drives apart. user:/ and the like resolve to another folder for
 // every user, so their files are only the same files within one user.
 func (s *share) Key() string {
+	logger.Debug("storage/smbserver/aroz", "share.Key")
 	key := s.fsh.UUID
 	if s.fsh.Hierarchy == "user" {
 		key += "/" + strings.ToLower(s.v.username)
@@ -235,14 +254,23 @@ func (s *share) Key() string {
 	return key
 }
 
-func (s *share) ReadOnly() bool { return s.fsh.ReadOnly }
+func (s *share) ReadOnly() bool {
+	logger.DebugTrace("storage/smbserver/aroz", "share.ReadOnly")
+	return s.fsh.ReadOnly
+}
 
 // InternalFolder implements smbsrv.InternalShare. ArozOS keeps version
 // history and named streams in .metadata folders, so they are left out of
 // listings and refused to writes over SMB.
-func (s *share) InternalFolder() string { return internalFolder }
+func (s *share) InternalFolder() string {
+	logger.DebugTrace("storage/smbserver/aroz", "share.InternalFolder")
+	return internalFolder
+}
 
 func (s *share) vpath(p string) string {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.vpath: p=%.120q", p)
+	}
 	switch {
 	case s.sub == "":
 		return s.fsh.UUID + ":/" + p
@@ -253,15 +281,31 @@ func (s *share) vpath(p string) string {
 }
 
 // CanPoll lets watched folders of local drives be listed every few seconds.
-func (s *share) CanPoll() bool { return s.local }
+func (s *share) CanPoll() bool {
+	logger.DebugTrace("storage/smbserver/aroz", "share.CanPoll")
+	return s.local
+}
 
-func (s *share) CanRead(p string) bool { return s.v.account.CanRead(s.vpath(basePath(p))) }
+func (s *share) CanRead(p string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/smbserver/aroz", "share.CanRead: p=%.120q", p)
+	}
+	return s.v.account.CanRead(s.vpath(basePath(p)))
+}
 
-func (s *share) CanWrite(p string) bool { return s.v.account.CanWrite(s.vpath(basePath(p))) }
+func (s *share) CanWrite(p string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/smbserver/aroz", "share.CanWrite: p=%.120q", p)
+	}
+	return s.v.account.CanWrite(s.vpath(basePath(p)))
+}
 
 // real turns a share path into one for the abstraction, after making sure no
 // link along the way leads off the drive.
 func (s *share) real(p string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.real: p=%.120q", p)
+	}
 	p = sharePath(p)
 	rpath, err := s.fsh.FileSystemAbstraction.VirtualPathToRealPath(s.vpath(p), s.v.username)
 	if err != nil {
@@ -274,6 +318,7 @@ func (s *share) real(p string) (string, error) {
 }
 
 func (s *share) driveRoot() string {
+	logger.Debug("storage/smbserver/aroz", "share.driveRoot")
 	s.rootOnce.Do(func() {
 		root, err := s.fsh.FileSystemAbstraction.VirtualPathToRealPath(s.vpath(""), s.v.username)
 		if err != nil {
@@ -298,6 +343,9 @@ func (s *share) driveRoot() string {
 // too, and a dangling link is refused because writing through it would create
 // the target somewhere else.
 func (s *share) confine(rpath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.confine: rpath=%.120q", rpath)
+	}
 	if !s.local {
 		return nil
 	}
@@ -333,6 +381,9 @@ func (s *share) confine(rpath string) error {
 }
 
 func infoOf(name string, fi os.FileInfo) smbsrv.FileInfo {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "infoOf: name=%.120q", name)
+	}
 	out := smbsrv.FileInfo{
 		Name:    name,
 		Size:    fi.Size(),
@@ -347,6 +398,9 @@ func infoOf(name string, fi os.FileInfo) smbsrv.FileInfo {
 }
 
 func (s *share) Stat(p string) (smbsrv.FileInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.Stat: p=%.120q", p)
+	}
 	rpath, err := s.real(p)
 	if err != nil {
 		return smbsrv.FileInfo{}, err
@@ -363,6 +417,9 @@ func (s *share) Stat(p string) (smbsrv.FileInfo, error) {
 }
 
 func (s *share) ReadDir(p string) ([]smbsrv.FileInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.ReadDir: p=%.120q", p)
+	}
 	rpath, err := s.real(p)
 	if err != nil {
 		return nil, err
@@ -397,6 +454,7 @@ func (s *share) ReadDir(p string) ([]smbsrv.FileInfo, error) {
 
 // stage says where this drive keeps local copies, and where failed ones go.
 func (s *share) stage() stageConfig {
+	logger.Debug("storage/smbserver/aroz", "share.stage")
 	c := stageConfig{limit: DefaultStageLimit}
 	switch {
 	case s.v.opt != nil && s.v.opt.StageDir != "":
@@ -419,6 +477,9 @@ func (s *share) stage() stageConfig {
 }
 
 func (s *share) Open(p string, flag int) (smbsrv.File, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.Open: p=%.120q flag=%d", p, flag)
+	}
 	rpath, err := s.real(p)
 	if err != nil {
 		return nil, err
@@ -439,6 +500,9 @@ func (s *share) Open(p string, flag int) (smbsrv.File, error) {
 }
 
 func (s *share) Mkdir(p string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.Mkdir: p=%.120q", p)
+	}
 	rpath, err := s.real(p)
 	if err != nil {
 		return err
@@ -447,6 +511,9 @@ func (s *share) Mkdir(p string) error {
 }
 
 func (s *share) Remove(p string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.Remove: p=%.120q", p)
+	}
 	rpath, err := s.real(p)
 	if err != nil {
 		return err
@@ -492,6 +559,9 @@ func (s *share) Remove(p string) error {
 }
 
 func (s *share) Rename(oldPath, newPath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.Rename: oldPath=%.120q newPath=%.120q", oldPath, newPath)
+	}
 	source, err := s.real(oldPath)
 	if err != nil {
 		return err
@@ -520,6 +590,9 @@ func (s *share) Rename(oldPath, newPath string) error {
 }
 
 func (s *share) SetModTime(p string, t time.Time) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.SetModTime: p=%.120q", p)
+	}
 	rpath, err := s.real(p)
 	if err != nil {
 		return err
@@ -535,10 +608,12 @@ func (s *share) SetModTime(p string, t time.Time) error {
 
 // tracksQuota reports whether this drive counts against the user's quota.
 func (s *share) tracksQuota() bool {
+	logger.DebugTrace("storage/smbserver/aroz", "share.tracksQuota")
 	return s.fsh.Hierarchy == "user" && s.v.quota != nil
 }
 
 func (s *share) Usage() (uint64, uint64) {
+	logger.Debug("storage/smbserver/aroz", "share.Usage")
 	var total, free uint64
 	key := s.vpath("")
 	s.v.usageMu.Lock()
@@ -565,6 +640,9 @@ func (s *share) Usage() (uint64, uint64) {
 }
 
 func (s *share) HaveSpace(extra int64) bool {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.HaveSpace: extra=%d", extra)
+	}
 	if !s.tracksQuota() {
 		return true
 	}
@@ -572,6 +650,9 @@ func (s *share) HaveSpace(extra int64) bool {
 }
 
 func (s *share) FileChanged(p string, oldSize, newSize int64) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "share.FileChanged: p=%.120q oldSize=%d newSize=%d", p, oldSize, newSize)
+	}
 	if !s.tracksQuota() {
 		return
 	}

@@ -631,7 +631,26 @@ log.Println("could not open config", err)   // and log.Printf/Fatal/Panic
 
 The package-level `logger.PrintAndLog` delegates to the system-wide logger wired
 up in [`src/main.go`](src/main.go); you do not need your own `*logger.Logger`
-instance. A library that takes a `*slog.Logger` gets `logger.NewSlog("Title")`,
+instance.
+
+**DEBUG level.** `logger.Debug(title, msg)` and `logger.Debugf(title, format,
+args...)` ([`src/mod/info/logger/debug.go`](src/mod/info/logger/debug.go))
+print and log a `[DEBUG]` line only when ArozOS was started with `-debug`
+(`logger.SetDebug`); otherwise they cost one atomic load. Most functions
+start with an entry line naming the function and its plain arguments; give
+new non-trivial functions one too. Guard any line whose arguments must be
+built with `if logger.IsDebug() { ... }` so nothing is formatted or allocated
+while debug is off, describe requests with `logger.RequestSummary(r)` (method
+and path, no query string), and never log passwords, tokens, keys, hashes,
+session data, raw URLs or query strings, or user content (message bodies,
+file or script content, e-mail addresses). Functions called so often that their lines would drown
+the rest (one-statement helpers, io / sort / `String` / `Error` methods,
+recursive walkers, and everything but the exported entry points of the
+byte-level parsers `pdfrender`, the `office` formats and `locale/fonts`) use
+`logger.DebugTrace` / `DebugTracef` guarded by `IsDebugTrace()` instead,
+shown only with `-debug_trace` (which implies `-debug`). Every function
+outside the logger package itself carries one of the two. `NewSlog` loggers pass
+`slog.LevelDebug` records through the same switch. A library that takes a `*slog.Logger` gets `logger.NewSlog("Title")`,
 which writes its records through `PrintAndLog`. The only file allowed to wrap the standard `log` package is the logger
 implementation itself ([`src/mod/info/logger/`](src/mod/info/logger/)).
 

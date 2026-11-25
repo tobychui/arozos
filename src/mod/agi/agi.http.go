@@ -65,6 +65,7 @@ type httpResponse struct {
 }
 
 func (g *Gateway) HTTPLibRegister() {
+	logger.Debug("agi", "Gateway.HTTPLibRegister")
 	err := g.RegisterLib("http", g.injectHTTPFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -75,6 +76,7 @@ func (g *Gateway) HTTPLibRegister() {
 // buildHTTPRequestBody resolves the request body and default Content-Type from
 // the given options. Body precedence is: bodyBase64 > form > json > body.
 func buildHTTPRequestBody(opt httpRequestOptions) (io.Reader, string, error) {
+	logger.Debug("agi", "buildHTTPRequestBody")
 	switch {
 	case opt.BodyBase64 != "":
 		raw, err := base64.StdEncoding.DecodeString(opt.BodyBase64)
@@ -101,6 +103,7 @@ func buildHTTPRequestBody(opt httpRequestOptions) (io.Reader, string, error) {
 // returns a populated httpResponse. Any transport-level failure is reported via
 // the Error field rather than as a Go error so scripts always get an object.
 func doHTTPRequest(opt httpRequestOptions) httpResponse {
+	logger.Debug("agi", "doHTTPRequest")
 	if strings.TrimSpace(opt.URL) == "" {
 		return httpResponse{Error: "missing request url"}
 	}
@@ -172,6 +175,7 @@ func doHTTPRequest(opt httpRequestOptions) httpResponse {
 }
 
 func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectHTTPFunctions")
 	vm := payload.VM
 	u := payload.User
 	//scriptFsh := payload.ScriptFsh

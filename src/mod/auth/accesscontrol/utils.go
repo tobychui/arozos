@@ -6,10 +6,15 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Break an ip range text into independent ip strings
 func BreakdownIpRange(ipRange string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("auth/accesscontrol", "BreakdownIpRange: ipRange=%.120q", ipRange)
+	}
 	ipRange = strings.ReplaceAll(ipRange, " ", "")
 	err := ValidateIpRange(ipRange)
 	if err != nil {
@@ -48,6 +53,9 @@ func BreakdownIpRange(ipRange string) []string {
 
 // Check if an given ip in the given range
 func IpInRange(ip string, ipRange string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("auth/accesscontrol", "IpInRange: ip=%.120q ipRange=%.120q", ip, ipRange)
+	}
 	ip = strings.TrimSpace(ip)
 	ipRange = strings.ReplaceAll(ipRange, " ", "")
 	if ip == ipRange {
@@ -84,6 +92,9 @@ func IpInRange(ip string, ipRange string) bool {
 
 // Check if the given IP Range string is actually an IP range
 func ValidateIpRange(ipRange string) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth/accesscontrol", "ValidateIpRange: ipRange=%.120q", ipRange)
+	}
 	ipRange = strings.TrimSpace(ipRange)
 	ipRange = strings.ReplaceAll(ipRange, " ", "")
 	if strings.Contains(ipRange, "-") {

@@ -9,6 +9,8 @@ import (
 	"math"
 
 	"github.com/disintegration/imaging"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -21,6 +23,7 @@ import (
 // Render composites a module icon onto a padded squircle backplate and returns
 // the resulting desktop icon image.
 func (g *Generator) Render(moduleIcon image.Image) image.Image {
+	logger.Debug("desktop/icons", "Generator.Render")
 	iconSize := g.options.IconSize
 	canvas := image.NewNRGBA(image.Rect(0, 0, iconSize, iconSize))
 
@@ -55,6 +58,9 @@ func (g *Generator) Render(moduleIcon image.Image) image.Image {
 // ScaleToBox resizes an icon so its longest side matches boxSize while keeping
 // its aspect ratio. Returns nil for degenerate source images.
 func ScaleToBox(moduleIcon image.Image, boxSize int) image.Image {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/icons", "ScaleToBox: boxSize=%d", boxSize)
+	}
 	sourceWidth := moduleIcon.Bounds().Dx()
 	sourceHeight := moduleIcon.Bounds().Dy()
 	if sourceWidth <= 0 || sourceHeight <= 0 || boxSize <= 0 {
@@ -77,6 +83,9 @@ func ScaleToBox(moduleIcon image.Image, boxSize int) image.Image {
 // SquircleExponent converts the squircle "squareness" factor f into the
 // superellipse exponent n = 2 / (1 - f).
 func SquircleExponent(squircleFactor float64) float64 {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/icons", "SquircleExponent: squircleFactor=%g", squircleFactor)
+	}
 	if squircleFactor < 0 {
 		squircleFactor = 0
 	} else if squircleFactor > 0.99 {
@@ -90,6 +99,9 @@ func SquircleExponent(squircleFactor float64) float64 {
 // coordinates falls inside the squircle, supersampled on a sampleSteps x
 // sampleSteps grid for antialiasing.
 func SquircleCoverage(pixelX float64, pixelY float64, center float64, radius float64, exponent float64, sampleSteps int) float64 {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/icons", "SquircleCoverage: pixelX=%g pixelY=%g center=%g radius=%g exponent=%g sampleSteps=%d", pixelX, pixelY, center, radius, exponent, sampleSteps)
+	}
 	if radius <= 0 || sampleSteps <= 0 {
 		return 0
 	}
@@ -113,6 +125,9 @@ func SquircleCoverage(pixelX float64, pixelY float64, center float64, radius flo
 // backplate that keeps the icon readable: black behind a bright icon, white
 // behind a dark one.
 func PickBackplateColor(moduleIcon image.Image, lumaThreshold float64) color.NRGBA {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/icons", "PickBackplateColor: lumaThreshold=%g", lumaThreshold)
+	}
 	white := color.NRGBA{R: 255, G: 255, B: 255, A: 255}
 	black := color.NRGBA{R: 0, G: 0, B: 0, A: 255}
 

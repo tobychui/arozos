@@ -12,6 +12,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -38,6 +39,7 @@ type ShareEntryTable struct {
 }
 
 func NewShareEntryTable(db *database.Database) *ShareEntryTable {
+	logger.Debug("share/shareEntry", "NewShareEntryTable")
 	//Create the share table if not exists
 	db.NewTable(shareTableName)
 
@@ -75,6 +77,7 @@ func NewShareEntryTable(db *database.Database) *ShareEntryTable {
 // index adds a share into the in-memory maps. Caller must hold the write lock
 // (or own the table exclusively).
 func (s *ShareEntryTable) index(so *ShareOption) {
+	logger.Debug("share/shareEntry", "ShareEntryTable.index")
 	s.byUUID[so.UUID] = so
 	if !stringInSlice(so.UUID, s.byPath[so.PathHash]) {
 		s.byPath[so.PathHash] = append(s.byPath[so.PathHash], so.UUID)
@@ -83,6 +86,7 @@ func (s *ShareEntryTable) index(so *ShareOption) {
 
 // unindex removes a share from the in-memory maps. Caller must hold the write lock.
 func (s *ShareEntryTable) unindex(so *ShareOption) {
+	logger.Debug("share/shareEntry", "ShareEntryTable.unindex")
 	delete(s.byUUID, so.UUID)
 	remaining := []string{}
 	for _, id := range s.byPath[so.PathHash] {
@@ -100,6 +104,9 @@ func (s *ShareEntryTable) unindex(so *ShareOption) {
 // resolveShareTarget translates and validates the shared path, returning the
 // real path and the path hash of the share target.
 func resolveShareTarget(srcFsh *filesystem.FileSystemHandler, vpath string, username string) (string, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("share/shareEntry", "resolveShareTarget: vpath=%.120q username=%.120q", vpath, username)
+	}
 	rpath, err := srcFsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, username)
 	if err != nil {
 		return "", "", errors.New("Unable to translate path given")
@@ -125,6 +132,9 @@ func resolveShareTarget(srcFsh *filesystem.FileSystemHandler, vpath string, user
 // library and the legacy share/new endpoint). Use CreateShare to add another
 // share to an already shared path.
 func (s *ShareEntryTable) CreateNewShare(srcFsh *filesystem.FileSystemHandler, vpath string, username string, usergroups []string) (*ShareOption, error) {
+	if logger.IsDebug() {
+		logger.Debugf("share/shareEntry", "ShareEntryTable.CreateNewShare: vpath=%.120q username=%.120q len(usergroups)=%d", vpath, username, len(usergroups))
+	}
 	_, sharePathHash, err := resolveShareTarget(srcFsh, vpath, username)
 	if err != nil {
 		return nil, err
@@ -141,6 +151,9 @@ func (s *ShareEntryTable) CreateNewShare(srcFsh *filesystem.FileSystemHandler, v
 // CreateShare always creates a new share for the given path with the default
 // settings overridden by the given ones.
 func (s *ShareEntryTable) CreateShare(srcFsh *filesystem.FileSystemHandler, vpath string, username string, settings ShareSettings) (*ShareOption, error) {
+	if logger.IsDebug() {
+		logger.Debugf("share/shareEntry", "ShareEntryTable.CreateShare: vpath=%.120q username=%.120q", vpath, username)
+	}
 	rpath, sharePathHash, err := resolveShareTarget(srcFsh, vpath, username)
 	if err != nil {
 		return nil, err
@@ -166,6 +179,7 @@ func (s *ShareEntryTable) CreateShare(srcFsh *filesystem.FileSystemHandler, vpat
 
 // AddShare persists and indexes a fully populated share
 func (s *ShareEntryTable) AddShare(so *ShareOption) error {
+	logger.Debug("share/shareEntry", "ShareEntryTable.AddShare")
 	if so.UUID == "" || so.PathHash == "" {
 		return errors.New("share UUID and path hash cannot be empty")
 	}
@@ -183,6 +197,9 @@ func (s *ShareEntryTable) AddShare(so *ShareOption) error {
 // UpdateShare applies the given settings to a share and persists the result.
 // Nothing is changed if any of the settings is invalid.
 func (s *ShareEntryTable) UpdateShare(uuid string, settings ShareSettings) (*ShareOption, error) {
+	if logger.IsDebug() {
+		logger.Debugf("share/shareEntry", "ShareEntryTable.UpdateShare: uuid=%.120q", uuid)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -205,6 +222,7 @@ func (s *ShareEntryTable) UpdateShare(uuid string, settings ShareSettings) (*Sha
 
 // Delete all the shares on this path hash
 func (s *ShareEntryTable) DeleteShareByPathHash(pathhash string) error {
+	logger.Debug("share/shareEntry", "ShareEntryTable.DeleteShareByPathHash")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -226,6 +244,9 @@ func (s *ShareEntryTable) DeleteShareByPathHash(pathhash string) error {
 
 // Delete a share by its UUID. Deleting a share that does not exist is not an error.
 func (s *ShareEntryTable) DeleteShareByUUID(uuid string) error {
+	if logger.IsDebug() {
+		logger.Debugf("share/shareEntry", "ShareEntryTable.DeleteShareByUUID: uuid=%.120q", uuid)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -244,6 +265,7 @@ func (s *ShareEntryTable) DeleteShareByUUID(uuid string) error {
 }
 
 func (s *ShareEntryTable) GetShareUUIDFromPathHash(pathhash string) string {
+	logger.Debug("share/shareEntry", "ShareEntryTable.GetShareUUIDFromPathHash")
 	shareObject := s.GetShareObjectFromPathHash(pathhash)
 	if shareObject == nil {
 		return ""
@@ -254,6 +276,7 @@ func (s *ShareEntryTable) GetShareUUIDFromPathHash(pathhash string) string {
 
 // GetShareObjectFromPathHash returns the oldest share on the path, or nil
 func (s *ShareEntryTable) GetShareObjectFromPathHash(pathhash string) *ShareOption {
+	logger.Debug("share/shareEntry", "ShareEntryTable.GetShareObjectFromPathHash")
 	shares := s.GetSharesFromPathHash(pathhash)
 	if len(shares) == 0 {
 		return nil
@@ -263,6 +286,7 @@ func (s *ShareEntryTable) GetShareObjectFromPathHash(pathhash string) *ShareOpti
 
 // GetSharesFromPathHash returns all the shares on the path, oldest first
 func (s *ShareEntryTable) GetSharesFromPathHash(pathhash string) []*ShareOption {
+	logger.Debug("share/shareEntry", "ShareEntryTable.GetSharesFromPathHash")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -276,6 +300,9 @@ func (s *ShareEntryTable) GetSharesFromPathHash(pathhash string) []*ShareOption 
 }
 
 func (s *ShareEntryTable) GetShareObjectFromUUID(uuid string) *ShareOption {
+	if logger.IsDebug() {
+		logger.Debugf("share/shareEntry", "ShareEntryTable.GetShareObjectFromUUID: uuid=%.120q", uuid)
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -288,6 +315,7 @@ func (s *ShareEntryTable) GetShareObjectFromUUID(uuid string) *ShareOption {
 
 // ListAllShares returns every share in the system, sorted by UUID
 func (s *ShareEntryTable) ListAllShares() []*ShareOption {
+	logger.Debug("share/shareEntry", "ShareEntryTable.ListAllShares")
 	s.mu.RLock()
 	results := make([]*ShareOption, 0, len(s.byUUID))
 	for _, so := range s.byUUID {
@@ -303,6 +331,7 @@ func (s *ShareEntryTable) ListAllShares() []*ShareOption {
 
 // FileIsShared reports whether the path has at least one share that has not expired
 func (s *ShareEntryTable) FileIsShared(pathhash string) bool {
+	logger.Debug("share/shareEntry", "ShareEntryTable.FileIsShared")
 	now := time.Now()
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -315,6 +344,7 @@ func (s *ShareEntryTable) FileIsShared(pathhash string) bool {
 }
 
 func (s *ShareEntryTable) RemoveShareByPathHash(pathhash string) error {
+	logger.Debug("share/shareEntry", "ShareEntryTable.RemoveShareByPathHash")
 	s.mu.RLock()
 	_, ok := s.byPath[pathhash]
 	s.mu.RUnlock()
@@ -325,6 +355,9 @@ func (s *ShareEntryTable) RemoveShareByPathHash(pathhash string) error {
 }
 
 func (s *ShareEntryTable) RemoveShareByUUID(uuid string) error {
+	if logger.IsDebug() {
+		logger.Debugf("share/shareEntry", "ShareEntryTable.RemoveShareByUUID: uuid=%.120q", uuid)
+	}
 	if s.GetShareObjectFromUUID(uuid) == nil {
 		return errors.New("Share with given uuid not exists")
 	}
@@ -334,6 +367,7 @@ func (s *ShareEntryTable) RemoveShareByUUID(uuid string) error {
 // RemoveExpiredShares deletes every share that has expired at the given time
 // and returns the removed shares.
 func (s *ShareEntryTable) RemoveExpiredShares(now time.Time) []*ShareOption {
+	logger.Debug("share/shareEntry", "ShareEntryTable.RemoveExpiredShares")
 	removed := []*ShareOption{}
 	for _, so := range s.ListAllShares() {
 		if so.IsExpired(now) {
@@ -346,6 +380,9 @@ func (s *ShareEntryTable) RemoveExpiredShares(now time.Time) []*ShareOption {
 }
 
 func (s *ShareEntryTable) ResolveShareOptionFromShareSubpath(subpath string) (*ShareOption, error) {
+	if logger.IsDebug() {
+		logger.Debugf("share/shareEntry", "ShareEntryTable.ResolveShareOptionFromShareSubpath: subpath=%.120q", subpath)
+	}
 	subpathElements := strings.Split(filepath.ToSlash(filepath.Clean(subpath))[1:], "/")
 	if len(subpathElements) >= 1 {
 		shareObject := s.GetShareObjectFromUUID(subpathElements[0])
@@ -360,5 +397,8 @@ func (s *ShareEntryTable) ResolveShareOptionFromShareSubpath(subpath string) (*S
 }
 
 func GetPathHash(fsh *filesystem.FileSystemHandler, vpath string, username string) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("share/shareEntry", "GetPathHash: vpath=%.120q username=%.120q", vpath, username)
+	}
 	return fsh.GetUniquePathHash(vpath, username)
 }

@@ -47,6 +47,9 @@ var (
 // unlike VAAPI, they upload to the GPU internally so no explicit hwupload
 // step is needed.
 func nv12ScaleFilter(scale string) string {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "nv12ScaleFilter: scale=%.120q", scale)
+	}
 	if scale == "" {
 		return "format=nv12"
 	}
@@ -56,6 +59,7 @@ func nv12ScaleFilter(scale string) string {
 // getHWEncoderProfile probes the host once for a working Intel/AMD hardware
 // H.264 encoder and caches the result for the lifetime of the process.
 func getHWEncoderProfile() *hwEncoderProfile {
+	logger.Debug("media/transcoder", "getHWEncoderProfile")
 	hwProfileOnce.Do(func() {
 		hwProfile = probeHWEncoders()
 		if hwProfile != nil {
@@ -72,6 +76,7 @@ func getHWEncoderProfile() *hwEncoderProfile {
 // can be compiled into ffmpeg yet still fail when no compatible GPU/driver
 // is present on this particular machine.
 func probeHWEncoders() *hwEncoderProfile {
+	logger.Debug("media/transcoder", "probeHWEncoders")
 	for _, profile := range candidateHWProfiles() {
 		if testHWEncoder(profile) {
 			return profile
@@ -84,6 +89,7 @@ func probeHWEncoders() *hwEncoderProfile {
 // encode: a single synthetic frame pushed through the real encoder settings
 // and discarded.
 func probeArgs(profile *hwEncoderProfile) []string {
+	logger.Debug("media/transcoder", "probeArgs")
 	size := profile.ProbeSize
 	if size == "" {
 		size = defaultProbeSize
@@ -104,6 +110,7 @@ func probeArgs(profile *hwEncoderProfile) []string {
 // testHWEncoder runs a tiny, throwaway encode against the given profile to
 // confirm ffmpeg has a working hardware path on this host.
 func testHWEncoder(profile *hwEncoderProfile) bool {
+	logger.Debug("media/transcoder", "testHWEncoder")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "ffmpeg", probeArgs(profile)...)

@@ -26,6 +26,7 @@ import (
 	"imuslab.com/arozos/mod/cluster/metadata"
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Copy states in the words the dialog shows, and the colour each one gets
@@ -51,6 +52,9 @@ var clusterNodeStateWords = map[membership.NodeState]string{
 // StorageInfo resolves one namespace path into the copies that hold it. It
 // completes the clusterfs.InfoBackend interface.
 func (b *clusterBackend) StorageInfo(logical string) (arozfs.StorageInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterBackend.StorageInfo: logical=%.120q", logical)
+	}
 	if clusterManager == nil || clusterMetadata == nil || !clusterManager.InCluster() {
 		return arozfs.StorageInfo{}, errors.New("this node is not in a cluster")
 	}
@@ -111,6 +115,9 @@ func (b *clusterBackend) StorageInfo(logical string) (arozfs.StorageInfo, error)
 // clusterOrderedLocations lists the copies of a file with this node first,
 // then the readable ones, keeping the record order within each group.
 func clusterOrderedLocations(rec *metadata.FileRecord, localNode string) []metadata.Location {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterOrderedLocations: localNode=%.120q", localNode)
+	}
 	ordered := []metadata.Location{}
 	for pass := 0; pass < 3; pass++ {
 		for _, loc := range rec.Locations {
@@ -137,6 +144,9 @@ func clusterOrderedLocations(rec *metadata.FileRecord, localNode string) []metad
 
 // clusterCopyItem describes one physical copy of a file.
 func clusterCopyItem(rec *metadata.FileRecord, loc metadata.Location, localNode string) arozfs.StorageInfoItem {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterCopyItem: localNode=%.120q", localNode)
+	}
 	status, state := "Unknown", arozfs.StorageStateUnknown
 	if words, ok := clusterCopyStatus[loc.State]; ok {
 		status, state = words[0], words[1]
@@ -216,6 +226,9 @@ func clusterCopyItem(rec *metadata.FileRecord, loc metadata.Location, localNode 
 // clusterNodeState returns the computed state of a node, and whether the node
 // is still a member at all.
 func clusterNodeState(nodeID string) (membership.NodeState, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterNodeState: nodeID=%.120q", nodeID)
+	}
 	for _, n := range clusterManager.NodeViews() {
 		if n.ID == nodeID {
 			return n.State, true
@@ -226,6 +239,9 @@ func clusterNodeState(nodeID string) (membership.NodeState, bool) {
 
 // clusterNodeLabel names a node, falling back to its ID when it has no name.
 func clusterNodeLabel(nodeID string) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterNodeLabel: nodeID=%.120q", nodeID)
+	}
 	name := clusterManager.NodeName(nodeID)
 	if strings.TrimSpace(name) == "" {
 		return nodeID
@@ -237,6 +253,9 @@ func clusterNodeLabel(nodeID string) string {
 // operator set and default to the same "My ArOZ" on every host, so a name on
 // its own cannot say which node is meant.
 func clusterNodeLabelWithID(nodeID string) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterNodeLabelWithID: nodeID=%.120q", nodeID)
+	}
 	name := clusterManager.NodeName(nodeID)
 	if strings.TrimSpace(name) == "" || name == nodeID {
 		return nodeID
@@ -259,17 +278,22 @@ func clusterNodeLabelWithID(nodeID string) string {
 
 // clusterVolumeRootText is the folder a volume contributes, node included.
 func clusterVolumeRootText(vol metadata.Volume) string {
+	logger.DebugTrace("Core", "clusterVolumeRootText")
 	return vol.NodeID + ":" + vol.FshUUID + path.Join("/", vol.Subpath)
 }
 
 // clusterVolumePathText is where one copy of a file sits, node included.
 func clusterVolumePathText(vol metadata.Volume, logical string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("Core", "clusterVolumePathText: logical=%.120q", logical)
+	}
 	return vol.NodeID + ":" + vol.FshUUID + path.Join("/", vol.Subpath, logical)
 }
 
 // clusterReplicaPolicyField reports how many copies of each file the folder
 // policy asks for.
 func clusterReplicaPolicyField(policy metadata.Policy) arozfs.StorageInfoField {
+	logger.Debug("Core", "clusterReplicaPolicyField")
 	if policy.Replicas <= 1 {
 		return arozfs.StorageInfoField{Key: "Replica Policy", Value: "{0} copy",
 			Args: []string{"1"}}
@@ -280,6 +304,9 @@ func clusterReplicaPolicyField(policy metadata.Policy) arozfs.StorageInfoField {
 
 // clusterCopyCountField reports how many copies of a file can be read now.
 func clusterCopyCountField(healthy int, total int) arozfs.StorageInfoField {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterCopyCountField: healthy=%d total=%d", healthy, total)
+	}
 	if healthy == total {
 		return arozfs.StorageInfoField{Key: "Copies", Value: "{0}",
 			Args: []string{strconv.Itoa(total)}}
@@ -290,6 +317,9 @@ func clusterCopyCountField(healthy int, total int) arozfs.StorageInfoField {
 
 // clusterChecksumText shortens a hash to something a dialog row can hold.
 func clusterChecksumText(checksum string) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterChecksumText: checksum=%.120q", checksum)
+	}
 	if checksum == "" {
 		return ""
 	}
@@ -301,6 +331,9 @@ func clusterChecksumText(checksum string) string {
 
 // clusterFolderItemCount counts the records directly inside a folder.
 func clusterFolderItemCount(folder string) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterFolderItemCount: folder=%.120q", folder)
+	}
 	entries, err := clusterMetadata.ListDir(folder)
 	if err != nil {
 		return "0"

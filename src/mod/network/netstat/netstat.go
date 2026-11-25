@@ -11,10 +11,14 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
 func HandleGetNetworkInterfaceStats(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("network/netstat", "HandleGetNetworkInterfaceStats: r=%s", logger.RequestSummary(r))
+	}
 	rx, tx, err := GetNetworkInterfaceStats()
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -35,6 +39,7 @@ func HandleGetNetworkInterfaceStats(w http.ResponseWriter, r *http.Request) {
 
 // Get network interface stats, return accumulated rx bits, tx bits and error if any
 func GetNetworkInterfaceStats() (int64, int64, error) {
+	logger.Debug("network/netstat", "GetNetworkInterfaceStats")
 	switch runtime.GOOS {
 	case "windows":
 		cmd := exec.Command("wmic", "path", "Win32_PerfRawData_Tcpip_NetworkInterface", "Get", "BytesReceivedPersec,BytesSentPersec,BytesTotalPersec")

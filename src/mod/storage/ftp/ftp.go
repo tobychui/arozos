@@ -54,6 +54,7 @@ type client struct {
 }
 
 func (c *client) account() *user.User {
+	logger.Debug("storage/ftp", "client.account")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.user
@@ -67,6 +68,7 @@ type mainDriver struct {
 
 // NewFTPHandler creates a new handler for FTP Server as a wrapper to the ftpserverlib
 func NewFTPHandler(opt Options) (*Handler, error) {
+	logger.Debug("storage/ftp", "NewFTPHandler")
 	if opt.Authenticate == nil || opt.LookupUser == nil {
 		return nil, errors.New("no user functions given")
 	}
@@ -96,6 +98,9 @@ func NewFTPHandler(opt Options) (*Handler, error) {
 // AddressAllowed tells whether a client at addr may connect. Clients on
 // private, loopback and link local addresses always may.
 func AddressAllowed(addr net.Addr, allowPublic bool) bool {
+	if logger.IsDebug() {
+		logger.Debugf("storage/ftp", "AddressAllowed: allowPublic=%t", allowPublic)
+	}
 	if allowPublic {
 		return true
 	}
@@ -104,6 +109,7 @@ func AddressAllowed(addr net.Addr, allowPublic bool) bool {
 }
 
 func hostIP(addr net.Addr) net.IP {
+	logger.Debug("storage/ftp", "hostIP")
 	if addr == nil {
 		return nil
 	}
@@ -115,6 +121,7 @@ func hostIP(addr net.Addr) net.IP {
 }
 
 func hostOf(addr net.Addr) string {
+	logger.Debug("storage/ftp", "hostOf")
 	if ip := hostIP(addr); ip != nil {
 		return ip.String()
 	}
@@ -127,6 +134,7 @@ func hostOf(addr net.Addr) string {
 // Start listens on the port, so that a port in use is reported here, and
 // serves clients in the background.
 func (f *Handler) Start() error {
+	logger.Debug("storage/ftp", "Handler.Start")
 	if f.server == nil {
 		return errors.New("FTP server not initiated")
 	}
@@ -143,6 +151,7 @@ func (f *Handler) Start() error {
 
 // Close the FTP Server and disconnect every client
 func (f *Handler) Close() {
+	logger.Debug("storage/ftp", "Handler.Close")
 	if f.server != nil {
 		f.server.Stop()
 		f.ServerRunning = false
@@ -157,6 +166,7 @@ func (f *Handler) Close() {
 
 // Clients lists who is connected, oldest connection first.
 func (f *Handler) Clients() []ClientInfo {
+	logger.Debug("storage/ftp", "Handler.Clients")
 	clients := []ClientInfo{}
 	if f.driver == nil {
 		return clients
@@ -176,6 +186,9 @@ func (f *Handler) Clients() []ClientInfo {
 
 // DropUser disconnects every client signed in as username.
 func (f *Handler) DropUser(username string) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/ftp", "Handler.DropUser: username=%.120q", username)
+	}
 	if f.driver == nil {
 		return
 	}
@@ -189,5 +202,6 @@ func (f *Handler) DropUser(username string) {
 }
 
 func (m *mainDriver) newClient(cc ftp.ClientContext) {
+	logger.DebugTrace("storage/ftp", "mainDriver.newClient")
 	m.clients.Store(cc.ID(), &client{cc: cc, connected: time.Now().Unix()})
 }

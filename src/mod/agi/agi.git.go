@@ -45,6 +45,7 @@ import (
 )
 
 func (g *Gateway) GitLibRegister() {
+	logger.Debug("agi", "Gateway.GitLibRegister")
 	err := g.RegisterLib("git", g.injectGitLibFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -53,6 +54,7 @@ func (g *Gateway) GitLibRegister() {
 }
 
 func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectGitLibFunctions")
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -854,6 +856,7 @@ type gitTransportRunner func(rpath string, request *git.TransportRequest) (strin
 // credential to use, run the operation and translate the outcome.
 func (g *Gateway) runGitTransport(vm *otto.Otto, u *user.User, call otto.FunctionCall,
 	resolveRepo func(string, bool) (string, error), run gitTransportRunner) otto.Value {
+	logger.Debug("agi", "Gateway.runGitTransport")
 
 	vpath, _ := call.Argument(0).ToString()
 	options := exportOptions(call.Argument(1))
@@ -896,6 +899,9 @@ The remote-branch calls take the remote by name rather than by URL, so the URL
 has to be looked up before the stored credential can be found.
 */
 func (g *Gateway) remoteBranchRequest(u *user.User, rpath string, remote string, options map[string]interface{}) (*git.TransportRequest, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.remoteBranchRequest: rpath=%.120q remote=%.120q len(options)=%d", rpath, remote, len(options))
+	}
 	remoteURL, err := g.Option.GitManager.RemoteURLForName(rpath, remote)
 	if err != nil {
 		return nil, err
@@ -912,6 +918,9 @@ func (g *Gateway) remoteBranchRequest(u *user.User, rpath string, remote string,
 // rememberGitCredentialForRemote stores a credential that has just proven itself
 // against a remote addressed by name.
 func (g *Gateway) rememberGitCredentialForRemote(u *user.User, rpath string, remote string, options map[string]interface{}) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.rememberGitCredentialForRemote: rpath=%.120q remote=%.120q len(options)=%d", rpath, remote, len(options))
+	}
 	if !optionBool(options, "remember") {
 		return
 	}
@@ -925,6 +934,9 @@ func (g *Gateway) rememberGitCredentialForRemote(u *user.User, rpath string, rem
 // remoteOrOrigin mirrors the manager's default so status messages name the same
 // remote the operation actually used.
 func remoteOrOrigin(remote string) string {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "remoteOrOrigin: remote=%.120q", remote)
+	}
 	remote = strings.TrimSpace(remote)
 	if remote == "" {
 		return "origin"
@@ -936,6 +948,9 @@ func remoteOrOrigin(remote string) string {
 // defaulting the author name to the calling user so a commit always has an
 // identity even when the front-end sends none.
 func commitRequestFromOptions(u *user.User, options map[string]interface{}) *git.CommitRequest {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "commitRequestFromOptions: len(options)=%d", len(options))
+	}
 	name := optionString(options, "name")
 	if name == "" && u != nil {
 		name = u.Username
@@ -950,6 +965,7 @@ func commitRequestFromOptions(u *user.User, options map[string]interface{}) *git
 // shortHash abbreviates a commit hash for status messages, tolerating a hash
 // that is already short.
 func shortHash(hash string) string {
+	logger.Debug("agi", "shortHash")
 	hash = strings.TrimSpace(hash)
 	if len(hash) > 7 {
 		return hash[:7]
@@ -960,6 +976,7 @@ func shortHash(hash string) string {
 // gitCredentialStore returns the credential store or a readable error when git
 // support was started without a database.
 func (g *Gateway) gitCredentialStore() (*git.CredentialStore, error) {
+	logger.Debug("agi", "Gateway.gitCredentialStore")
 	if g.Option.GitManager == nil {
 		return nil, errors.New("git support is not enabled on this system")
 	}
@@ -974,6 +991,9 @@ func (g *Gateway) gitCredentialStore() (*git.CredentialStore, error) {
 // use: the ones passed in the options win, otherwise the user's stored
 // credential for that host is used, otherwise the call proceeds anonymously.
 func (g *Gateway) resolveGitCredential(u *user.User, remoteURL string, options map[string]interface{}) (string, string) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.resolveGitCredential: len(options)=%d", len(options))
+	}
 	username := optionString(options, "username")
 	token := optionString(options, "token")
 	if token != "" {
@@ -999,6 +1019,9 @@ func (g *Gateway) resolveGitCredential(u *user.User, remoteURL string, options m
 // rememberGitCredential persists the credential that was just proven to work,
 // but only when the caller explicitly asked for it (options.remember).
 func (g *Gateway) rememberGitCredential(u *user.User, remoteURL string, options map[string]interface{}) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.rememberGitCredential: len(options)=%d", len(options))
+	}
 	if !optionBool(options, "remember") {
 		return
 	}
@@ -1034,6 +1057,9 @@ system abstraction removes its storage root by prefix match against a relative
 one — the mismatch used to leave the absolute path embedded in the result.
 */
 func repoRootVirtualPath(vpath string, rpath string, realRoot string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "repoRootVirtualPath: vpath=%.120q rpath=%.120q realRoot=%.120q", vpath, rpath, realRoot)
+	}
 	absPath, err := filepath.Abs(rpath)
 	if err != nil {
 		return "", err
@@ -1068,6 +1094,9 @@ on Windows filepath.Clean treats the "uuid:" prefix as a volume name and
 mangles it.
 */
 func trimVirtualPathSegments(vpath string, count int) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "trimVirtualPathSegments: vpath=%.120q count=%d", vpath, count)
+	}
 	separator := strings.Index(vpath, ":/")
 	if separator < 0 {
 		return "", errors.New("not a virtual path: " + vpath)
@@ -1091,6 +1120,7 @@ func trimVirtualPathSegments(vpath string, count int) (string, error) {
 // Network-backed pools only expose streaming reads and writes, while git needs
 // ordinary random-access files.
 func checkFshSupportsGit(fsh *filesystem.FileSystemHandler) error {
+	logger.Debug("agi", "checkFshSupportsGit")
 	if fsh == nil {
 		return errors.New("unable to resolve the storage pool for this path")
 	}
@@ -1105,6 +1135,7 @@ func checkFshSupportsGit(fsh *filesystem.FileSystemHandler) error {
 
 // gitJSONValue marshals a value and hands it to the VM as a JSON string.
 func gitJSONValue(vm *otto.Otto, value interface{}) otto.Value {
+	logger.Debug("agi", "gitJSONValue")
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		return gitJSONError(vm, err)
@@ -1119,6 +1150,9 @@ func gitJSONValue(vm *otto.Otto, value interface{}) otto.Value {
 // gitJSONError returns an {error: "..."} object for the read-only calls, which
 // return their payload directly rather than a success envelope.
 func gitJSONError(vm *otto.Otto, err error) otto.Value {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "gitJSONError: err=%v", err)
+	}
 	payload := map[string]interface{}{"error": err.Error()}
 	if errors.Is(err, git.ErrAuthRequired) {
 		payload["authRequired"] = true
@@ -1134,6 +1168,7 @@ func gitJSONError(vm *otto.Otto, err error) otto.Value {
 
 // gitOperationSuccess builds the standard success envelope.
 func gitOperationSuccess(vm *otto.Otto, message string) otto.Value {
+	logger.DebugTrace("agi", "gitOperationSuccess")
 	return gitJSONValue(vm, git.OperationResult{
 		Success: true,
 		Message: message,
@@ -1144,6 +1179,9 @@ func gitOperationSuccess(vm *otto.Otto, message string) otto.Value {
 // problems so the front-end knows to open its sign-in dialog, and an unmerged
 // branch so it can offer to delete anyway.
 func gitOperationFailure(vm *otto.Otto, err error) otto.Value {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("agi", "gitOperationFailure: err=%v", err)
+	}
 	return gitJSONValue(vm, git.OperationResult{
 		Success:      false,
 		Error:        err.Error(),
@@ -1155,6 +1193,7 @@ func gitOperationFailure(vm *otto.Otto, err error) otto.Value {
 // exportOptions converts a JavaScript options object into a Go map. A missing
 // or non-object argument yields an empty map so callers never need nil checks.
 func exportOptions(value otto.Value) map[string]interface{} {
+	logger.Debug("agi", "exportOptions")
 	if !value.IsObject() {
 		return map[string]interface{}{}
 	}
@@ -1174,6 +1213,7 @@ func exportOptions(value otto.Value) map[string]interface{} {
 // exportStringSlice converts a JavaScript array (or a single string) into a
 // string slice.
 func exportStringSlice(value otto.Value) []string {
+	logger.Debug("agi", "exportStringSlice")
 	results := []string{}
 	if value.IsUndefined() || value.IsNull() {
 		return results
@@ -1207,6 +1247,9 @@ func exportStringSlice(value otto.Value) []string {
 
 // optionString reads a string field from an options map.
 func optionString(options map[string]interface{}, key string) string {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "optionString: len(options)=%d", len(options))
+	}
 	value, ok := options[key]
 	if !ok || value == nil {
 		return ""
@@ -1220,6 +1263,9 @@ func optionString(options map[string]interface{}, key string) string {
 // optionBool reads a boolean field from an options map, accepting the string
 // "true" as well so form values work unchanged.
 func optionBool(options map[string]interface{}, key string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "optionBool: len(options)=%d", len(options))
+	}
 	value, ok := options[key]
 	if !ok || value == nil {
 		return false
@@ -1236,6 +1282,9 @@ func optionBool(options map[string]interface{}, key string) bool {
 // optionInt reads a numeric field from an options map. Otto hands numbers back
 // as float64, and form values arrive as strings.
 func optionInt(options map[string]interface{}, key string) int {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "optionInt: len(options)=%d", len(options))
+	}
 	value, ok := options[key]
 	if !ok || value == nil {
 		return 0

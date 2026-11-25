@@ -28,6 +28,7 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/metadata"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -41,6 +42,9 @@ const (
 // ThumbnailKey identifies the content of a namespace file. It completes the
 // clusterfs.ThumbnailBackend interface.
 func (b *clusterBackend) ThumbnailKey(logical string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterBackend.ThumbnailKey: logical=%.120q", logical)
+	}
 	if clusterMetadata == nil {
 		return "", errors.New("this node is not in a cluster")
 	}
@@ -57,6 +61,9 @@ func (b *clusterBackend) ThumbnailKey(logical string) (string, error) {
 // clusterThumbnailKey is the checksum of the file when it has one. A record
 // still being written has none yet, and is keyed by its identity instead.
 func clusterThumbnailKey(checksum string, fileID string, size int64, modTime int64) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterThumbnailKey: checksum=%.120q fileID=%.120q size=%d modTime=%d", checksum, fileID, size, modTime)
+	}
 	if checksum != "" {
 		return "cluster-sha256:" + checksum
 	}
@@ -66,6 +73,9 @@ func clusterThumbnailKey(checksum string, fileID string, size int64, modTime int
 // RenderThumbnail has a node holding a copy render the thumbnail. It
 // completes the clusterfs.ThumbnailBackend interface.
 func (b *clusterBackend) RenderThumbnail(logical string) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "clusterBackend.RenderThumbnail: logical=%.120q", logical)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), clusterThumbnailTimeout)
 	defer cancel()
 	return b.s.Thumbnail(ctx, logical, metadata.ThumbnailFeature(logical))
@@ -74,6 +84,9 @@ func (b *clusterBackend) RenderThumbnail(logical string) ([]byte, error) {
 // clusterRenderThumbnail renders a copy on one of this node's volumes, for
 // this node or for another member asking it.
 func clusterRenderThumbnail(osPath string) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("Core", "clusterRenderThumbnail: osPath=%.120q", osPath)
+	}
 	return metadata.RenderLocalFile(osPath)
 }
 
@@ -82,6 +95,7 @@ func clusterRenderThumbnail(osPath string) ([]byte, error) {
 // when nothing else (a trash folder, say) is in it. Only the master node does
 // it, so the members do not race each other over the same records.
 func clusterRemoveThumbnailFolders() int {
+	logger.Debug("Core", "clusterRemoveThumbnailFolders")
 	if clusterStorage == nil || clusterMetadata == nil || !clusterManager.InCluster() || !clusterMetadata.IsLeader() {
 		return 0
 	}
@@ -112,5 +126,8 @@ func clusterRemoveThumbnailFolders() int {
 // clusterIsThumbnailFolder reports whether a namespace path is a
 // .metadata/.cache folder.
 func clusterIsThumbnailFolder(p string, isDir bool) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("Core", "clusterIsThumbnailFolder: p=%.120q isDir=%t", p, isDir)
+	}
 	return isDir && path.Base(p) == ".cache" && path.Base(path.Dir(p)) == ".metadata"
 }

@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/units"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 )
@@ -47,6 +48,9 @@ var calloutLegacy = map[string]struct{ tipX, tipY, body, round float64 }{
 // readShapeAdj reads the adjustments of a callout the editor draws with
 // them, filled in with PresentationML's defaults; nil for any other shape
 func readShapeAdj(prst string, spPr *xmltree.Node) map[string]float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "readShapeAdj: prst=%.120q", prst)
+	}
 	def, ok := calloutDefaults[prst]
 	if !ok {
 		// any other preset: whatever guides it states, which the shapes the
@@ -76,6 +80,9 @@ func readShapeAdj(prst string, spPr *xmltree.Node) map[string]float64 {
 // calloutFrame is the frame height and the adjustments a callout is
 // written with: its own, or those of the conversion of an old one
 func calloutFrame(kind string, w, h float64, adj map[string]float64) (float64, map[string]float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "calloutFrame: kind=%.120q w=%g h=%g len(adj)=%d", kind, w, h, len(adj))
+	}
 	def, ok := calloutDefaults[kind]
 	if !ok {
 		return h, nil
@@ -104,6 +111,9 @@ func calloutFrame(kind string, w, h float64, adj map[string]float64) (float64, m
 
 // avLstXML renders adjustments as the guides of an <a:avLst>, in name order
 func avLstXML(adj map[string]float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "avLstXML: len(adj)=%d", len(adj))
+	}
 	if len(adj) == 0 {
 		return `<a:avLst/>`
 	}
@@ -124,6 +134,7 @@ func avLstXML(adj map[string]float64) string {
 // statedAdj reads the <a:avLst> guides a preset geometry states, nil when
 // it states none (the shape then draws at its defaults)
 func statedAdj(spPr *xmltree.Node) map[string]float64 {
+	logger.DebugTrace("office/pptx", "statedAdj")
 	av := spPr.Path("prstGeom", "avLst")
 	if av == nil {
 		return nil
@@ -146,6 +157,9 @@ func statedAdj(spPr *xmltree.Node) map[string]float64 {
 // adjForKind is the adjustments to keep for a shape: only those of a preset
 // the editor draws as itself - a stand-in outline has other guides
 func adjForKind(prst, kind string, spPr *xmltree.Node) map[string]float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "adjForKind: prst=%.120q kind=%.120q", prst, kind)
+	}
 	if _, callout := calloutDefaults[prst]; !callout && kind != prst {
 		return nil
 	}

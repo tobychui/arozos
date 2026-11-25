@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
@@ -16,6 +17,7 @@ var (
 )
 
 func ModuleServiceInit() {
+	logger.Debug("Core", "ModuleServiceInit")
 	//Create a new module handler
 	moduleHandler = module.NewModuleHandler(userHandler, *tmp_directory)
 
@@ -149,6 +151,9 @@ func ModuleServiceInit() {
 // groupsBootingInto lists the permission groups whose interface module is the
 // given module. Such a module cannot be switched off.
 func groupsBootingInto(moduleName string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "groupsBootingInto: moduleName=%.120q", moduleName)
+	}
 	groups := []string{}
 	if permissionHandler == nil {
 		return groups
@@ -165,6 +170,7 @@ func groupsBootingInto(moduleName string) []string {
 Handle endpoint registry for Module installer
 */
 func ModuleInstallerInit() {
+	logger.Debug("Core", "ModuleInstallerInit")
 	//Register module installation setting
 	registerSetting(settingModule{
 		Name:         "Add & Remove Module",
@@ -191,6 +197,9 @@ func ModuleInstallerInit() {
 
 // Handle module installation request
 func HandleModuleInstall(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "HandleModuleInstall: r=%s", logger.RequestSummary(r))
+	}
 	opr, _ := utils.PostPara(r, "opr")
 
 	if opr == "gitinstall" {

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -17,6 +19,9 @@ import (
 type magicPacket [102]byte
 
 func WakeTarget(macAddr string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/wakeonlan", "WakeTarget: macAddr=%.120q", macAddr)
+	}
 	packet := magicPacket{}
 	mac, err := net.ParseMAC(macAddr)
 	if err != nil {
@@ -52,6 +57,7 @@ func WakeTarget(macAddr string) error {
 }
 
 func sendPacket(addr string, packet magicPacket) error {
+	logger.Debug("cluster/wakeonlan", "sendPacket")
 	conn, err := net.Dial("udp", addr)
 	if err != nil {
 		return err

@@ -18,11 +18,14 @@ package fonts
 import (
 	"encoding/binary"
 	"errors"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // sliceable reports whether a font can be cut by Slice: TrueType outlines
 // and no per-glyph colour or bitmap tables that would need cutting too
 func sliceable(font *Font) bool {
+	logger.DebugTrace("locale/fonts", "sliceable")
 	if font.Table("glyf") == nil || font.Table("loca") == nil || len(font.Transformed) > 0 {
 		return false
 	}
@@ -44,6 +47,7 @@ type source struct {
 }
 
 func newSource(font *Font) (*source, error) {
+	logger.DebugTrace("locale/fonts", "newSource")
 	if !sliceable(font) {
 		return nil, errors.New("this font cannot be sliced")
 	}
@@ -63,11 +67,17 @@ func newSource(font *Font) (*source, error) {
 }
 
 func (s *source) glyph(gid int) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "source.glyph: gid=%d", gid)
+	}
 	return s.font.Table("glyf")[s.offsets[gid]:s.offsets[gid+1]]
 }
 
 // components lists the glyphs a composite glyph is built from
 func components(glyph []byte) []uint16 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "components: len(glyph)=%d", len(glyph))
+	}
 	if len(glyph) < 10 || int16(binary.BigEndian.Uint16(glyph)) >= 0 {
 		return nil
 	}
@@ -102,6 +112,9 @@ func components(glyph []byte) []uint16 {
 
 // keepSet returns the glyphs a slice of these codepoints needs
 func (s *source) keepSet(codepoints []uint32) ([]bool, []Mapping) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "source.keepSet: len(codepoints)=%d", len(codepoints))
+	}
 	keep := make([]bool, s.numGlyphs)
 	keep[0] = true
 	var mappings []Mapping
@@ -143,6 +156,9 @@ func (s *source) keepSet(codepoints []uint32) ([]bool, []Mapping) {
 
 // slice returns the tables of a font holding only the given codepoints
 func (s *source) slice(codepoints []uint32) (map[string][]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "source.slice: len(codepoints)=%d", len(codepoints))
+	}
 	keep, mappings := s.keepSet(codepoints)
 	tables := map[string][]byte{}
 	for tag, t := range s.font.Tables {
@@ -206,6 +222,9 @@ func (s *source) slice(codepoints []uint32) (map[string][]byte, error) {
 // clearBearings copies an hmtx / vmtx table with the side bearing of every
 // glyph not kept set to zero. The header gives the number of long metrics.
 func clearBearings(mtx, header []byte, keep []bool) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "clearBearings: len(mtx)=%d len(keep)=%d", len(mtx), len(keep))
+	}
 	if len(header) < 36 {
 		return nil, errTruncated
 	}
@@ -230,6 +249,9 @@ func clearBearings(mtx, header []byte, keep []bool) ([]byte, error) {
 
 // sliceGvar rebuilds a gvar table with variation data for kept glyphs only
 func sliceGvar(gvar []byte, keep []bool) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "sliceGvar: len(gvar)=%d len(keep)=%d", len(gvar), len(keep))
+	}
 	if len(gvar) < 20 {
 		return nil, errTruncated
 	}

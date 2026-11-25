@@ -54,11 +54,17 @@ type StorageDevicesMeta struct {
 // Check if the file format driver is installed on this host
 // if a format is supported, mkfs.(format) should be symlinked under /sbin
 func FormatPackageInstalled(fsType string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("disk/diskfs", "FormatPackageInstalled: fsType=%.120q", fsType)
+	}
 	return utils.FileExists("/sbin/mkfs." + fsType)
 }
 
 // Create file system, support ntfs, ext4 and fat32 only
 func FormatStorageDevice(fsType string, devicePath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskfs", "FormatStorageDevice: fsType=%.120q devicePath=%.120q", fsType, devicePath)
+	}
 	// Check if the filesystem type is supported
 	switch fsType {
 	case "ext4":
@@ -105,6 +111,7 @@ func FormatStorageDevice(fsType string, devicePath string) error {
 
 // List all the storage device in the system, set minSize to 0 for no filter
 func ListAllStorageDevices() (*StorageDevicesMeta, error) {
+	logger.Debug("disk/diskfs", "ListAllStorageDevices")
 	cmd := exec.Command("sudo", "lsblk", "-b", "--json")
 
 	output, err := cmd.CombinedOutput()
@@ -119,6 +126,9 @@ func ListAllStorageDevices() (*StorageDevicesMeta, error) {
 
 // Get block device (e.g. /dev/sdX) info
 func GetBlockDeviceMeta(devicePath string) (*BlockDeviceMeta, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskfs", "GetBlockDeviceMeta: devicePath=%.120q", devicePath)
+	}
 	//Trim the /dev/ part of the device path
 	deviceName := strings.TrimPrefix(devicePath, "/dev/")
 
@@ -148,6 +158,9 @@ func GetBlockDeviceMeta(devicePath string) (*BlockDeviceMeta, error) {
 
 // Get the disk UUID by current device path (e.g. /dev/sda)
 func GetDiskUUID(devicePath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskfs", "GetDiskUUID: devicePath=%.120q", devicePath)
+	}
 	cmd := exec.Command("sudo", "blkid", "-s", "UUID", "-o", "value", devicePath)
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -161,6 +174,9 @@ func GetDiskUUID(devicePath string) (string, error) {
 
 // Get partition information (e.g. /dev/sdX1)
 func GetPartitionMeta(devicePath string) (*PartitionMeta, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskfs", "GetPartitionMeta: devicePath=%.120q", devicePath)
+	}
 	//Trim the /dev/ part of the device path
 	deviceName := strings.TrimPrefix(devicePath, "/dev/")
 
@@ -195,6 +211,9 @@ func GetPartitionMeta(devicePath string) (*PartitionMeta, error) {
 
 // Check if a device is mounted given the path name, like /dev/sdc
 func DeviceIsMounted(devicePath string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskfs", "DeviceIsMounted: devicePath=%.120q", devicePath)
+	}
 	// Open the mountinfo file
 	file, err := os.Open("/proc/mounts")
 	if err != nil {
@@ -223,6 +242,9 @@ func DeviceIsMounted(devicePath string) (bool, error) {
 // UnmountDevice unmounts the specified device.
 // Remember to use full path (e.g. /dev/md0) in the devicePath
 func UnmountDevice(devicePath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskfs", "UnmountDevice: devicePath=%.120q", devicePath)
+	}
 	// Construct the bash command to unmount the device
 	cmd := exec.Command("sudo", "bash", "-c", fmt.Sprintf("umount -l %s", devicePath))
 
@@ -239,6 +261,9 @@ func UnmountDevice(devicePath string) error {
 // Force Version of Unmount (dangerous)
 // Remember to use full path (e.g. /dev/md0) in the devicePath
 func ForceUnmountDevice(devicePath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskfs", "ForceUnmountDevice: devicePath=%.120q", devicePath)
+	}
 	// Construct the bash command to unmount the device
 	cmd := exec.Command("sudo", "bash", "-c", fmt.Sprintf("umount -l %s", devicePath))
 
@@ -253,6 +278,9 @@ func ForceUnmountDevice(devicePath string) error {
 
 // DANGER: Wipe the whole disk given the disk path
 func WipeDisk(diskPath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskfs", "WipeDisk: diskPath=%.120q", diskPath)
+	}
 	// Unmount the disk
 	isMounted, _ := DeviceIsMounted(diskPath)
 	if isMounted {

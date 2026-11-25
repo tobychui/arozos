@@ -5,6 +5,7 @@ import (
 	"os"
 
 	desktop "imuslab.com/arozos/mod/desktop/service"
+	"imuslab.com/arozos/mod/info/logger"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
@@ -19,6 +20,7 @@ import (
 
 // Desktop script initiation
 func DesktopInit() {
+	logger.Debug("Core", "DesktopInit")
 	systemWideLogger.PrintAndLog("Desktop", "Starting Desktop Services", nil)
 
 	desktopOptions := desktop.Options{

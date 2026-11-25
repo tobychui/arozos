@@ -32,6 +32,9 @@ var RawImageFormats = []string{".arw", ".cr2", ".dng", ".nef", ".raf", ".orf"}
 
 // IsRawImageFile checks if the given file path is a RAW image format
 func IsRawImageFile(filePath string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "IsRawImageFile: filePath=%.120q", filePath)
+	}
 	ext := strings.ToLower(filepath.Ext(filePath))
 	return utils.StringInArray(RawImageFormats, ext)
 }
@@ -47,6 +50,7 @@ type RenderHandler struct {
 
 // Create a new RenderHandler
 func NewRenderHandler() *RenderHandler {
+	logger.DebugTrace("filesystem/metadata", "NewRenderHandler")
 	return &RenderHandler{
 		renderingFiles:  sync.Map{},
 		renderingFolder: sync.Map{},
@@ -55,6 +59,9 @@ func NewRenderHandler() *RenderHandler {
 
 // Build cache for all files (non recursive) for the given filepath
 func (rh *RenderHandler) BuildCacheForFolder(fsh *filesystem.FileSystemHandler, vpath string, username string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "RenderHandler.BuildCacheForFolder: vpath=%.120q username=%.120q", vpath, username)
+	}
 	fshAbs := fsh.FileSystemAbstraction
 	rpath, _ := fshAbs.VirtualPathToRealPath(vpath, username)
 
@@ -82,6 +89,9 @@ func (rh *RenderHandler) BuildCacheForFolder(fsh *filesystem.FileSystemHandler, 
 }
 
 func (rh *RenderHandler) LoadCacheAsBytes(fsh *filesystem.FileSystemHandler, vpath string, username string, generateOnly bool) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "RenderHandler.LoadCacheAsBytes: vpath=%.120q username=%.120q generateOnly=%t", vpath, username, generateOnly)
+	}
 	fshAbs := fsh.FileSystemAbstraction
 	rpath, _ := fshAbs.VirtualPathToRealPath(vpath, username)
 	b64, err := rh.LoadCache(fsh, rpath, generateOnly)
@@ -95,6 +105,9 @@ func (rh *RenderHandler) LoadCacheAsBytes(fsh *filesystem.FileSystemHandler, vpa
 
 // Try to load a cache from file. If not exists, generate it now
 func (rh *RenderHandler) LoadCache(fsh *filesystem.FileSystemHandler, rpath string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "RenderHandler.LoadCache: rpath=%.120q generateOnly=%t", rpath, generateOnly)
+	}
 	if r, ok := thumbnailRendererOf(fsh); ok {
 		//Rendered where the file is stored and cached on this host
 		return rh.loadExternalCache(r, rpath, generateOnly)
@@ -121,6 +134,9 @@ func (rh *RenderHandler) LoadCache(fsh *filesystem.FileSystemHandler, rpath stri
 
 // checkCacheNeeded checks if cache generation is needed
 func (rh *RenderHandler) checkCacheNeeded(fsh *filesystem.FileSystemHandler, rpath string, generateOnly bool, cacheFolder string) (needsGeneration bool, cacheData string, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "RenderHandler.checkCacheNeeded: rpath=%.120q generateOnly=%t cacheFolder=%.120q", rpath, generateOnly, cacheFolder)
+	}
 	if CacheExists(fsh, rpath) {
 		if generateOnly {
 			return false, "", nil
@@ -178,6 +194,9 @@ var (
 // renderer. Folders are not covered: their preview is built from the
 // thumbnails of the files inside them.
 func ThumbnailSupported(filename string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "ThumbnailSupported: filename=%.120q", filename)
+	}
 	ext := strings.ToLower(filepath.Ext(filename))
 	for _, formats := range [][]string{audioThumbnailFormats, imageThumbnailFormats,
 		videoThumbnailFormats, modelThumbnailFormats, gcodeThumbnailFormats, jsonPreviewFormats} {
@@ -192,6 +211,9 @@ func ThumbnailSupported(filename string) bool {
 // when the built in renderers are enough. It uses the feature names of the
 // cluster capability manifests.
 func ThumbnailFeature(filename string) string {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "ThumbnailFeature: filename=%.120q", filename)
+	}
 	if utils.StringInArray(videoThumbnailFormats, strings.ToLower(filepath.Ext(filename))) {
 		return "ffmpeg"
 	}
@@ -199,6 +221,9 @@ func ThumbnailFeature(filename string) string {
 }
 
 func (rh *RenderHandler) generateCache(fsh *filesystem.FileSystemHandler, cacheFolder string, rpath string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "RenderHandler.generateCache: cacheFolder=%.120q rpath=%.120q generateOnly=%t", cacheFolder, rpath, generateOnly)
+	}
 	//Cache image not exists. Set this file to busy
 	rh.renderingFiles.Store(rpath, "busy")
 	defer rh.renderingFiles.Delete(rpath)
@@ -208,6 +233,9 @@ func (rh *RenderHandler) generateCache(fsh *filesystem.FileSystemHandler, cacheF
 // renderThumbnail picks the renderer for a file and writes its thumbnail into
 // cacheFolder, which ends with a slash.
 func renderThumbnail(fsh *filesystem.FileSystemHandler, cacheFolder string, rpath string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "renderThumbnail: cacheFolder=%.120q rpath=%.120q generateOnly=%t", cacheFolder, rpath, generateOnly)
+	}
 	ext := strings.ToLower(filepath.Ext(rpath))
 	switch {
 	case utils.StringInArray(audioThumbnailFormats, ext):
@@ -254,6 +282,9 @@ func renderThumbnail(fsh *filesystem.FileSystemHandler, cacheFolder string, rpat
 }
 
 func (rh *RenderHandler) fileIsBusy(path string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "RenderHandler.fileIsBusy: path=%.120q", path)
+	}
 	if rh == nil {
 		logger.PrintAndLog("Metadata", "RenderHandler is null!", nil)
 		return true
@@ -268,6 +299,9 @@ func (rh *RenderHandler) fileIsBusy(path string) bool {
 }
 
 func getImageAsBase64(fsh *filesystem.FileSystemHandler, rpath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "getImageAsBase64: rpath=%.120q", rpath)
+	}
 	fshAbs := fsh.FileSystemAbstraction
 	content, err := fshAbs.ReadFile(rpath)
 	if err != nil {
@@ -279,6 +313,9 @@ func getImageAsBase64(fsh *filesystem.FileSystemHandler, rpath string) (string, 
 
 // Load a list of folder cache from websocket, pass in "" (empty string) for default sorting method
 func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request, fsh *filesystem.FileSystemHandler, rpath string, sortmode string) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "RenderHandler.HandleLoadCache: r=%s rpath=%.120q sortmode=%.120q", logger.RequestSummary(r), rpath, sortmode)
+	}
 	//Get a list of files pending to be cached and sent
 	targetPath := filepath.ToSlash(filepath.Clean(rpath))
 
@@ -407,6 +444,9 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 
 // Check if the cache for a file exists
 func CacheExists(fsh *filesystem.FileSystemHandler, file string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "CacheExists: file=%.120q", file)
+	}
 	if r, ok := thumbnailRendererOf(fsh); ok {
 		_, found := externalCacheFile(r, file)
 		return found
@@ -417,6 +457,9 @@ func CacheExists(fsh *filesystem.FileSystemHandler, file string) bool {
 
 // Get cache path for this file, given realpath
 func GetCacheFilePath(fsh *filesystem.FileSystemHandler, file string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "GetCacheFilePath: file=%.120q", file)
+	}
 	if _, ok := thumbnailRendererOf(fsh); ok {
 		//The path is on this host, not on the drive, so no fsh can read it
 		return "", errors.New("thumbnail of this drive is not kept on the drive")
@@ -438,6 +481,9 @@ func GetCacheFilePath(fsh *filesystem.FileSystemHandler, file string) (string, e
 
 // Remove cache if exists, given realpath
 func RemoveCache(fsh *filesystem.FileSystemHandler, file string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "RemoveCache: file=%.120q", file)
+	}
 	if _, ok := thumbnailRendererOf(fsh); ok {
 		//Cached by content, so a moved or changed file never finds a stale
 		//thumbnail; unused ones are pruned instead

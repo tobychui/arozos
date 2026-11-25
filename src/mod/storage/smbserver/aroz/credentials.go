@@ -19,6 +19,7 @@ import (
 
 	"github.com/tobychui/smbsrv"
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -54,6 +55,9 @@ type sealer struct {
 // loadSealer reads the key from dir, making one on first use. A lost key costs
 // users their SMB passwords, which they can simply set again.
 func loadSealer(dir string) (*sealer, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "loadSealer: dir=%.120q", dir)
+	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
@@ -88,6 +92,9 @@ func loadSealer(dir string) (*sealer, error) {
 // seal encrypts a secret for one user. The user is bound into the result, so
 // a record moved onto another account in the database no longer opens.
 func (s *sealer) seal(owner string, secret []byte) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "sealer.seal: owner=%.120q", owner)
+	}
 	nonce := make([]byte, s.aead.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return "", err
@@ -97,6 +104,9 @@ func (s *sealer) seal(owner string, secret []byte) (string, error) {
 }
 
 func (s *sealer) open(owner, text string) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "sealer.open: owner=%.120q", owner)
+	}
 	raw, err := base64.StdEncoding.DecodeString(text)
 	if err != nil {
 		return nil, err
@@ -113,6 +123,9 @@ var kerberosFold, _ = hex.DecodeString("6b65726265726f737b9b5b2b93132b93")
 
 // kerberosKey is the AES string-to-key of RFC 3962.
 func kerberosKey(password, salt string, iterations, size int) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "kerberosKey: iterations=%d size=%d", iterations, size)
+	}
 	temporary, err := pbkdf2.Key(sha1.New, password, []byte(salt), iterations, size)
 	if err != nil {
 		return nil, err
@@ -148,6 +161,9 @@ type storedCredential struct {
 // a login becomes: a row whose Name was edited to another user's would let
 // its owner's password open that user's session.
 func (r storedCredential) belongsTo(owner string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/smbserver/aroz", "storedCredential.belongsTo: owner=%.120q", owner)
+	}
 	return r.Name != "" && credentialKey(r.Name) == owner
 }
 
@@ -160,6 +176,7 @@ type CredentialDB struct {
 
 // OpenCredentialDB opens the store. The key file lives in keyDir.
 func OpenCredentialDB(db *database.Database, keyDir string) (*CredentialDB, error) {
+	logger.Debug("storage/smbserver/aroz", "OpenCredentialDB")
 	if err := db.NewTable(credentialTable); err != nil {
 		return nil, err
 	}
@@ -170,10 +187,18 @@ func OpenCredentialDB(db *database.Database, keyDir string) (*CredentialDB, erro
 	return &CredentialDB{db: db, seal: s}, nil
 }
 
-func credentialKey(username string) string { return strings.ToLower(username) }
+func credentialKey(username string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/smbserver/aroz", "credentialKey: username=%.120q", username)
+	}
+	return strings.ToLower(username)
+}
 
 // Set stores the SMB password of a user.
 func (c *CredentialDB) Set(username, password string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "CredentialDB.Set: username=%.120q", username)
+	}
 	salt := "arozos-smb:" + strings.ToLower(username)
 	aes128, err := kerberosKey(password, salt, kerberosIterations, 16)
 	if err != nil {
@@ -203,6 +228,9 @@ func (c *CredentialDB) Set(username, password string) error {
 // SetHash stores an NT hash brought over from Samba. There is no password to
 // make Kerberos keys from, so that user is asked once more when Kerberos comes.
 func (c *CredentialDB) SetHash(username string, ntHash []byte) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "CredentialDB.SetHash: username=%.120q", username)
+	}
 	if len(ntHash) != 16 {
 		return errors.New("smbserver/aroz: an NT hash is 16 bytes")
 	}
@@ -218,6 +246,9 @@ func (c *CredentialDB) SetHash(username string, ntHash []byte) error {
 
 // Remove deletes the SMB password of a user.
 func (c *CredentialDB) Remove(username string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "CredentialDB.Remove: username=%.120q", username)
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.db.Delete(credentialTable, credentialKey(username))
@@ -225,6 +256,9 @@ func (c *CredentialDB) Remove(username string) error {
 
 // Has reports whether a user has enabled SMB.
 func (c *CredentialDB) Has(username string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "CredentialDB.Has: username=%.120q", username)
+	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.db.KeyExists(credentialTable, credentialKey(username))
@@ -232,6 +266,9 @@ func (c *CredentialDB) Has(username string) bool {
 
 // Lookup implements CredentialStore. Windows sends whatever case was typed.
 func (c *CredentialDB) Lookup(username string) (string, []byte, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "CredentialDB.Lookup: username=%.120q", username)
+	}
 	owner := credentialKey(username)
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -260,6 +297,7 @@ type ActiveUser struct {
 
 // List returns the users who enabled SMB.
 func (c *CredentialDB) List() ([]ActiveUser, error) {
+	logger.Debug("storage/smbserver/aroz", "CredentialDB.List")
 	c.mu.RLock()
 	rows, err := c.db.ListTable(credentialTable)
 	if err != nil {

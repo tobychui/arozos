@@ -11,6 +11,7 @@ package officeart
 	shapes use the host's client anchor.
 */
 
+import "imuslab.com/arozos/mod/info/logger"
 import "encoding/binary"
 
 // Shape is one decoded shape container
@@ -37,16 +38,31 @@ type Shape struct {
 }
 
 // IsGroup reports a group shape
-func (s *Shape) IsGroup() bool { return s != nil && s.Group != nil }
+func (s *Shape) IsGroup() bool {
+	logger.DebugTrace("office/internal/officeart", "Shape.IsGroup")
+	return s != nil && s.Group != nil
+}
 
 // FlipH / FlipV report the mirroring flags
-func (s *Shape) FlipH() bool { return s.Flags&SpFlipH != 0 }
-func (s *Shape) FlipV() bool { return s.Flags&SpFlipV != 0 }
+func (s *Shape) FlipH() bool {
+	logger.DebugTrace("office/internal/officeart", "Shape.FlipH")
+	return s.Flags&SpFlipH != 0
+}
+func (s *Shape) FlipV() bool {
+	logger.DebugTrace("office/internal/officeart", "Shape.FlipV")
+	return s.Flags&SpFlipV != 0
+}
 
 // Deleted reports a shape the host marked as deleted
-func (s *Shape) Deleted() bool { return s.Flags&SpDeleted != 0 }
+func (s *Shape) Deleted() bool {
+	logger.DebugTrace("office/internal/officeart", "Shape.Deleted")
+	return s.Flags&SpDeleted != 0
+}
 
 func rect32(b []byte) *[4]int32 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/officeart", "rect32: len(b)=%d", len(b))
+	}
 	if len(b) < 16 {
 		return nil
 	}
@@ -56,6 +72,7 @@ func rect32(b []byte) *[4]int32 {
 
 // ReadShape decodes an SpContainer
 func ReadShape(sp *Record) *Shape {
+	logger.Debug("office/internal/officeart", "ReadShape")
 	s := &Shape{Container: sp}
 	props := Props{vals: map[uint16]uint32{}, complex: map[uint16][]byte{}, blip: map[uint16]bool{}}
 	for _, c := range sp.Children {
@@ -87,6 +104,7 @@ func ReadShape(sp *Record) *Shape {
 // ReadGroup decodes an SpgrContainer into its group shape with the
 // members as Children (nested groups included)
 func ReadGroup(spgr *Record) *Shape {
+	logger.DebugTrace("office/internal/officeart", "ReadGroup")
 	if spgr == nil || len(spgr.Children) == 0 {
 		return nil
 	}
@@ -120,6 +138,7 @@ func ReadGroup(spgr *Record) *Shape {
 // Walk calls fn for every shape below s (s included), depth first, with
 // the chain of groups above it
 func Walk(s *Shape, fn func(sh *Shape, parents []*Shape)) {
+	logger.Debug("office/internal/officeart", "Walk")
 	var walk func(*Shape, []*Shape)
 	walk = func(n *Shape, up []*Shape) {
 		fn(n, up)

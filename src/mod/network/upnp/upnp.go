@@ -25,6 +25,9 @@ type UPnPClient struct {
 }
 
 func NewUPNPClient(basePort int, hostname string) (*UPnPClient, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/upnp", "NewUPNPClient: basePort=%d hostname=%.120q", basePort, hostname)
+	}
 	//Create uPNP forwarding in the NAT router
 	logger.PrintAndLog("Upnp", "Discovering UPnP router in Local Area Network...", nil)
 	d, err := upnp.Discover()
@@ -55,6 +58,9 @@ func NewUPNPClient(basePort int, hostname string) (*UPnPClient, error) {
 }
 
 func (u *UPnPClient) ForwardPort(portNumber int, ruleName string) error {
+	if logger.IsDebug() {
+		logger.Debugf("network/upnp", "UPnPClient.ForwardPort: portNumber=%d ruleName=%.120q", portNumber, ruleName)
+	}
 	logger.PrintAndLog("Upnp", fmt.Sprint("UPnP forwarding new port: ", portNumber, "for "+ruleName+" service"), nil)
 
 	//Check if port already forwarded
@@ -76,6 +82,9 @@ func (u *UPnPClient) ForwardPort(portNumber int, ruleName string) error {
 }
 
 func (u *UPnPClient) ClosePort(portNumber int) error {
+	if logger.IsDebug() {
+		logger.Debugf("network/upnp", "UPnPClient.ClosePort: portNumber=%d", portNumber)
+	}
 	//Check if port is opened
 	portOpened := false
 	newRequiredPort := []int{}
@@ -108,6 +117,7 @@ func (u *UPnPClient) ClosePort(portNumber int) error {
 
 // Renew forward rules, prevent router lease time from flushing the Upnp config
 func (u *UPnPClient) RenewForwardRules() {
+	logger.Debug("network/upnp", "UPnPClient.RenewForwardRules")
 	portsToRenew := u.RequiredPorts
 	for _, thisPort := range portsToRenew {
 		ruleName, ok := u.PolicyNames.Load(thisPort)
@@ -122,6 +132,7 @@ func (u *UPnPClient) RenewForwardRules() {
 }
 
 func (u *UPnPClient) Close() {
+	logger.Debug("network/upnp", "UPnPClient.Close")
 	//Shutdown the default UPnP Object
 	if u != nil {
 		for _, portNumber := range u.RequiredPorts {

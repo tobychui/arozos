@@ -9,6 +9,7 @@ import (
 	"imuslab.com/arozos/mod/fileservers"
 	"imuslab.com/arozos/mod/fileservers/servers/syncthingserv"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/quota"
 )
@@ -27,6 +28,7 @@ var SyncthingManager *syncthingserv.Manager
 
 // SyncthingInit sets up the manager, its endpoints and its list entry.
 func SyncthingInit(router, adminRouter *prout.RouterDef) {
+	logger.Debug("Core", "SyncthingInit")
 	if !syncthingserv.Available() {
 		return
 	}
@@ -101,6 +103,7 @@ func SyncthingInit(router, adminRouter *prout.RouterDef) {
 
 // SyncthingShutdown stops Syncthing if it is running.
 func SyncthingShutdown() {
+	logger.Debug("Core", "SyncthingShutdown")
 	if SyncthingManager != nil {
 		SyncthingManager.Close()
 	}
@@ -112,10 +115,12 @@ type syncthingQuota struct {
 }
 
 func (s syncthingQuota) Usage() (int64, int64) {
+	logger.DebugTrace("Core", "syncthingQuota.Usage")
 	return s.q.UsedStorageQuota, s.q.TotalStorageQuota
 }
 
 func (s syncthingQuota) Recount() {
+	logger.DebugTrace("Core", "syncthingQuota.Recount")
 	s.q.CalculateQuotaUsage()
 }
 
@@ -125,6 +130,9 @@ func (s syncthingQuota) Recount() {
 // it is on a local disk (not a network, cloud, cluster or shared drive), and
 // no symbolic link carries it off its drive or into the system folder.
 func syncthingResolveFolder(username, vpath string, create bool) (syncthingserv.Location, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "syncthingResolveFolder: username=%.120q vpath=%.120q create=%t", username, vpath, create)
+	}
 	none := syncthingserv.Location{}
 	userinfo, err := userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
@@ -184,6 +192,9 @@ func syncthingResolveFolder(username, vpath string, create bool) (syncthingserv.
 }
 
 func resolvedAbs(p string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "resolvedAbs: p=%.120q", p)
+	}
 	resolved, err := filepath.EvalSymlinks(p)
 	if err != nil {
 		return "", err
@@ -193,6 +204,9 @@ func resolvedAbs(p string) (string, error) {
 
 // pathWithin reports p being dir or inside it.
 func pathWithin(p, dir string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "pathWithin: p=%.120q dir=%.120q", p, dir)
+	}
 	p, dir = filepath.Clean(p), filepath.Clean(dir)
 	if strings.EqualFold(p, dir) {
 		return p == dir || filepath.Separator == '\\'

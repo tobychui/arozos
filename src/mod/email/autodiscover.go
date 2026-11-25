@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // DiscoverResult is the suggested configuration for an address.
@@ -53,6 +55,7 @@ var srvLookup = func(ctx context.Context, service string, domain string) ([]*net
 
 // Discover suggests server settings for an address.
 func (m *Manager) Discover(ctx context.Context, p Principal, address string) (*DiscoverResult, error) {
+	logger.Debug("email", "Manager.Discover")
 	address = strings.TrimSpace(address)
 	domain := domainOf(address)
 	if domain == "" || strings.ContainsAny(domain, " /\\") {
@@ -97,7 +100,10 @@ var errPleaseEnterAddress = &discoverError{"please enter a complete email addres
 
 type discoverError struct{ message string }
 
-func (e *discoverError) Error() string { return e.message }
+func (e *discoverError) Error() string {
+	logger.DebugTrace("email", "discoverError.Error")
+	return e.message
+}
 
 // Thunderbird autoconfig document (subset).
 type autoconfigDocument struct {
@@ -119,6 +125,9 @@ type autoconfigServer struct {
 }
 
 func (m *Manager) discoverAutoconfig(ctx context.Context, p Principal, address string, domain string) *DiscoverResult {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.discoverAutoconfig: domain=%.120q", domain)
+	}
 	type source struct {
 		url     string
 		guarded bool
@@ -179,6 +188,7 @@ func (m *Manager) discoverAutoconfig(ctx context.Context, p Principal, address s
 
 // parseAutoconfig reads a Thunderbird autoconfig XML document.
 func parseAutoconfig(body []byte, address string) *DiscoverResult {
+	logger.Debug("email", "parseAutoconfig")
 	document := autoconfigDocument{}
 	if err := xml.Unmarshal(body, &document); err != nil || len(document.Providers) == 0 {
 		return nil
@@ -245,6 +255,9 @@ func parseAutoconfig(body []byte, address string) *DiscoverResult {
 }
 
 func substituteAutoconfig(value string, address string) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "substituteAutoconfig: value=%.120q", value)
+	}
 	local := address
 	if at := strings.LastIndex(address, "@"); at >= 0 {
 		local = address[:at]
@@ -257,6 +270,9 @@ func substituteAutoconfig(value string, address string) string {
 
 // discoverSRV reads RFC 6186 service records.
 func discoverSRV(ctx context.Context, address string, domain string) *DiscoverResult {
+	if logger.IsDebug() {
+		logger.Debugf("email", "discoverSRV: domain=%.120q", domain)
+	}
 	lookupCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	first := func(service string) *net.SRV {
@@ -287,6 +303,9 @@ func discoverSRV(ctx context.Context, address string, domain string) *DiscoverRe
 
 // discoverByProbing tries the conventional host names and ports.
 func (m *Manager) discoverByProbing(ctx context.Context, p Principal, address string, domain string) *DiscoverResult {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.discoverByProbing: domain=%.120q", domain)
+	}
 	allowPrivate := m.allowPrivate(p)
 	type candidate struct {
 		host     string

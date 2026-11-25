@@ -18,24 +18,34 @@ import (
 	"errors"
 	"sort"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Toggle WiFi On Off. Only allow on sudo mode
 func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/wifi", "WiFiManager.SetInterfacePower: wlanInterface=%.120q on=%t", wlanInterface, on)
+	}
 	return errors.New("Windows WiFi function is currently readonly")
 }
 
 // CanControlInterfacePower reports whether SetInterfacePower is supported
 func (w *WiFiManager) CanControlInterfacePower() bool {
+	logger.DebugTrace("network/wifi", "WiFiManager.CanControlInterfacePower")
 	return false
 }
 
 // CanConnect reports whether ConnectWiFi and RemoveWifi are supported
 func (w *WiFiManager) CanConnect() bool {
+	logger.DebugTrace("network/wifi", "WiFiManager.CanConnect")
 	return false
 }
 
 func (w *WiFiManager) GetInterfacePowerStatuts(wlanInterface string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "WiFiManager.GetInterfacePowerStatuts: wlanInterface=%.120q", wlanInterface)
+	}
 	client, err := openWlanClient()
 	if err != nil {
 		return false, err
@@ -58,6 +68,9 @@ func (w *WiFiManager) GetInterfacePowerStatuts(wlanInterface string) (bool, erro
 // radioSummary folds the per-PHY radio states into one software and one
 // hardware state: "on" when any PHY is on
 func radioSummary(states []wlanPhyRadioState) (string, string) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "radioSummary: len(states)=%d", len(states))
+	}
 	software, hardware := "unknown", "unknown"
 	for _, s := range states {
 		if sw := dot11RadioStateName(s.Software); sw == "on" || software == "unknown" {
@@ -74,6 +87,9 @@ func radioSummary(states []wlanPhyRadioState) (string, string) {
 // GUID matches name. When nothing matches (or name is empty) the first
 // interface is returned if fallback is set.
 func findWlanInterface(client *wlanClient, name string, fallback bool) (wlanInterfaceInfo, adapterInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "findWlanInterface: name=%.120q fallback=%t", name, fallback)
+	}
 	ifaces, err := client.interfaces()
 	if err != nil {
 		return wlanInterfaceInfo{}, adapterInfo{}, err
@@ -98,6 +114,7 @@ func findWlanInterface(client *wlanClient, name string, fallback bool) (wlanInte
 
 // interfaceDisplayName is the name the rest of ArozOS uses for an interface
 func interfaceDisplayName(iface wlanInterfaceInfo, adapter adapterInfo) string {
+	logger.Debug("network/wifi", "interfaceDisplayName")
 	if adapter.FriendlyName != "" {
 		return adapter.FriendlyName
 	}
@@ -105,6 +122,9 @@ func interfaceDisplayName(iface wlanInterfaceInfo, adapter adapterInfo) string {
 }
 
 func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "WiFiManager.ScanNearbyWiFi: interfaceName=%.120q", interfaceName)
+	}
 	client, err := openWlanClient()
 	if err != nil {
 		return []WiFiInfo{}, err
@@ -170,6 +190,7 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 }
 
 func (w *WiFiManager) GetWirelessInterfaces() ([]string, error) {
+	logger.Debug("network/wifi", "WiFiManager.GetWirelessInterfaces")
 	client, err := openWlanClient()
 	if err != nil {
 		return []string{}, err
@@ -190,6 +211,7 @@ func (w *WiFiManager) GetWirelessInterfaces() ([]string, error) {
 
 // GetInterfaceStatus returns the live state of every wireless interface
 func (w *WiFiManager) GetInterfaceStatus() ([]WiFiInterfaceStatus, error) {
+	logger.Debug("network/wifi", "WiFiManager.GetInterfaceStatus")
 	client, err := openWlanClient()
 	if err != nil {
 		return []WiFiInterfaceStatus{}, err
@@ -209,6 +231,7 @@ func (w *WiFiManager) GetInterfaceStatus() ([]WiFiInterfaceStatus, error) {
 }
 
 func interfaceStatus(client *wlanClient, iface wlanInterfaceInfo, adapter adapterInfo) WiFiInterfaceStatus {
+	logger.Debug("network/wifi", "interfaceStatus")
 	guid := guidFromBytes(iface.GUID)
 	status := WiFiInterfaceStatus{
 		Name:          interfaceDisplayName(iface, adapter),
@@ -295,11 +318,15 @@ func interfaceStatus(client *wlanClient, iface wlanInterfaceInfo, adapter adapte
 }
 
 func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string, identity string) (*WiFiConnectionResult, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/wifi", "WiFiManager.ConnectWiFi: ssid=%.120q identity=%.120q", ssid, identity)
+	}
 	return &WiFiConnectionResult{}, errors.New("Windows WiFi function is currently readonly")
 }
 
 // Get connected wifi ssid, interface name and error if any
 func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
+	logger.Debug("network/wifi", "WiFiManager.GetConnectedWiFi")
 	statuses, err := w.GetInterfaceStatus()
 	if err != nil {
 		if err == errWlanUnavailable {
@@ -319,10 +346,16 @@ func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
 }
 
 func (w *WiFiManager) RemoveWifi(ssid string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/wifi", "WiFiManager.RemoveWifi: ssid=%.120q", ssid)
+	}
 	return errors.New("Windows WiFi function is currently readonly")
 }
 
 func nonNil(list []string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "nonNil: len(list)=%d", len(list))
+	}
 	if list == nil {
 		return []string{}
 	}

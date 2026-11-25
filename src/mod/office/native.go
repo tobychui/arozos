@@ -45,6 +45,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/docx"
 	"imuslab.com/arozos/mod/office/internal/media"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
@@ -81,6 +82,9 @@ const (
 // AppForExt maps a file extension (".docx", case-insensitive) to the app
 // that lives in it, or "" for a format that is not one of the three
 func AppForExt(ext string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office", "AppForExt: ext=%.120q", ext)
+	}
 	switch strings.ToLower(ext) {
 	case ".docx":
 		return AppDocument
@@ -94,6 +98,9 @@ func AppForExt(ext string) string {
 
 // ExtForApp is the extension the app's documents are saved under
 func ExtForApp(app string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office", "ExtForApp: app=%.120q", app)
+	}
 	switch app {
 	case AppDocument:
 		return ".docx"
@@ -125,6 +132,9 @@ are none - the browser build keeps its media as data URLs). A picture is
 read once and shared by the OOXML part and the embedded copy.
 */
 func BuildNativeFile(app, envelope string, readVpath func(string) ([]byte, error)) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("office", "BuildNativeFile: app=%.120q envelope=%.120q", app, envelope)
+	}
 	var env struct {
 		Type string          `json:"type"`
 		App  string          `json:"app"`
@@ -168,6 +178,9 @@ func BuildNativeFile(app, envelope string, readVpath func(string) ([]byte, error
 
 // buildOOXML renders a body into the app's Office format
 func buildOOXML(app, body string, readVpath func(string) ([]byte, error)) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("office", "buildOOXML: app=%.120q", app)
+	}
 	switch app {
 	case AppDocument:
 		doc, err := model.ParseDocumentJSON(body)
@@ -194,6 +207,9 @@ func buildOOXML(app, body string, readVpath func(string) ([]byte, error)) ([]byt
 
 // embedEnvelope adds the arozos/ parts to a freshly written OOXML package
 func embedEnvelope(pkg []byte, app, envelope string, readVpath func(string) ([]byte, error)) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("office", "embedEnvelope: len(pkg)=%d app=%.120q envelope=%.120q", len(pkg), app, envelope)
+	}
 	zr, err := zip.NewReader(bytes.NewReader(pkg), int64(len(pkg)))
 	if err != nil {
 		return nil, err
@@ -313,6 +329,9 @@ func embedEnvelope(pkg []byte, app, envelope string, readVpath func(string) ([]b
 }
 
 func writeDeflated(zw *zip.Writer, name string, data []byte) error {
+	if logger.IsDebug() {
+		logger.Debugf("office", "writeDeflated: name=%.120q", name)
+	}
 	w, err := zw.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Deflate})
 	if err != nil {
 		return err
@@ -323,6 +342,9 @@ func writeDeflated(zw *zip.Writer, name string, data []byte) error {
 
 // insertBefore puts s in front of the last occurrence of closing tag in xml
 func insertBefore(xml []byte, closing, s string) []byte {
+	if logger.IsDebug() {
+		logger.Debugf("office", "insertBefore: len(xml)=%d closing=%.120q s=%.120q", len(xml), closing, s)
+	}
 	i := bytes.LastIndex(xml, []byte(closing))
 	if i < 0 {
 		return xml
@@ -352,6 +374,9 @@ The app's legacy binary format (.doc / .xls / .ppt) is accepted too: it is
 converted into OOXML first (formats.go).
 */
 func ReadNativeFile(app string, data []byte, sink AssetSink) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("office", "ReadNativeFile: app=%.120q", app)
+	}
 	if ExtForApp(app) == "" {
 		return "", errors.New("unknown document kind: " + app)
 	}
@@ -396,6 +421,9 @@ func ReadNativeFile(app string, data []byte, sink AssetSink) (string, error) {
 // HasEmbeddedDocument reports whether an Office file carries a current
 // editor copy (what ReadNativeFile would use instead of importing)
 func HasEmbeddedDocument(app string, data []byte) bool {
+	if logger.IsDebug() {
+		logger.Debugf("office", "HasEmbeddedDocument: app=%.120q", app)
+	}
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return false
@@ -409,6 +437,9 @@ func HasEmbeddedDocument(app string, data []byte) bool {
 }
 
 func importOOXML(app string, data []byte) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("office", "importOOXML: app=%.120q", app)
+	}
 	switch app {
 	case AppDocument:
 		doc, err := docx.Parse(data)
@@ -433,6 +464,9 @@ func importOOXML(app string, data []byte) (string, error) {
 }
 
 func validManifest(app string, parts map[string][]byte) (*nativeManifest, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("office", "validManifest: app=%.120q len(parts)=%d", app, len(parts))
+	}
 	raw, ok := parts[nativeManifestPart]
 	if !ok {
 		return nil, false
@@ -453,6 +487,9 @@ func validManifest(app string, parts map[string][]byte) (*nativeManifest, bool) 
 // embeddedEnvelope returns the editor copy of a package the suite wrote,
 // when there is one and it is still current
 func embeddedEnvelope(app string, parts map[string][]byte, sink AssetSink) (string, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("office", "embeddedEnvelope: app=%.120q len(parts)=%d", app, len(parts))
+	}
 	man, ok := validManifest(app, parts)
 	if !ok {
 		return "", false
@@ -521,6 +558,7 @@ and anything else that is not a picture, video or audio stay inline: a
 link would reach an @font-face without the type it needs.
 */
 func externalizeDataURLs(body string, sink AssetSink) (string, error) {
+	logger.Debug("office", "externalizeDataURLs")
 	if !strings.Contains(body, "data:") {
 		return body, nil
 	}
@@ -582,6 +620,9 @@ func externalizeDataURLs(body string, sink AssetSink) (string, error) {
 }
 
 func htmlAttrEscape(s string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office", "htmlAttrEscape: s=%.120q", s)
+	}
 	return strings.NewReplacer("&", "&amp;", `"`, "&quot;", "'", "&#39;", "<", "&lt;", ">", "&gt;").Replace(s)
 }
 
@@ -592,6 +633,7 @@ func htmlAttrEscape(s string) string {
 const maxPartSize = 512 << 20
 
 func readParts(zr *zip.Reader) (map[string][]byte, error) {
+	logger.Debug("office", "readParts")
 	parts := map[string][]byte{}
 	for _, f := range zr.File {
 		if strings.HasSuffix(f.Name, "/") {
@@ -615,6 +657,9 @@ func readParts(zr *zip.Reader) (map[string][]byte, error) {
 }
 
 func sortedPartNames(parts map[string][]byte) []string {
+	if logger.IsDebug() {
+		logger.Debugf("office", "sortedPartNames: len(parts)=%d", len(parts))
+	}
 	names := make([]string, 0, len(parts))
 	for n := range parts {
 		names = append(names, n)
@@ -627,12 +672,18 @@ func sortedPartNames(parts map[string][]byte) []string {
 // copy still describes the file. The two package indexes are left out
 // because the embedding itself edits them.
 func fingerprintedPart(name string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office", "fingerprintedPart: name=%.120q", name)
+	}
 	return name != "[Content_Types].xml" && name != "_rels/.rels" && !strings.HasPrefix(name, nativeDir)
 }
 
 // packageFingerprint hashes every OOXML part, names included, in a fixed
 // order - so a part added, removed, renamed or changed all show
 func packageFingerprint(parts map[string][]byte) string {
+	if logger.IsDebug() {
+		logger.Debugf("office", "packageFingerprint: len(parts)=%d", len(parts))
+	}
 	h := sha256.New()
 	var n [8]byte
 	for _, name := range sortedPartNames(parts) {
@@ -652,6 +703,9 @@ func packageFingerprint(parts map[string][]byte) string {
 // isMediaPart: a binary part an embedded asset may point at instead of
 // being stored twice
 func isMediaPart(name string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("office", "isMediaPart: name=%.120q", name)
+	}
 	if !fingerprintedPart(name) {
 		return false
 	}

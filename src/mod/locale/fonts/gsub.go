@@ -18,6 +18,8 @@ package fonts
 import (
 	"encoding/binary"
 	"errors"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // defaultFeatures are the GSUB features browsers apply on their own
@@ -48,6 +50,9 @@ type substRules struct {
 // parseGSUB collects the substitutions of the default features. A font with
 // no GSUB, or one this cannot read, yields no rules.
 func parseGSUB(table []byte, numGlyphs int) (*substRules, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "parseGSUB: len(table)=%d numGlyphs=%d", len(table), numGlyphs)
+	}
 	rules := &substRules{}
 	if table == nil {
 		return rules, nil
@@ -115,6 +120,9 @@ type gsubParser struct {
 }
 
 func (p *gsubParser) enqueue(index int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "gsubParser.enqueue: index=%d", index)
+	}
 	if index < p.lookupCount && !p.visited[index] {
 		p.visited[index] = true
 		p.queue = append(p.queue, index)
@@ -122,6 +130,9 @@ func (p *gsubParser) enqueue(index int) {
 }
 
 func (p *gsubParser) queueFeature(off int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "gsubParser.queueFeature: off=%d", off)
+	}
 	count, err := u16(p.table, off+2)
 	if err != nil {
 		return
@@ -134,6 +145,9 @@ func (p *gsubParser) queueFeature(off int) {
 }
 
 func (p *gsubParser) queueFeatureVariations(off int64, tags []string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "gsubParser.queueFeatureVariations: off=%d len(tags)=%d", off, len(tags))
+	}
 	if off > int64(len(p.table)) {
 		return
 	}
@@ -168,6 +182,9 @@ func (p *gsubParser) queueFeatureVariations(off int64, tags []string) {
 }
 
 func (p *gsubParser) addPair(in, out uint16) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "gsubParser.addPair: in=%d out=%d", in, out)
+	}
 	if int(in) >= p.numGlyphs || int(out) >= p.numGlyphs {
 		return nil
 	}
@@ -180,6 +197,9 @@ func (p *gsubParser) addPair(in, out uint16) error {
 }
 
 func (p *gsubParser) lookup(index int) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "gsubParser.lookup: index=%d", index)
+	}
 	rel, err := u16(p.table, p.lookupList+2+2*index)
 	if err != nil {
 		return nil
@@ -214,6 +234,9 @@ func (p *gsubParser) lookup(index int) error {
 
 // coverage returns the glyphs of a coverage table in coverage index order
 func (p *gsubParser) coverage(off int) []uint16 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "gsubParser.coverage: off=%d", off)
+	}
 	format, err := u16(p.table, off)
 	if err != nil {
 		return nil
@@ -259,6 +282,9 @@ func (p *gsubParser) coverage(off int) []uint16 {
 }
 
 func (p *gsubParser) subtable(kind uint16, off int) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "gsubParser.subtable: kind=%d off=%d", kind, off)
+	}
 	format, err := u16(p.table, off)
 	if err != nil {
 		return nil
@@ -398,6 +424,9 @@ func (p *gsubParser) subtable(kind uint16, off int) error {
 
 // nestedLookups reads the SubstLookupRecords of a (chained) context subtable
 func (p *gsubParser) nestedLookups(kind, format uint16, off int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "gsubParser.nestedLookups: kind=%d format=%d off=%d", kind, format, off)
+	}
 	records := func(pos, count int) {
 		for i := 0; i < count; i++ {
 			if index, err := u16(p.table, pos+4*i+2); err == nil {
@@ -492,6 +521,9 @@ func (p *gsubParser) nestedLookups(kind, format uint16, off int) {
 // closure marks every glyph the rules can reach from the kept ones. It
 // reports whether it added anything.
 func (r *substRules) closure(keep []bool) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "substRules.closure: len(keep)=%d", len(keep))
+	}
 	grew := false
 	for pass := 0; pass < 64; pass++ {
 		changed := false

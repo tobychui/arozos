@@ -7,6 +7,7 @@ import (
 
 	"imuslab.com/arozos/mod/disk/diskcapacity/dftool"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -34,12 +35,16 @@ type CapacityInfo struct {
 
 // Create a new Capacity Resolver with the given user handler
 func NewCapacityResolver(u *user.UserHandler) *Resolver {
+	logger.DebugTrace("disk/diskcapacity", "NewCapacityResolver")
 	return &Resolver{
 		UserHandler: u,
 	}
 }
 
 func (cr *Resolver) HandleCapacityResolving(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskcapacity", "Resolver.HandleCapacityResolving: r=%s", logger.RequestSummary(r))
+	}
 	//Check if the request user is authenticated
 	userinfo, err := cr.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -75,6 +80,9 @@ func (cr *Resolver) HandleCapacityResolving(w http.ResponseWriter, r *http.Reque
 
 // Get the capacity in tmp folder, accessible by everyone by default
 func (cr *Resolver) HandleTmpCapacityResolving(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskcapacity", "Resolver.HandleTmpCapacityResolving: r=%s", logger.RequestSummary(r))
+	}
 	//Check if the request user is authenticated
 	userinfo, err := cr.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -88,6 +96,9 @@ func (cr *Resolver) HandleTmpCapacityResolving(w http.ResponseWriter, r *http.Re
 }
 
 func (cr *Resolver) ResolveCapacityInfo(username string, vpath string) (*CapacityInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskcapacity", "Resolver.ResolveCapacityInfo: username=%.120q vpath=%.120q", username, vpath)
+	}
 	//Resolve the vpath for this user
 	userinfo, err := cr.UserHandler.GetUserInfoFromUsername(username)
 	if err != nil {

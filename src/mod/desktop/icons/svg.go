@@ -8,6 +8,8 @@ import (
 
 	"github.com/srwiley/oksvg"
 	"github.com/srwiley/rasterx"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -20,6 +22,9 @@ import (
 // RasterizeSVG renders an SVG into a square RGBA image of the given size,
 // preserving the aspect ratio of the source viewBox.
 func RasterizeSVG(svgContent []byte, renderSize int) (image.Image, error) {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/icons", "RasterizeSVG: renderSize=%d", renderSize)
+	}
 	parsedIcon, err := oksvg.ReadIconStream(bytes.NewReader(svgContent))
 	if err != nil {
 		return nil, err
@@ -59,6 +64,9 @@ func RasterizeSVG(svgContent []byte, renderSize int) (image.Image, error) {
 // makes line art module icons come out as hairlines. Pre-scaling the stroke
 // styling to match the transform restores the intended thickness.
 func ScaleSVGStrokes(parsedIcon *oksvg.SvgIcon, scale float64) {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/icons", "ScaleSVGStrokes: scale=%g", scale)
+	}
 	if scale <= 0 || scale == 1 {
 		return
 	}

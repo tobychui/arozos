@@ -1,14 +1,21 @@
 package permission
 
+import "imuslab.com/arozos/mod/info/logger"
 import "imuslab.com/arozos/mod/utils"
 
 func (gp *PermissionGroup) AddModule(modulename string) {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionGroup.AddModule: modulename=%.120q", modulename)
+	}
 	if !utils.StringInArray(gp.AccessibleModules, modulename) {
 		gp.AccessibleModules = append(gp.AccessibleModules, modulename)
 	}
 }
 
 func (gp *PermissionGroup) RemoveModule(modulename string) {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionGroup.RemoveModule: modulename=%.120q", modulename)
+	}
 	newModuleList := []string{}
 	if utils.StringInArray(gp.AccessibleModules, modulename) {
 		for _, thisModuleName := range gp.AccessibleModules {
@@ -23,6 +30,7 @@ func (gp *PermissionGroup) RemoveModule(modulename string) {
 
 // GetCronJobPermission returns whether this group can create cron jobs
 func (gp *PermissionGroup) GetCronJobPermission() bool {
+	logger.Debug("permission", "PermissionGroup.GetCronJobPermission")
 	if gp.IsAdmin {
 		return true
 	}
@@ -31,6 +39,9 @@ func (gp *PermissionGroup) GetCronJobPermission() bool {
 
 // SetCronJobPermission sets whether this group can create cron jobs and persists the change
 func (gp *PermissionGroup) SetCronJobPermission(allow bool) {
+	if logger.IsDebug() {
+		logger.Debugf("permission", "PermissionGroup.SetCronJobPermission: allow=%t", allow)
+	}
 	if gp.IsAdmin {
 		// Admin groups always retain cron permission
 		gp.CanCreateCronJob = true
@@ -46,6 +57,7 @@ func (gp *PermissionGroup) SetCronJobPermission(allow bool) {
 
 // Remove this permission group
 func (gp *PermissionGroup) Remove() {
+	logger.Debug("permission", "PermissionGroup.Remove")
 	db := gp.parent.database
 
 	//Close the groups' storage pool

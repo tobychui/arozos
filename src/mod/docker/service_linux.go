@@ -16,15 +16,19 @@ import (
 	"errors"
 	"os/exec"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func systemctlAvailable() bool {
+	logger.Debug("docker", "systemctlAvailable")
 	_, err := exec.LookPath("systemctl")
 	return err == nil
 }
 
 // dockerServiceStatus reports the docker unit's active/enabled state.
 func dockerServiceStatus() ServiceStatus {
+	logger.Debug("docker", "dockerServiceStatus")
 	st := ServiceStatus{}
 	if !systemctlAvailable() {
 		st.Message = "systemctl is not available on this host"
@@ -46,6 +50,9 @@ func dockerServiceStatus() ServiceStatus {
 
 // dockerServiceAction runs `systemctl <action> docker` for a whitelisted action.
 func dockerServiceAction(action string) error {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "dockerServiceAction: action=%.120q", action)
+	}
 	if !systemctlAvailable() {
 		return errors.New("systemctl is not available on this host")
 	}

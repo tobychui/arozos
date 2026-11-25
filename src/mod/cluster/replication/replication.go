@@ -121,6 +121,7 @@ var ErrNotLeader = errors.New("this node is not the metadata leader")
 
 // New creates the service, registers its endpoints and starts the loops.
 func New(opt Option) (*Manager, error) {
+	logger.Debug("cluster/replication", "New")
 	if opt.Membership == nil || opt.Metadata == nil || opt.Storage == nil {
 		return nil, errors.New("membership, metadata and storage are required")
 	}
@@ -175,11 +176,13 @@ func New(opt Option) (*Manager, error) {
 
 // Close stops the planner.
 func (r *Manager) Close() {
+	logger.Debug("cluster/replication", "Manager.Close")
 	r.once.Do(func() { close(r.stop) })
 	r.wg.Wait()
 }
 
 func (r *Manager) loop() {
+	logger.Debug("cluster/replication", "Manager.loop")
 	defer r.wg.Done()
 	ticker := time.NewTicker(r.opt.PlanInterval)
 	defer ticker.Stop()
@@ -208,6 +211,9 @@ func (r *Manager) loop() {
 */
 
 func (r *Manager) nodeView(id string) (membership.NodeView, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.nodeView: id=%.120q", id)
+	}
 	for _, n := range r.m.NodeViews() {
 		if n.ID == id {
 			return n, true
@@ -217,11 +223,13 @@ func (r *Manager) nodeView(id string) (membership.NodeView, bool) {
 }
 
 func usableState(s membership.NodeState) bool {
+	logger.DebugTrace("cluster/replication", "usableState")
 	return s == membership.StateOnline || s == membership.StateDegraded
 }
 
 // wanted returns the desired copy count of a record.
 func (r *Manager) wanted(rec *metadata.FileRecord) int {
+	logger.Debug("cluster/replication", "Manager.wanted")
 	want := rec.Replicas
 	if want <= 0 {
 		want = r.meta.PolicyFor(rec.Path).Replicas
@@ -234,6 +242,7 @@ func (r *Manager) wanted(rec *metadata.FileRecord) int {
 
 // plan is one planner pass. Safe to call on the leader only.
 func (r *Manager) plan() PlanResult {
+	logger.Debug("cluster/replication", "Manager.plan")
 	res := PlanResult{Time: time.Now().Unix()}
 	if !r.meta.IsLeader() {
 		return res
@@ -400,6 +409,9 @@ func (r *Manager) plan() PlanResult {
 
 // pickSource prefers a healthy copy on an ONLINE node, then evacuating copies.
 func pickSource(healthy []metadata.Location, evac []metadata.Location, nodes map[string]membership.NodeView) metadata.Location {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "pickSource: len(healthy)=%d len(evac)=%d len(nodes)=%d", len(healthy), len(evac), len(nodes))
+	}
 	all := append(append([]metadata.Location{}, healthy...), evac...)
 	sort.SliceStable(all, func(i, j int) bool {
 		si, sj := nodes[all[i].NodeID].State, nodes[all[j].NodeID].State
@@ -415,6 +427,9 @@ func pickSource(healthy []metadata.Location, evac []metadata.Location, nodes map
 // at least three nodes to be worth anything; below that there is no choice to
 // make and the caller passes -1 (the factor is then left out of the score).
 func siteDiversity(matrix map[string]map[string]float64, candidate string, holders []string) float64 {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "siteDiversity: len(matrix)=%d candidate=%.120q len(holders)=%d", len(matrix), candidate, len(holders))
+	}
 	nearest := -1.0
 	for _, h := range holders {
 		ms, known := membership.PairLatency(matrix, candidate, h)
@@ -441,6 +456,9 @@ func siteDiversity(matrix map[string]map[string]float64, candidate string, holde
 // as possible from the copies that already exist. An existing stale copy is
 // repaired in place.
 func (r *Manager) pickTarget(rec *metadata.FileRecord, volumes map[string]metadata.Volume, nodes map[string]membership.NodeView, perNode map[string]int) *metadata.Volume {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.pickTarget: len(volumes)=%d len(nodes)=%d len(perNode)=%d", len(volumes), len(nodes), len(perNode))
+	}
 	need := rec.Size + rec.Size/10 + placementHeadroom
 	nodesWithHealthy := map[string]bool{}
 	staleVolumes := map[string]bool{}
@@ -534,6 +552,7 @@ func (r *Manager) pickTarget(rec *metadata.FileRecord, volumes map[string]metada
 */
 
 func (r *Manager) addTask(t *Task) {
+	logger.Debug("cluster/replication", "Manager.addTask")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.tasks[t.ID] = t
@@ -541,6 +560,9 @@ func (r *Manager) addTask(t *Task) {
 }
 
 func (r *Manager) hasTask(fileID string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.hasTask: fileID=%.120q", fileID)
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	_, ok := r.byFile[fileID]
@@ -548,6 +570,9 @@ func (r *Manager) hasTask(fileID string) bool {
 }
 
 func (r *Manager) inBackoff(fileID string, now time.Time) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.inBackoff: fileID=%.120q", fileID)
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	until, ok := r.backoff[fileID]
@@ -562,6 +587,7 @@ func (r *Manager) inBackoff(fileID string, now time.Time) bool {
 }
 
 func (r *Manager) inFlight() (int, map[string]int) {
+	logger.Debug("cluster/replication", "Manager.inFlight")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	per := map[string]int{}
@@ -577,6 +603,7 @@ func (r *Manager) inFlight() (int, map[string]int) {
 
 // requeueExpired returns tasks whose worker went silent to the pool.
 func (r *Manager) requeueExpired(now time.Time) {
+	logger.Debug("cluster/replication", "Manager.requeueExpired")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for id, t := range r.tasks {
@@ -589,6 +616,9 @@ func (r *Manager) requeueExpired(now time.Time) {
 // finishLocked closes a task; failures back off the file so the planner does
 // not hammer a broken copy.
 func (r *Manager) finishLocked(id string, ok bool, errMsg string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.finishLocked: id=%.120q ok=%t errMsg=%.120q", id, ok, errMsg)
+	}
 	t, exists := r.tasks[id]
 	if !exists {
 		return
@@ -617,6 +647,9 @@ func (r *Manager) finishLocked(id string, ok bool, errMsg string) {
 }
 
 func (r *Manager) markRunning(id string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.markRunning: id=%.120q", id)
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if t, ok := r.tasks[id]; ok {
@@ -627,6 +660,9 @@ func (r *Manager) markRunning(id string) {
 }
 
 func (r *Manager) renewLease(id string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.renewLease: id=%.120q", id)
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	t, ok := r.tasks[id]
@@ -639,6 +675,7 @@ func (r *Manager) renewLease(id string) bool {
 
 // dispatch hands a task to its target node (or runs it here).
 func (r *Manager) dispatch(t *Task) {
+	logger.Debug("cluster/replication", "Manager.dispatch")
 	r.markRunning(t.ID)
 	if t.TargetNode == r.m.NodeID() {
 		go r.runTask(*t)
@@ -659,6 +696,7 @@ func (r *Manager) dispatch(t *Task) {
 
 // runTask executes one pull on this node and reports to the leader.
 func (r *Manager) runTask(t Task) {
+	logger.Debug("cluster/replication", "Manager.runTask")
 	r.workers <- struct{}{}
 	defer func() { <-r.workers }()
 
@@ -690,6 +728,9 @@ func (r *Manager) runTask(t Task) {
 }
 
 func (r *Manager) reportLease(taskID string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.reportLease: taskID=%.120q", taskID)
+	}
 	if r.meta.IsLeader() {
 		r.renewLease(taskID)
 		return
@@ -704,6 +745,9 @@ func (r *Manager) reportLease(taskID string) {
 }
 
 func (r *Manager) reportDone(taskID string, ok bool, errMsg string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.reportDone: taskID=%.120q ok=%t errMsg=%.120q", taskID, ok, errMsg)
+	}
 	if r.meta.IsLeader() {
 		r.mu.Lock()
 		r.finishLocked(taskID, ok, errMsg)
@@ -725,6 +769,7 @@ func (r *Manager) reportDone(taskID string, ok bool, errMsg string) {
 
 // PlanNow runs a planner pass, forwarding to the leader when needed.
 func (r *Manager) PlanNow() (PlanResult, error) {
+	logger.Debug("cluster/replication", "Manager.PlanNow")
 	if r.meta.IsLeader() {
 		return r.plan(), nil
 	}
@@ -761,6 +806,7 @@ type Status struct {
 
 // Status computes the current picture from the metadata store.
 func (r *Manager) Status() Status {
+	logger.Debug("cluster/replication", "Manager.Status")
 	st := Status{InCluster: r.m.InCluster(), IsLeader: r.meta.IsLeader(), Leader: r.meta.Leader(), Tasks: []Task{}, History: []Task{}}
 	if st.Leader != "" {
 		st.LeaderName = r.m.NodeName(st.Leader)
@@ -818,6 +864,9 @@ func (r *Manager) Status() Status {
 }
 
 func (r *Manager) nodeUsable(id string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/replication", "Manager.nodeUsable: id=%.120q", id)
+	}
 	n, ok := r.nodeView(id)
 	return ok && usableState(n.State)
 }

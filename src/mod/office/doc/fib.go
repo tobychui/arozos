@@ -15,6 +15,8 @@ package doc
 import (
 	"encoding/binary"
 	"errors"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // indexes into the FibRgFcLcb97 array
@@ -69,6 +71,9 @@ var errOldWord = errors.New("Word 6.0 / 95 and older documents are not supported
 
 // parseFib reads the FIB at the start of the WordDocument stream
 func parseFib(wd []byte) (*fib, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "parseFib: len(wd)=%d", len(wd))
+	}
 	le := binary.LittleEndian
 	if len(wd) < 0x22 || le.Uint16(wd) != 0xA5EC {
 		if len(wd) >= 2 && (le.Uint16(wd) == 0xA5DC || le.Uint16(wd) == 0xA59B) {
@@ -127,6 +132,9 @@ func parseFib(wd []byte) (*fib, error) {
 // span returns the bytes of the table stream structure at FcLcb index i
 // (nil when absent or out of range)
 func (f *fib) span(tbl []byte, i int) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "fib.span: len(tbl)=%d i=%d", len(tbl), i)
+	}
 	if 2*i+1 >= len(f.fcLcb) {
 		return nil
 	}
@@ -140,6 +148,9 @@ func (f *fib) span(tbl []byte, i int) []byte {
 // spanTail returns the table stream from the structure at FcLcb index i
 // to the end: PlfLst's levels follow it beyond the size the FIB states
 func (f *fib) spanTail(tbl []byte, i int) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "fib.spanTail: len(tbl)=%d i=%d", len(tbl), i)
+	}
 	if 2*i+1 >= len(f.fcLcb) || f.fcLcb[2*i+1] == 0 {
 		return nil
 	}
@@ -151,10 +162,31 @@ func (f *fib) spanTail(tbl []byte, i int) []byte {
 }
 
 // story starts: every sub-document's CPs follow the main text's
-func (f *fib) ftnStart() int     { return f.ccpText }
-func (f *fib) hddStart() int     { return f.ccpText + f.ccpFtn }
-func (f *fib) atnStart() int     { return f.hddStart() + f.ccpHdd + f.ccpMcr }
-func (f *fib) ednStart() int     { return f.atnStart() + f.ccpAtn }
-func (f *fib) txbxStart() int    { return f.ednStart() + f.ccpEdn }
-func (f *fib) hdrTxbxStart() int { return f.txbxStart() + f.ccpTxbx }
-func (f *fib) totalCP() int      { return f.hdrTxbxStart() + f.ccpHdrTxbx }
+func (f *fib) ftnStart() int {
+	logger.DebugTrace("office/doc", "fib.ftnStart")
+	return f.ccpText
+}
+func (f *fib) hddStart() int {
+	logger.DebugTrace("office/doc", "fib.hddStart")
+	return f.ccpText + f.ccpFtn
+}
+func (f *fib) atnStart() int {
+	logger.DebugTrace("office/doc", "fib.atnStart")
+	return f.hddStart() + f.ccpHdd + f.ccpMcr
+}
+func (f *fib) ednStart() int {
+	logger.DebugTrace("office/doc", "fib.ednStart")
+	return f.atnStart() + f.ccpAtn
+}
+func (f *fib) txbxStart() int {
+	logger.DebugTrace("office/doc", "fib.txbxStart")
+	return f.ednStart() + f.ccpEdn
+}
+func (f *fib) hdrTxbxStart() int {
+	logger.DebugTrace("office/doc", "fib.hdrTxbxStart")
+	return f.txbxStart() + f.ccpTxbx
+}
+func (f *fib) totalCP() int {
+	logger.DebugTrace("office/doc", "fib.totalCP")
+	return f.hdrTxbxStart() + f.ccpHdrTxbx
+}

@@ -26,6 +26,7 @@ import (
 */
 
 func (g *Gateway) FFmpegLibRegister() {
+	logger.Debug("agi", "Gateway.FFmpegLibRegister")
 	_, err := exec.LookPath("ffmpeg")
 	if err != nil {
 		logger.PrintAndLog("Agi", "ffmpeg not found in PATH", nil)
@@ -39,6 +40,7 @@ func (g *Gateway) FFmpegLibRegister() {
 }
 
 func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectFFmpegFunctions")
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh

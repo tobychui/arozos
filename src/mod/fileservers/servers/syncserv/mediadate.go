@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -40,6 +42,7 @@ var exifLayouts = []string{
 // exifTime reads an EXIF date. EXIF dates carry no time zone: they are the
 // time on the camera, which is what the folders should follow.
 func exifTime(text string) (time.Time, bool) {
+	logger.Debug("fileservers/servers/syncserv", "exifTime")
 	text = strings.TrimSpace(strings.TrimRight(text, "\x00 "))
 	if text == "" || strings.HasPrefix(text, "0000") {
 		return time.Time{}, false
@@ -54,6 +57,9 @@ func exifTime(text string) (time.Time, bool) {
 
 // MediaDate reads when a photo or video was taken from its metadata.
 func MediaDate(r io.ReaderAt, size int64) (time.Time, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "MediaDate: size=%d", size)
+	}
 	var head [12]byte
 	if size < int64(len(head)) {
 		return time.Time{}, false
@@ -79,6 +85,9 @@ func MediaDate(r io.ReaderAt, size int64) (time.Time, bool) {
 */
 
 func jpegDate(r io.ReaderAt, size int64) (time.Time, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "jpegDate: size=%d", size)
+	}
 	off := int64(2)
 	for i := 0; i < maxBoxes && off <= size-4; i++ {
 		var hdr [4]byte
@@ -129,6 +138,9 @@ type tiffRegion struct {
 }
 
 func (t *tiffRegion) read(off int64, n int) ([]byte, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "tiffRegion.read: off=%d n=%d", off, n)
+	}
 	if off < 0 || n < 0 || off > t.end-t.start-int64(n) {
 		return nil, false
 	}
@@ -141,6 +153,9 @@ func (t *tiffRegion) read(off int64, n int) ([]byte, bool) {
 
 // entries calls fn for every entry of the IFD at off.
 func (t *tiffRegion) entries(off int64, fn func(tag, typ uint16, count uint32, value []byte)) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "tiffRegion.entries: off=%d", off)
+	}
 	head, ok := t.read(off, 2)
 	if !ok {
 		return
@@ -161,6 +176,9 @@ func (t *tiffRegion) entries(off int64, fn func(tag, typ uint16, count uint32, v
 
 // ascii reads an ASCII entry short enough to be a date.
 func (t *tiffRegion) ascii(typ uint16, count uint32, value []byte) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "tiffRegion.ascii: typ=%d count=%d len(value)=%d", typ, count, len(value))
+	}
 	if typ != 2 || count == 0 || count > 64 {
 		return ""
 	}
@@ -175,6 +193,9 @@ func (t *tiffRegion) ascii(typ uint16, count uint32, value []byte) string {
 }
 
 func tiffDate(r io.ReaderAt, start, end int64) (time.Time, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "tiffDate: start=%d end=%d", start, end)
+	}
 	if start < 0 || end-start < 8 {
 		return time.Time{}, false
 	}
@@ -233,6 +254,7 @@ func tiffDate(r io.ReaderAt, start, end int64) (time.Time, bool) {
 var xmpDatePattern = regexp.MustCompile(`(?:exif:DateTimeOriginal|photoshop:DateCreated|xmp:CreateDate)\s*(?:=\s*["']|>)\s*([0-9][0-9T:.+\- Z]{9,34})`)
 
 func xmpDate(text []byte) (time.Time, bool) {
+	logger.Debug("fileservers/servers/syncserv", "xmpDate")
 	m := xmpDatePattern.FindSubmatch(text)
 	if m == nil {
 		return time.Time{}, false
@@ -241,6 +263,9 @@ func xmpDate(text []byte) (time.Time, bool) {
 }
 
 func pngDate(r io.ReaderAt, size int64) (time.Time, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "pngDate: size=%d", size)
+	}
 	off := int64(8)
 	for i := 0; i < 4096 && off <= size-12; i++ {
 		var hdr [8]byte
@@ -278,6 +303,9 @@ func pngDate(r io.ReaderAt, size int64) (time.Time, bool) {
 */
 
 func isoBoxType(typ string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "isoBoxType: typ=%.120q", typ)
+	}
 	switch typ {
 	case "ftyp", "moov", "mdat", "wide", "free", "skip", "meta", "pnot", "uuid":
 		return true
@@ -292,6 +320,9 @@ type isoBox struct {
 
 // readBox reads the header of the box at off, which must end by limit.
 func readBox(r io.ReaderAt, off, limit int64) (isoBox, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "readBox: off=%d limit=%d", off, limit)
+	}
 	if off < 0 || off > limit-8 {
 		return isoBox{}, false
 	}
@@ -321,6 +352,9 @@ func readBox(r io.ReaderAt, off, limit int64) (isoBox, bool) {
 }
 
 func isoDate(r io.ReaderAt, size int64) (time.Time, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "isoDate: size=%d", size)
+	}
 	var meta, moov *isoBox
 	off := int64(0)
 	for i := 0; i < maxBoxes && off < size; i++ {
@@ -359,6 +393,9 @@ type cursor struct {
 }
 
 func (c *cursor) uint(n int) uint64 {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "cursor.uint: n=%d", n)
+	}
 	if c.bad || n < 0 || n > 8 || len(c.b)-c.p < n {
 		c.bad = true
 		return 0
@@ -373,6 +410,9 @@ func (c *cursor) uint(n int) uint64 {
 
 // children calls fn with the type and body of every box in buf.
 func children(buf []byte, fn func(typ string, body []byte, bodyOff int)) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "children: len(buf)=%d", len(buf))
+	}
 	p := 0
 	for i := 0; i < maxBoxes && len(buf)-p >= 8; i++ {
 		size := uint64(binary.BigEndian.Uint32(buf[p:]))
@@ -396,10 +436,18 @@ func children(buf []byte, fn func(typ string, body []byte, bodyOff int)) {
 	}
 }
 
-func validFieldSize(n int) bool { return n == 0 || n == 4 || n == 8 }
+func validFieldSize(n int) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncserv", "validFieldSize: n=%d", n)
+	}
+	return n == 0 || n == 4 || n == 8
+}
 
 // heifDate finds the Exif item of a HEIF file and reads its date.
 func heifDate(r io.ReaderAt, meta isoBox, size int64) (time.Time, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "heifDate: size=%d", size)
+	}
 	//meta is a full box: version and flags come first
 	bodyLen := meta.end - meta.body - 4
 	if bodyLen <= 0 || bodyLen > maxMetaBox {
@@ -547,6 +595,9 @@ func heifDate(r io.ReaderAt, meta isoBox, size int64) (time.Time, bool) {
 // exifItemDate reads a HEIF Exif item: the offset of the TIFF header, then
 // usually "Exif\0\0", then the TIFF structure.
 func exifItemDate(r io.ReaderAt, start, end int64) (time.Time, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "exifItemDate: start=%d end=%d", start, end)
+	}
 	if end-start < 4+8 {
 		return time.Time{}, false
 	}
@@ -566,6 +617,7 @@ const quicktimeEpoch = -2082844800
 
 // mvhdDate reads the creation time of the movie header, which is UTC.
 func mvhdDate(r io.ReaderAt, moov isoBox) (time.Time, bool) {
+	logger.Debug("fileservers/servers/syncserv", "mvhdDate")
 	off := moov.body
 	for i := 0; i < maxBoxes && off < moov.end; i++ {
 		b, ok := readBox(r, off, moov.end)

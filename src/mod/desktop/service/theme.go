@@ -20,6 +20,9 @@ import (
 // handleTheme lists the bundled themes, gets / sets the user's theme, or lists
 // the wallpapers inside a user folder
 func (s *Service) handleTheme(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/service", "Service.handleTheme: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := s.opts.Users.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -68,6 +71,9 @@ func (s *Service) handleTheme(w http.ResponseWriter, r *http.Request) {
 
 // listFolderWallpapers returns the virtual paths of the wallpapers inside a user folder
 func (s *Service) listFolderWallpapers(userinfo *user.User, folder string) ([]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/service", "Service.listFolderWallpapers: folder=%.120q", folder)
+	}
 	if !userinfo.CanRead(folder) {
 		return nil, errors.New("Permission denied")
 	}
@@ -101,6 +107,9 @@ func (s *Service) listFolderWallpapers(userinfo *user.User, folder string) ([]st
 
 // handlePreference gets, sets or removes a desktop preference of the user
 func (s *Service) handlePreference(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/service", "Service.handlePreference: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := s.opts.Users.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")

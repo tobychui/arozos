@@ -7,9 +7,13 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/renderer"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func generateThumbnailForModel(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "generateThumbnailForModel: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
+	}
 	if fsh.RequireBuffer {
 		return "", nil
 	}

@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // DefaultTimeout is used when NewClient is called with timeout <= 0.
@@ -36,6 +38,9 @@ type Client struct {
 
 // NewClient creates a client for the given endpoint. timeout <= 0 uses DefaultTimeout.
 func NewClient(endpoint string, token string, timeout time.Duration) *Client {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/cnn", "NewClient: endpoint=%.120q", endpoint)
+	}
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
@@ -54,6 +59,9 @@ func NewClient(endpoint string, token string, timeout time.Duration) *Client {
 //   - On any other status, the body is decoded as the API's error envelope
 //     and returned as a *APIError.
 func (c *Client) do(method, path string, body interface{}, out interface{}) (*Job, error) {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/cnn", "Client.do: method=%.120q path=%.120q", method, path)
+	}
 	if strings.TrimSpace(c.Endpoint) == "" {
 		return nil, fmt.Errorf("cnn: server endpoint is not configured")
 	}
@@ -124,6 +132,9 @@ func (c *Client) do(method, path string, body interface{}, out interface{}) (*Jo
 // envelope[T]. A non-nil *Job means the server accepted the call
 // asynchronously instead of returning the result immediately.
 func doImageCall[T any](c *Client, path string, req imageRequest) (*envelope[T], *Job, error) {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/cnn", "doImageCall: path=%.120q", path)
+	}
 	result := &envelope[T]{}
 	job, err := c.do(http.MethodPost, path, req, result)
 	if err != nil || job != nil {
@@ -134,6 +145,9 @@ func doImageCall[T any](c *Client, path string, req imageRequest) (*envelope[T],
 
 // dataURI builds a base64 data URI for the given raw image bytes.
 func dataURI(image []byte, mimeType string) string {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/cnn", "dataURI: len(image)=%d", len(image))
+	}
 	if strings.TrimSpace(mimeType) == "" {
 		mimeType = "application/octet-stream"
 	}
@@ -141,6 +155,9 @@ func dataURI(image []byte, mimeType string) string {
 }
 
 func truncate(s string, max int) string {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/cnn", "truncate: s=%.120q max=%d", s, max)
+	}
 	s = strings.TrimSpace(s)
 	if len(s) <= max {
 		return s

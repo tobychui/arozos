@@ -39,6 +39,7 @@ import (
 	"sync"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/sharedspace"
 )
 
@@ -84,6 +85,7 @@ type Participant struct {
 // CloseSend closes the participant's send channel exactly once (delegated to
 // the underlying subscriber, which owns the close-once guarantee).
 func (p *Participant) CloseSend() {
+	logger.DebugTrace("meetroom", "Participant.CloseSend")
 	p.sub.CloseSend()
 }
 
@@ -109,6 +111,7 @@ type AttendanceRecord struct {
 
 // Present reports whether this record's participant is still in the room.
 func (a *AttendanceRecord) Present() bool {
+	logger.DebugTrace("meetroom", "AttendanceRecord.Present")
 	return a.LeftAt.IsZero()
 }
 
@@ -147,6 +150,9 @@ type Manager struct {
 // temporary attachment storage; pass "" to use a folder inside os.TempDir().
 // Any leftover attachment files from a previous run are removed.
 func NewManager(storageRoot string) *Manager {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "NewManager: storageRoot=%.120q", storageRoot)
+	}
 	if storageRoot == "" {
 		storageRoot = filepath.Join(os.TempDir(), "arozos", "meetroom")
 	}
@@ -163,6 +169,7 @@ func NewManager(storageRoot string) *Manager {
 // created afterwards owns a shared space that mirrors its chat and
 // attachments and accepts posts from AGI scripts.
 func (m *Manager) BindSpaceManager(sm *sharedspace.Manager) {
+	logger.Debug("meetroom", "Manager.BindSpaceManager")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.spaces = sm
@@ -173,6 +180,7 @@ func (m *Manager) BindSpaceManager(sm *sharedspace.Manager) {
 // not OriginMeetRoom, e.g. an AGI script). The transport layer uses it to
 // push the item into the meeting as a live chat / file message.
 func (m *Manager) SetSpaceItemHandler(fn func(room *Room, item *sharedspace.Item)) {
+	logger.Debug("meetroom", "Manager.SetSpaceItemHandler")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.onSpaceItem = fn
@@ -180,6 +188,7 @@ func (m *Manager) SetSpaceItemHandler(fn func(room *Room, item *sharedspace.Item
 
 // spaceOf returns the shared space bound to the room, if any.
 func (m *Manager) spaceOf(room *Room) (*sharedspace.Space, bool) {
+	logger.Debug("meetroom", "Manager.spaceOf")
 	m.mu.RLock()
 	sm := m.spaces
 	m.mu.RUnlock()
@@ -192,12 +201,18 @@ func (m *Manager) spaceOf(room *Room) (*sharedspace.Space, bool) {
 // hashRoomPassword derives the stored hash for a room password. The room ID
 // acts as the salt so identical passwords in different rooms hash differently.
 func hashRoomPassword(roomID string, password string) []byte {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "hashRoomPassword: roomID=%.120q", roomID)
+	}
 	sum := sha256.Sum256([]byte(roomID + ":" + password))
 	return sum[:]
 }
 
 // clipString trims s to at most max runes.
 func clipString(s string, max int) string {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "clipString: s=%.120q max=%d", s, max)
+	}
 	runes := []rune(s)
 	if len(runes) > max {
 		return string(runes[:max])
@@ -208,6 +223,9 @@ func clipString(s string, max int) string {
 // CreateRoom creates a new room hosted by host. password may be empty for an
 // open room. The generated room ID is unique among live rooms.
 func (m *Manager) CreateRoom(host string, title string, password string) *Room {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "Manager.CreateRoom: host=%.120q title=%.120q", host, title)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -268,6 +286,9 @@ func (m *Manager) CreateRoom(host string, title string, password string) *Room {
 
 // randomDigits returns n random decimal digits with no leading zero.
 func randomDigits(n int) string {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "randomDigits: n=%d", n)
+	}
 	digits := make([]byte, n)
 	digits[0] = byte('1' + mathrand.Intn(9))
 	for i := 1; i < n; i++ {
@@ -278,6 +299,9 @@ func randomDigits(n int) string {
 
 // GetRoom returns the live room with the given ID.
 func (m *Manager) GetRoom(id string) (*Room, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "Manager.GetRoom: id=%.120q", id)
+	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	room, ok := m.rooms[id]
@@ -287,6 +311,9 @@ func (m *Manager) GetRoom(id string) (*Room, bool) {
 // ValidateJoin checks that the room exists and that the supplied password is
 // correct, returning the room on success.
 func (m *Manager) ValidateJoin(id string, password string) (*Room, error) {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "Manager.ValidateJoin: id=%.120q", id)
+	}
 	room, ok := m.GetRoom(id)
 	if !ok {
 		return nil, ErrRoomNotFound
@@ -299,6 +326,7 @@ func (m *Manager) ValidateJoin(id string, password string) (*Room, error) {
 
 // HasPassword reports whether the room requires a password to join.
 func (r *Room) HasPassword() bool {
+	logger.Debug("meetroom", "Room.HasPassword")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.passwordHash != nil
@@ -306,6 +334,7 @@ func (r *Room) HasPassword() bool {
 
 // CheckPassword reports whether the supplied password unlocks the room.
 func (r *Room) CheckPassword(password string) bool {
+	logger.Debug("meetroom", "Room.CheckPassword")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.passwordHash == nil {
@@ -319,6 +348,9 @@ func (r *Room) CheckPassword(password string) bool {
 // in the meeting roster and returns the wrapping participant. The transport
 // layer must drain the returned participant's Send channel.
 func (r *Room) AddParticipant(username string) (*Participant, error) {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "Room.AddParticipant: username=%.120q", username)
+	}
 	r.mu.Lock()
 	if r.closed {
 		r.mu.Unlock()
@@ -365,6 +397,9 @@ func (r *Room) AddParticipant(username string) (*Participant, error) {
 
 // RemoveParticipant unregisters a participant and closes its send channel.
 func (r *Room) RemoveParticipant(peerID int) {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "Room.RemoveParticipant: peerID=%d", peerID)
+	}
 	r.mu.Lock()
 	_, ok := r.participants[peerID]
 	if ok {
@@ -390,6 +425,9 @@ func (r *Room) RemoveParticipant(peerID int) {
 // record as left, exactly like an ordinary leave. The host cannot kick
 // themselves: a request targeting the room host is refused.
 func (r *Room) KickParticipant(peerID int) (*Participant, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "Room.KickParticipant: peerID=%d", peerID)
+	}
 	r.mu.Lock()
 	p, ok := r.participants[peerID]
 	if !ok || p.IsHost {
@@ -404,6 +442,7 @@ func (r *Room) KickParticipant(peerID int) (*Participant, bool) {
 // Attendance returns a snapshot of the room's join / leave log in
 // chronological join order.
 func (r *Room) Attendance() []AttendanceRecord {
+	logger.Debug("meetroom", "Room.Attendance")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	list := make([]AttendanceRecord, 0, len(r.attendance))
@@ -416,6 +455,9 @@ func (r *Room) Attendance() []AttendanceRecord {
 // HasParticipantUsername reports whether a user with the given username is
 // currently connected to the room.
 func (r *Room) HasParticipantUsername(username string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "Room.HasParticipantUsername: username=%.120q", username)
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, p := range r.participants {
@@ -428,6 +470,7 @@ func (r *Room) HasParticipantUsername(username string) bool {
 
 // Participants returns a snapshot of the current participants.
 func (r *Room) Participants() []*Participant {
+	logger.Debug("meetroom", "Room.Participants")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	list := make([]*Participant, 0, len(r.participants))
@@ -439,6 +482,7 @@ func (r *Room) Participants() []*Participant {
 
 // ParticipantCount returns the number of connected participants.
 func (r *Room) ParticipantCount() int {
+	logger.Debug("meetroom", "Room.ParticipantCount")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return len(r.participants)
@@ -446,6 +490,9 @@ func (r *Room) ParticipantCount() int {
 
 // GetParticipant returns the participant with the given peer ID.
 func (r *Room) GetParticipant(peerID int) (*Participant, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "Room.GetParticipant: peerID=%d", peerID)
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	p, ok := r.participants[peerID]
@@ -458,17 +505,24 @@ func (r *Room) GetParticipant(peerID int) (*Participant, bool) {
 // sharedspace WebSocket receive meeting frames too. Full send buffers drop
 // the frame rather than blocking the room.
 func (r *Room) Broadcast(msg []byte, excludePeerID int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("meetroom", "Room.Broadcast: excludePeerID=%d", excludePeerID)
+	}
 	r.channel.Broadcast(msg, excludePeerID)
 }
 
 // SendTo queues msg to a single channel subscriber. It reports whether the
 // peer exists on the room's channel.
 func (r *Room) SendTo(peerID int, msg []byte) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("meetroom", "Room.SendTo: peerID=%d", peerID)
+	}
 	return r.channel.SendTo(peerID, msg)
 }
 
 // Touch refreshes the room's idle timer.
 func (r *Room) Touch() {
+	logger.Debug("meetroom", "Room.Touch")
 	r.mu.Lock()
 	r.lastActivity = time.Now()
 	r.mu.Unlock()
@@ -479,6 +533,9 @@ func (r *Room) Touch() {
 // a filesystem path. Rooms with a bound shared space store the file in the
 // space instead, so AGI scripts can access it too.
 func (m *Manager) SaveAttachment(roomID string, name string, uploader string, src io.Reader, maxSize int64) (*Attachment, error) {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "Manager.SaveAttachment: roomID=%.120q name=%.120q uploader=%.120q maxSize=%d", roomID, name, uploader, maxSize)
+	}
 	room, ok := m.GetRoom(roomID)
 	if !ok {
 		return nil, ErrRoomNotFound
@@ -564,6 +621,9 @@ func (m *Manager) SaveAttachment(roomID string, name string, uploader string, sr
 // bound shared space when the room has one (covering both room uploads and
 // files posted into the space by AGI scripts).
 func (m *Manager) GetAttachment(roomID string, fileID string) (*Attachment, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "Manager.GetAttachment: roomID=%.120q fileID=%.120q", roomID, fileID)
+	}
 	room, ok := m.GetRoom(roomID)
 	if !ok {
 		return nil, false
@@ -591,6 +651,9 @@ func (m *Manager) GetAttachment(roomID string, fileID string) (*Attachment, bool
 // LogChat mirrors a chat message into the room's bound shared space so AGI
 // scripts can read the meeting conversation. No-op for rooms without a space.
 func (m *Manager) LogChat(roomID string, username string, text string) {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "Manager.LogChat: roomID=%.120q username=%.120q", roomID, username)
+	}
 	room, ok := m.GetRoom(roomID)
 	if !ok {
 		return
@@ -602,6 +665,9 @@ func (m *Manager) LogChat(roomID string, username string, text string) {
 
 // ListRoomsByHost returns a snapshot of the live rooms hosted by host.
 func (m *Manager) ListRoomsByHost(host string) []*Room {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "Manager.ListRoomsByHost: host=%.120q", host)
+	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	hosted := []*Room{}
@@ -618,6 +684,9 @@ func (m *Manager) ListRoomsByHost(host string) []*Room {
 // It returns the removed room's participants so the transport layer can
 // finish delivering any queued frames before the sockets drop.
 func (m *Manager) CloseRoom(id string) []*Participant {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "Manager.CloseRoom: id=%.120q", id)
+	}
 	m.mu.Lock()
 	room, exists := m.rooms[id]
 	if exists {
@@ -656,6 +725,7 @@ func (m *Manager) CloseRoom(id string) []*Participant {
 // SweepIdleRooms closes every room that has no participants and has been
 // idle for longer than emptyIdle, returning the IDs it closed.
 func (m *Manager) SweepIdleRooms(emptyIdle time.Duration) []string {
+	logger.Debug("meetroom", "Manager.SweepIdleRooms")
 	if emptyIdle <= 0 {
 		emptyIdle = DefaultEmptyIdle
 	}
@@ -678,6 +748,7 @@ func (m *Manager) SweepIdleRooms(emptyIdle time.Duration) []string {
 
 // RoomCount returns the number of live rooms.
 func (m *Manager) RoomCount() int {
+	logger.Debug("meetroom", "Manager.RoomCount")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return len(m.rooms)
@@ -685,6 +756,9 @@ func (m *Manager) RoomCount() int {
 
 // FormatRoomID renders a room ID in the display form xxx-xxx-xxx.
 func FormatRoomID(id string) string {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "FormatRoomID: id=%.120q", id)
+	}
 	if len(id) != roomIDLength {
 		return id
 	}
@@ -694,6 +768,9 @@ func FormatRoomID(id string) string {
 // NormalizeRoomID strips the separators FormatRoomID (or a user) may have
 // added, accepting inputs like "123-456-789" or "123 456 789".
 func NormalizeRoomID(id string) string {
+	if logger.IsDebug() {
+		logger.Debugf("meetroom", "NormalizeRoomID: id=%.120q", id)
+	}
 	out := make([]rune, 0, len(id))
 	for _, c := range id {
 		if c >= '0' && c <= '9' {

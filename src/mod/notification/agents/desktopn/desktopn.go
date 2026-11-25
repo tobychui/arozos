@@ -15,6 +15,7 @@ package desktopn
 import (
 	"sync"
 
+	"imuslab.com/arozos/mod/info/logger"
 	notification "imuslab.com/arozos/mod/notification"
 )
 
@@ -44,6 +45,7 @@ type Agent struct {
 // NewDesktopNotificationAgent creates a desktop agent with the default buffer
 // size.
 func NewDesktopNotificationAgent() *Agent {
+	logger.DebugTrace("notification/agents/desktopn", "NewDesktopNotificationAgent")
 	return &Agent{
 		maxBuffered: DefaultMaxBuffered,
 		pending:     map[string][]StoredNotification{},
@@ -51,22 +53,27 @@ func NewDesktopNotificationAgent() *Agent {
 }
 
 func (a *Agent) Name() string {
+	logger.DebugTrace("notification/agents/desktopn", "Agent.Name")
 	return "desktop"
 }
 
 func (a *Agent) Desc() string {
+	logger.DebugTrace("notification/agents/desktopn", "Agent.Desc")
 	return "Show notifications on the ArozOS web desktop"
 }
 
 func (a *Agent) IsConsumer() bool {
+	logger.DebugTrace("notification/agents/desktopn", "Agent.IsConsumer")
 	return true
 }
 
 func (a *Agent) IsProducer() bool {
+	logger.DebugTrace("notification/agents/desktopn", "Agent.IsProducer")
 	return false
 }
 
 func (a *Agent) ConsumerNotification(incomingNotification *notification.NotificationPayload) error {
+	logger.Debug("notification/agents/desktopn", "Agent.ConsumerNotification")
 	stored := StoredNotification{
 		ID:        incomingNotification.ID,
 		Title:     incomingNotification.Title,
@@ -94,6 +101,9 @@ func (a *Agent) ConsumerNotification(incomingNotification *notification.Notifica
 // user. The desktop calls this on a timer so that each notification is shown
 // exactly once.
 func (a *Agent) PollNotifications(username string) []StoredNotification {
+	if logger.IsDebug() {
+		logger.Debugf("notification/agents/desktopn", "Agent.PollNotifications: username=%.120q", username)
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	queue := a.pending[username]
@@ -107,6 +117,9 @@ func (a *Agent) PollNotifications(username string) []StoredNotification {
 // PeekCount returns the number of pending notifications for a user without
 // clearing them. Primarily used for testing and diagnostics.
 func (a *Agent) PeekCount(username string) int {
+	if logger.IsDebug() {
+		logger.Debugf("notification/agents/desktopn", "Agent.PeekCount: username=%.120q", username)
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return len(a.pending[username])
@@ -115,11 +128,15 @@ func (a *Agent) PeekCount(username string) int {
 // Clear removes any pending notifications for the given user without returning
 // them.
 func (a *Agent) Clear(username string) {
+	if logger.IsDebug() {
+		logger.Debugf("notification/agents/desktopn", "Agent.Clear: username=%.120q", username)
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	delete(a.pending, username)
 }
 
 func (a *Agent) ProduceNotification(producerListeningEndpoint *notification.AgentProducerFunction) {
+	logger.DebugTrace("notification/agents/desktopn", "Agent.ProduceNotification")
 	return
 }

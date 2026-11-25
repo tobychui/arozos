@@ -5,12 +5,14 @@ import (
 	"strings"
 
 	"golang.org/x/net/html"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/media"
 )
 
 // ImageSizePx mirrors the docx sizing rules (attrs/style, natural
 // aspect fallback, text-width cap)
 func ImageSizePx(n *html.Node, data []byte) (float64, float64) {
+	logger.Debug("office/internal/htmlutil", "ImageSizePx")
 	natW, natH := 0, 0
 	if cfg, _, err := media.ImageConfig(data); err == nil {
 		natW, natH = cfg.Width, cfg.Height

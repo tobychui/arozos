@@ -25,6 +25,8 @@ package sharedspace
 import (
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // SubscriberSendBuffer is the per-subscriber outgoing frame buffer size.
@@ -43,11 +45,13 @@ type Subscriber struct {
 
 // CloseSend closes the subscriber's send channel exactly once.
 func (s *Subscriber) CloseSend() {
+	logger.DebugTrace("sharedspace", "Subscriber.CloseSend")
 	s.once.Do(func() { close(s.Send) })
 }
 
 // JoinedAt returns when the subscriber joined the channel.
 func (s *Subscriber) JoinedAt() time.Time {
+	logger.DebugTrace("sharedspace", "Subscriber.JoinedAt")
 	return s.joinedAt
 }
 
@@ -66,6 +70,7 @@ type Channel struct {
 // Channel returns the space's realtime hub, creating it on first use. The
 // returned pointer is stable for the lifetime of the space.
 func (s *Space) Channel() *Channel {
+	logger.Debug("sharedspace", "Space.Channel")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.channel == nil {
@@ -83,6 +88,7 @@ func (s *Space) Channel() *Channel {
 // applies no access control. Used by consumers that manage their own
 // membership rules (e.g. MeetRoom rooms without a space manager).
 func NewStandaloneChannel() *Channel {
+	logger.DebugTrace("sharedspace", "NewStandaloneChannel")
 	return &Channel{
 		subscribers: make(map[int]*Subscriber),
 		nextID:      1,
@@ -93,6 +99,7 @@ func NewStandaloneChannel() *Channel {
 // leaves. Hooks run outside the channel lock; set them once, before the
 // first Join, from the subsystem that owns the channel.
 func (c *Channel) SetPresenceHooks(onJoin func(*Subscriber), onLeave func(*Subscriber)) {
+	logger.Debug("sharedspace", "Channel.SetPresenceHooks")
 	c.mu.Lock()
 	c.onJoin = onJoin
 	c.onLeave = onLeave
@@ -103,6 +110,9 @@ func (c *Channel) SetPresenceHooks(onJoin func(*Subscriber), onLeave func(*Subsc
 // space's read permission is enforced. The transport layer must drain the
 // returned subscriber's Send channel.
 func (c *Channel) Join(username string) (*Subscriber, error) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Channel.Join: username=%.120q", username)
+	}
 	if c.space != nil && !c.space.CanRead(username) {
 		return nil, ErrPermissionDenied
 	}
@@ -132,6 +142,9 @@ func (c *Channel) Join(username string) (*Subscriber, error) {
 // Leave unregisters a subscriber and closes its send channel. Safe to call
 // twice or with an unknown ID.
 func (c *Channel) Leave(id int) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Channel.Leave: id=%d", id)
+	}
 	c.mu.Lock()
 	sub, ok := c.subscribers[id]
 	if ok {
@@ -153,6 +166,9 @@ func (c *Channel) Leave(id int) {
 // value to send to everyone). Full send buffers drop the frame rather than
 // blocking the hub.
 func (c *Channel) Broadcast(msg []byte, excludeID int) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Channel.Broadcast: excludeID=%d", excludeID)
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for id, sub := range c.subscribers {
@@ -169,6 +185,9 @@ func (c *Channel) Broadcast(msg []byte, excludeID int) {
 // SendTo queues msg to a single subscriber. It reports whether the
 // subscriber exists in the channel.
 func (c *Channel) SendTo(id int, msg []byte) bool {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Channel.SendTo: id=%d", id)
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	sub, ok := c.subscribers[id]
@@ -184,6 +203,9 @@ func (c *Channel) SendTo(id int, msg []byte) bool {
 
 // Get returns the subscriber with the given ID.
 func (c *Channel) Get(id int) (*Subscriber, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Channel.Get: id=%d", id)
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	sub, ok := c.subscribers[id]
@@ -192,6 +214,7 @@ func (c *Channel) Get(id int) (*Subscriber, bool) {
 
 // Subscribers returns a snapshot of the current subscribers.
 func (c *Channel) Subscribers() []*Subscriber {
+	logger.Debug("sharedspace", "Channel.Subscribers")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	list := make([]*Subscriber, 0, len(c.subscribers))
@@ -203,6 +226,7 @@ func (c *Channel) Subscribers() []*Subscriber {
 
 // Count returns the number of connected subscribers.
 func (c *Channel) Count() int {
+	logger.Debug("sharedspace", "Channel.Count")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return len(c.subscribers)
@@ -213,6 +237,7 @@ func (c *Channel) Count() int {
 // can finish delivering queued frames before the connections drop. Safe to
 // call more than once.
 func (c *Channel) Close() []*Subscriber {
+	logger.Debug("sharedspace", "Channel.Close")
 	c.mu.Lock()
 	c.closed = true
 	members := make([]*Subscriber, 0, len(c.subscribers))

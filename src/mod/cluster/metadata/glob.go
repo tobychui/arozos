@@ -15,16 +15,24 @@ package metadata
 import (
 	"sort"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // MatchGlob reports whether a logical path matches a glob pattern.
 func MatchGlob(pattern string, path string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "MatchGlob: pattern=%.120q path=%.120q", pattern, path)
+	}
 	pattern = NormalizePath(pattern)
 	path = NormalizePath(path)
 	return matchSegments(splitPath(pattern), splitPath(path))
 }
 
 func splitPath(p string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "splitPath: p=%.120q", p)
+	}
 	p = strings.Trim(p, "/")
 	if p == "" {
 		return []string{}
@@ -35,6 +43,9 @@ func splitPath(p string) []string {
 // matchSegments matches path segments against pattern segments, where "**"
 // consumes any number of segments.
 func matchSegments(pat []string, seg []string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/metadata", "matchSegments: len(pat)=%d len(seg)=%d", len(pat), len(seg))
+	}
 	if len(pat) == 0 {
 		return len(seg) == 0
 	}
@@ -61,6 +72,9 @@ func matchSegments(pat []string, seg []string) bool {
 
 // matchOne matches a single segment with * and ? wildcards.
 func matchOne(pattern string, name string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "matchOne: pattern=%.120q name=%.120q", pattern, name)
+	}
 	pi, ni := 0, 0
 	star, match := -1, 0
 	for ni < len(name) {
@@ -89,6 +103,9 @@ func matchOne(pattern string, name string) bool {
 // Glob returns every live file record whose path matches the pattern,
 // sorted by path. Directories are skipped.
 func (mgr *Manager) Glob(pattern string) []FileRecord {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/metadata", "Manager.Glob: pattern=%.120q", pattern)
+	}
 	pattern = NormalizePath(pattern)
 	//Narrow the scan to the literal prefix before the first wildcard
 	prefix := "/"

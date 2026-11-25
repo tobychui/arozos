@@ -17,6 +17,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -50,6 +52,7 @@ type store struct {
 }
 
 func newStore(db KVStore) (*store, error) {
+	logger.Debug("email", "newStore")
 	if db == nil {
 		return nil, errors.New("mail store requires a database")
 	}
@@ -63,11 +66,17 @@ func newStore(db KVStore) (*store, error) {
 }
 
 func ownerKey(owner string, id string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("email", "ownerKey: owner=%.120q id=%.120q", owner, id)
+	}
 	return owner + "/" + id
 }
 
 // listOwned decodes every record of a table that belongs to owner.
 func listOwned[T any](s *store, table string, owner string) ([]T, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "listOwned: table=%.120q owner=%.120q", table, owner)
+	}
 	entries, err := s.db.ListTable(table)
 	if err != nil {
 		return nil, err
@@ -92,6 +101,9 @@ func listOwned[T any](s *store, table string, owner string) ([]T, error) {
 */
 
 func (s *store) listAccounts(owner string) ([]*Account, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "store.listAccounts: owner=%.120q", owner)
+	}
 	records, err := listOwned[Account](s, tableAccounts, owner)
 	if err != nil {
 		return nil, err
@@ -113,6 +125,9 @@ func (s *store) listAccounts(owner string) ([]*Account, error) {
 }
 
 func (s *store) getAccount(owner string, id string) (*Account, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "store.getAccount: owner=%.120q id=%.120q", owner, id)
+	}
 	key := ownerKey(owner, id)
 	if id == "" || !s.db.KeyExists(tableAccounts, key) {
 		return nil, ErrAccountNotFound
@@ -128,6 +143,7 @@ func (s *store) getAccount(owner string, id string) (*Account, error) {
 }
 
 func (s *store) saveAccount(account *Account) error {
+	logger.Debug("email", "store.saveAccount")
 	if account.Owner == "" || account.ID == "" {
 		return errors.New("account owner and id are required")
 	}
@@ -135,6 +151,9 @@ func (s *store) saveAccount(account *Account) error {
 }
 
 func (s *store) deleteAccount(owner string, id string) error {
+	if logger.IsDebug() {
+		logger.Debugf("email", "store.deleteAccount: owner=%.120q id=%.120q", owner, id)
+	}
 	key := ownerKey(owner, id)
 	if !s.db.KeyExists(tableAccounts, key) {
 		return ErrAccountNotFound
@@ -147,6 +166,9 @@ func (s *store) deleteAccount(owner string, id string) error {
 */
 
 func (s *store) getSettings(owner string) UserSettings {
+	if logger.IsDebug() {
+		logger.Debugf("email", "store.getSettings: owner=%.120q", owner)
+	}
 	settings := DefaultUserSettings()
 	if s.db.KeyExists(tableSettings, owner) {
 		stored := DefaultUserSettings()
@@ -159,6 +181,9 @@ func (s *store) getSettings(owner string) UserSettings {
 }
 
 func (s *store) saveSettings(owner string, settings UserSettings) error {
+	if logger.IsDebug() {
+		logger.Debugf("email", "store.saveSettings: owner=%.120q", owner)
+	}
 	settings.normalise()
 	return s.db.Write(tableSettings, owner, settings)
 }
@@ -168,6 +193,7 @@ func (s *store) saveSettings(owner string, settings UserSettings) error {
 */
 
 func (s *store) getAdminConfig() AdminConfig {
+	logger.Debug("email", "store.getAdminConfig")
 	config := defaultAdminConfig()
 	if s.db.KeyExists(tableConfig, adminConfigKey) {
 		stored := defaultAdminConfig()
@@ -180,6 +206,7 @@ func (s *store) getAdminConfig() AdminConfig {
 }
 
 func (s *store) saveAdminConfig(config AdminConfig) error {
+	logger.Debug("email", "store.saveAdminConfig")
 	config.normalise()
 	return s.db.Write(tableConfig, adminConfigKey, config)
 }
@@ -187,6 +214,9 @@ func (s *store) saveAdminConfig(config AdminConfig) error {
 // deleteOwnedWithPrefix removes every record of owner whose id starts with
 // prefix (used when an account is removed).
 func (s *store) deleteOwnedWithPrefix(table string, owner string, idPrefix string) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "store.deleteOwnedWithPrefix: table=%.120q owner=%.120q idPrefix=%.120q", table, owner, idPrefix)
+	}
 	entries, err := s.db.ListTable(table)
 	if err != nil {
 		return

@@ -3,6 +3,8 @@ package cnn
 import (
 	"encoding/json"
 	"net/http"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // AnalyzeOptions are the parameters for Analyze.
@@ -40,6 +42,9 @@ type AnalyzeResult struct {
 // Analyze runs several recognition tasks over one image in a single request
 // (the server decodes the image and warms models once).
 func (c *Client) Analyze(image []byte, mimeType string, opt AnalyzeOptions) (*AnalyzeResult, *Job, error) {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/cnn", "Client.Analyze: len(image)=%d", len(image))
+	}
 	req := analyzeRequest{
 		Image:   dataURI(image, mimeType),
 		Tasks:   opt.Tasks,

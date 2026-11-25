@@ -17,6 +17,8 @@ import (
 	"errors"
 	"image"
 	"math"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type emfPlayer struct {
@@ -31,6 +33,7 @@ type emfPlayer struct {
 }
 
 func newEmfPlayer(data []byte) (*emfPlayer, error) {
+	logger.DebugTrace("office/metafile", "newEmfPlayer")
 	if len(data) < 88 {
 		return nil, errors.New("EMF header truncated")
 	}
@@ -67,12 +70,14 @@ func newEmfPlayer(data []byte) (*emfPlayer, error) {
 }
 
 func (p *emfPlayer) baseSize() (float64, float64) {
+	logger.DebugTrace("office/metafile", "emfPlayer.baseSize")
 	return p.cssW, p.cssH
 }
 
 // toDevice maps a logical point through the world transform and the map
 // mode to device units
 func (p *emfPlayer) toDevice(dc *mfDC, q mfPt) mfPt {
+	logger.DebugTrace("office/metafile", "emfPlayer.toDevice")
 	x := dc.xf[0]*q.X + dc.xf[2]*q.Y + dc.xf[4]
 	y := dc.xf[1]*q.X + dc.xf[3]*q.Y + dc.xf[5]
 	x -= dc.winOrg.X
@@ -100,25 +105,44 @@ func (p *emfPlayer) toDevice(dc *mfDC, q mfPt) mfPt {
 type emfRec []byte
 
 func (r emfRec) u32(o int) uint32 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/metafile", "emfRec.u32: o=%d", o)
+	}
 	if o+4 > len(r) {
 		return 0
 	}
 	return binary.LittleEndian.Uint32(r[o:])
 }
 
-func (r emfRec) i32(o int) float64 { return float64(int32(r.u32(o))) }
+func (r emfRec) i32(o int) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/metafile", "emfRec.i32: o=%d", o)
+	}
+	return float64(int32(r.u32(o)))
+}
 
 func (r emfRec) i16(o int) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/metafile", "emfRec.i16: o=%d", o)
+	}
 	if o+2 > len(r) {
 		return 0
 	}
 	return float64(int16(binary.LittleEndian.Uint16(r[o:])))
 }
 
-func (r emfRec) f32(o int) float64 { return float64(math.Float32frombits(r.u32(o))) }
+func (r emfRec) f32(o int) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/metafile", "emfRec.f32: o=%d", o)
+	}
+	return float64(math.Float32frombits(r.u32(o)))
+}
 
 // points reads n points (32-bit or 16-bit pairs) at offset o
 func (r emfRec) points(o, n int, small bool) []mfPt {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/metafile", "emfRec.points: o=%d n=%d small=%t", o, n, small)
+	}
 	sz := 8
 	if small {
 		sz = 4
@@ -139,6 +163,9 @@ func (r emfRec) points(o, n int, small bool) []mfPt {
 
 // slice returns the [off, off+size) part of the record, or nil
 func (r emfRec) slice(off, size uint32) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/metafile", "emfRec.slice: off=%d size=%d", off, size)
+	}
 	if size == 0 || uint64(off)+uint64(size) > uint64(len(r)) {
 		return nil
 	}
@@ -146,6 +173,7 @@ func (r emfRec) slice(off, size uint32) []byte {
 }
 
 func (p *emfPlayer) play(c *mfCanvas) error {
+	logger.DebugTrace("office/metafile", "emfPlayer.play")
 	sx, sy := p.cssW/p.devW, p.cssH/p.devH
 	c.toCSS = func(q mfPt) mfPt {
 		d := p.toDevice(&c.dc, q)
@@ -168,6 +196,9 @@ func (p *emfPlayer) play(c *mfCanvas) error {
 }
 
 func (p *emfPlayer) record(c *mfCanvas, typ uint32, r emfRec) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/metafile", "emfPlayer.record: typ=%d", typ)
+	}
 	switch typ {
 	case 9: // SETWINDOWEXTEX
 		c.dc.winExt = mfPt{r.i32(8), r.i32(12)}
@@ -428,6 +459,7 @@ func (p *emfPlayer) record(c *mfCanvas, typ uint32, r emfRec) {
 
 // xfMul composes two world transforms: the result applies a, then b
 func xfMul(a, b [6]float64) [6]float64 {
+	logger.DebugTrace("office/metafile", "xfMul")
 	return [6]float64{
 		a[0]*b[0] + a[1]*b[2],
 		a[0]*b[1] + a[1]*b[3],
@@ -440,6 +472,9 @@ func xfMul(a, b [6]float64) [6]float64 {
 
 // emfFont reads an EMF LOGFONTW (32-bit fields, UTF-16 face name)
 func emfFont(b []byte) *mfFont {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/metafile", "emfFont: len(b)=%d", len(b))
+	}
 	r := emfRec(b)
 	f := &mfFont{
 		height:     r.i32(0),

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -31,6 +32,9 @@ type localeKeyEntry struct {
 //   - coverage % per language (how many files have that language)
 //   - a deduplicated contributors list
 func InfoHandleGetLocaleInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "InfoHandleGetLocaleInfo: r=%s", logger.RequestSummary(r))
+	}
 	type LanguageEntry struct {
 		Code       string  `json:"code"`
 		Name       string  `json:"name"`

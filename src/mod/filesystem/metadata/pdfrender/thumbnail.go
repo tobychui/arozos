@@ -6,6 +6,8 @@ import (
 	"image/draw"
 	"io"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // thumbBackground surrounds a landscape page in a square thumbnail
@@ -21,6 +23,9 @@ var thumbBackground = color.RGBA{0xe6, 0xe6, 0xe6, 0xff}
 // A render that ran out of time still returns what it drew, together with
 // ErrTimeout.
 func Thumbnail(r io.ReaderAt, size int64, side int, timeout time.Duration) (*image.RGBA, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata/pdfrender", "Thumbnail: size=%d side=%d", size, side)
+	}
 	doc, err := Open(r, size)
 	if err != nil {
 		return nil, err

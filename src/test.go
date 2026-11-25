@@ -1,5 +1,7 @@
 package main
 
+import "imuslab.com/arozos/mod/info/logger"
+
 /*
 Development test playground
 
@@ -9,5 +11,6 @@ after all the startup process is ready and you can access
 all global objects from the Run_Test() function below.
 */
 func Run_Test() {
+	logger.DebugTrace("Core", "Run_Test")
 
 }

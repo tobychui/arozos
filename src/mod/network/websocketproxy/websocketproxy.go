@@ -49,11 +49,15 @@ type WebsocketProxy struct {
 
 // ProxyHandler returns a new http.Handler interface that reverse proxies the
 // request to the given target.
-func ProxyHandler(target *url.URL) http.Handler { return NewProxy(target) }
+func ProxyHandler(target *url.URL) http.Handler {
+	logger.DebugTrace("network/websocketproxy", "ProxyHandler")
+	return NewProxy(target)
+}
 
 // NewProxy returns a new Websocket reverse proxy that rewrites the
 // URL's to the scheme, host and base path provider in target.
 func NewProxy(target *url.URL) *WebsocketProxy {
+	logger.Debug("network/websocketproxy", "NewProxy")
 	backend := func(r *http.Request) *url.URL {
 		// Shallow copy
 		u := *target
@@ -67,6 +71,9 @@ func NewProxy(target *url.URL) *WebsocketProxy {
 
 // ServeHTTP implements the http.Handler that proxies WebSocket connections.
 func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("network/websocketproxy", "WebsocketProxy.ServeHTTP: req=%s", logger.RequestSummary(req))
+	}
 	if w.Backend == nil {
 		logger.PrintAndLog("Websocketproxy", "websocketproxy: backend function is not defined", nil)
 		http.Error(rw, "internal server error (code: 1)", http.StatusInternalServerError)
@@ -217,6 +224,7 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 }
 
 func copyHeader(dst, src http.Header) {
+	logger.Debug("network/websocketproxy", "copyHeader")
 	for k, vv := range src {
 		for _, v := range vv {
 			dst.Add(k, v)
@@ -225,6 +233,7 @@ func copyHeader(dst, src http.Header) {
 }
 
 func copyResponse(rw http.ResponseWriter, resp *http.Response) error {
+	logger.Debug("network/websocketproxy", "copyResponse")
 	copyHeader(rw.Header(), resp.Header)
 	rw.WriteHeader(resp.StatusCode)
 	defer resp.Body.Close()

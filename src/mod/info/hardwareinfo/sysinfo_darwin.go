@@ -46,6 +46,7 @@ const query_memsize_command = "sysctl hw.memsize | awk '{print $NF}'"
 // GetCPUFreq() -> String
 // Returns the CPU frequency in the terms of MHz
 func GetCPUFreq() string {
+	logger.Debug("info/hardwareinfo", "GetCPUFreq")
 	shell := exec.Command("bash", "-c", query_frequency_command) // Run command
 	freqByteArr, err := shell.CombinedOutput()                   // Response from cmdline
 	if err != nil {                                              // If done w/ errors then
@@ -66,6 +67,7 @@ func GetCPUFreq() string {
 // GetCPUModel -> String
 // Returns the CPU model name string
 func GetCPUModel() string {
+	logger.Debug("info/hardwareinfo", "GetCPUModel")
 	shell := exec.Command("bash", "-c", query_cpumodel_command) // Run command
 	modelStr, err := shell.CombinedOutput()                     // Response from cmdline
 	if err != nil {                                             // If done w/ errors then
@@ -79,6 +81,7 @@ func GetCPUModel() string {
 // GetCPUHardware -> String
 // Returns the CPU ID string
 func GetCPUHardware() string {
+	logger.Debug("info/hardwareinfo", "GetCPUHardware")
 	shell := exec.Command("bash", "-c", query_cpuhardware_command) // Run command
 	hwStr, err := shell.CombinedOutput()                           // Response from cmdline
 	if err != nil {                                                // If done w/ errors then
@@ -92,6 +95,7 @@ func GetCPUHardware() string {
 // GetCPUArch -> String
 // Returns the CPU architecture string
 func GetCPUArch() string {
+	logger.Debug("info/hardwareinfo", "GetCPUArch")
 	shell := exec.Command("bash", "-c", query_cpuarch_command) // Run command
 	archStr, err := shell.CombinedOutput()                     // Response from cmdline
 	if err != nil {                                            // If done w/ errors then
@@ -104,6 +108,9 @@ func GetCPUArch() string {
 
 // Inherited code from sysinfo_window.go
 func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "GetCPUInfo: r=%s", logger.RequestSummary(r))
+	}
 	CPUInfo := CPUInfo{
 		Freq:        GetCPUFreq(),
 		Hardware:    GetCPUHardware(),
@@ -122,6 +129,9 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 
 // Inherited code from sysinfo.go
 func Ifconfig(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "Ifconfig: r=%s", logger.RequestSummary(r))
+	}
 	cmdin := query_netinfo_command
 	cmd := exec.Command("bash", "-c", cmdin)
 	networkInterfaces, err := cmd.CombinedOutput()
@@ -147,6 +157,9 @@ func Ifconfig(w http.ResponseWriter, r *http.Request) {
 
 // Inherited code from sysinfo.go
 func GetDriveStat(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "GetDriveStat: r=%s", logger.RequestSummary(r))
+	}
 	//Get drive status using df command
 	cmdin := `df -k | sed -e /Filesystem/d`
 	cmd := exec.Command("bash", "-c", cmdin)
@@ -195,6 +208,9 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 // Takes in http.ResponseWriter w and *http.Request r,
 // Send TextResponse containing USB information extracted from shell in JSON
 func GetUSB(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "GetUSB: r=%s", logger.RequestSummary(r))
+	}
 	cmdin := query_usbinfo_command
 	cmd := exec.Command("bash", "-c", cmdin)
 	usbd, err := cmd.CombinedOutput()
@@ -222,6 +238,9 @@ func GetUSB(w http.ResponseWriter, r *http.Request) {
 // Send TextResponse containing physical memory size
 // extracted from shell in JSON
 func GetRamInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "GetRamInfo: r=%s", logger.RequestSummary(r))
+	}
 	cmd := exec.Command("bash", "-c", query_memsize_command)
 	out, _ := cmd.CombinedOutput()
 

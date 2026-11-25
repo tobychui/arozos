@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"golang.org/x/sys/cpu"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/info/usageinfo"
 )
 
@@ -57,6 +58,7 @@ var toolFeatures = map[string]string{
 
 // Detect builds the manifest of the local machine.
 func Detect() Manifest {
+	logger.Debug("cluster/capability", "Detect")
 	m := Manifest{
 		OS:         runtime.GOOS,
 		Arch:       runtime.GOARCH,
@@ -90,18 +92,25 @@ func Detect() Manifest {
 }
 
 func lookPath(binary string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/capability", "lookPath: binary=%.120q", binary)
+	}
 	_, err := exec.LookPath(binary)
 	return err == nil
 }
 
 // Has reports whether a feature is present.
 func (m Manifest) Has(feature string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/capability", "Manifest.Has: feature=%.120q", feature)
+	}
 	return m.Features != nil && m.Features[strings.ToLower(feature)]
 }
 
 // Satisfies checks the manifest against job requirements and explains the
 // first unmet one.
 func (m Manifest) Satisfies(r Requirements) (bool, string) {
+	logger.Debug("cluster/capability", "Manifest.Satisfies")
 	for _, f := range r.Features {
 		if !m.Has(f) {
 			return false, "missing feature " + f
@@ -124,6 +133,7 @@ func (m Manifest) Satisfies(r Requirements) (bool, string) {
 
 // EnabledFeatures returns the sorted-insensitive list of features that are true.
 func (m Manifest) EnabledFeatures() []string {
+	logger.Debug("cluster/capability", "Manifest.EnabledFeatures")
 	out := []string{}
 	for f, on := range m.Features {
 		if on {
@@ -134,6 +144,9 @@ func (m Manifest) EnabledFeatures() []string {
 }
 
 func containsFold(list []string, v string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/capability", "containsFold: len(list)=%d v=%.120q", len(list), v)
+	}
 	for _, item := range list {
 		if strings.EqualFold(item, v) {
 			return true

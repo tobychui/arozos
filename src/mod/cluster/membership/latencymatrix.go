@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/cluster/acn"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var (
@@ -41,6 +42,9 @@ type LatencyReport struct {
 
 // handleLatency answers a peer asking for this node's measurements.
 func (m *Manager) handleLatency(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "Manager.handleLatency: r=%s", logger.RequestSummary(r))
+	}
 	m.markSeen(sender.NodeID)
 	acn.WriteJSON(w, LatencyReport{
 		NodeID:    m.opt.NodeID,
@@ -62,6 +66,7 @@ type latencyCache struct {
 // LatencyMatrixTTL. It never blocks longer than LatencyFetchTimeout, and it
 // returns what it has when a peer does not answer.
 func (m *Manager) LatencyMatrix() map[string]map[string]float64 {
+	logger.Debug("cluster/membership", "Manager.LatencyMatrix")
 	m.latencyMx.mu.Lock()
 	fresh := time.Since(m.latencyMx.collected) < LatencyMatrixTTL
 	if fresh || m.latencyMx.busy {
@@ -109,6 +114,9 @@ func (m *Manager) LatencyMatrix() map[string]map[string]float64 {
 // whichever direction has been measured (the mean when both have). Two ids
 // that are the same node are zero apart.
 func PairLatency(matrix map[string]map[string]float64, a string, b string) (float64, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "PairLatency: len(matrix)=%d a=%.120q b=%.120q", len(matrix), a, b)
+	}
 	if a == b {
 		return 0, true
 	}
@@ -127,10 +135,12 @@ func PairLatency(matrix map[string]map[string]float64, a string, b string) (floa
 
 // ResetLatencyMatrix drops the cached matrix, so the next call collects again.
 func (m *Manager) ResetLatencyMatrix() {
+	logger.DebugTrace("cluster/membership", "Manager.ResetLatencyMatrix")
 	m.latencyMx.reset()
 }
 
 func (c *latencyCache) reset() {
+	logger.Debug("cluster/membership", "latencyCache.reset")
 	c.mu.Lock()
 	c.rows = nil
 	c.collected = time.Time{}
@@ -138,10 +148,14 @@ func (c *latencyCache) reset() {
 }
 
 func usableForLatency(s NodeState) bool {
+	logger.DebugTrace("cluster/membership", "usableForLatency")
 	return s == StateOnline || s == StateDegraded || s == StateDraining
 }
 
 func copyMatrix(in map[string]map[string]float64) map[string]map[string]float64 {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "copyMatrix: len(in)=%d", len(in))
+	}
 	out := map[string]map[string]float64{}
 	for from, row := range in {
 		cp := map[string]float64{}

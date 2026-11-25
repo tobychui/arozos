@@ -48,6 +48,7 @@ const (
 )
 
 func init() {
+	logger.Debug("fileservers/servers/syncthingserv", "init")
 	build.Version = syncthingVersion
 	build.IsRelease, build.IsBeta, build.IsCandidate = true, false, false
 	build.LongVersion = build.LongVersionFor("syncthing")
@@ -73,6 +74,9 @@ type stEngine struct {
 }
 
 func (e *stEngine) ParseDeviceID(s string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.ParseDeviceID: s=%.120q", s)
+	}
 	id, err := protocol.DeviceIDFromString(s)
 	if err != nil {
 		return "", err
@@ -84,6 +88,7 @@ func (e *stEngine) ParseDeviceID(s string) (string, error) {
 }
 
 func (e *stEngine) Start(cfg engineConfig, p plan) error {
+	logger.Debug("fileservers/servers/syncthingserv", "stEngine.Start")
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.app != nil {
@@ -162,6 +167,7 @@ func (e *stEngine) Start(cfg engineConfig, p plan) error {
 }
 
 func (e *stEngine) Stop() {
+	logger.Debug("fileservers/servers/syncthingserv", "stEngine.Stop")
 	e.mu.Lock()
 	app, cancel := e.app, e.cancel
 	e.app, e.cfg, e.cancel = nil, nil, nil
@@ -185,6 +191,7 @@ func (e *stEngine) Stop() {
 }
 
 func (e *stEngine) Apply(cfg engineConfig, p plan) error {
+	logger.Debug("fileservers/servers/syncthingserv", "stEngine.Apply")
 	e.mu.Lock()
 	wrapper, myID := e.cfg, e.myID
 	e.mu.Unlock()
@@ -195,6 +202,7 @@ func (e *stEngine) Apply(cfg engineConfig, p plan) error {
 }
 
 func (e *stEngine) DeviceID() string {
+	logger.Debug("fileservers/servers/syncthingserv", "stEngine.DeviceID")
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.app == nil {
@@ -205,6 +213,7 @@ func (e *stEngine) DeviceID() string {
 
 // internals returns Syncthing's model while it runs.
 func (e *stEngine) internals() *syncthing.Internals {
+	logger.Debug("fileservers/servers/syncthingserv", "stEngine.internals")
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.app == nil {
@@ -214,6 +223,9 @@ func (e *stEngine) internals() *syncthing.Internals {
 }
 
 func (e *stEngine) FolderStatus(id string) FolderStatus {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.FolderStatus: id=%.120q", id)
+	}
 	in := e.internals()
 	if in == nil {
 		return FolderStatus{}
@@ -249,6 +261,9 @@ func (e *stEngine) FolderStatus(id string) FolderStatus {
 }
 
 func (e *stEngine) DeviceStatus(id string) DeviceStatus {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.DeviceStatus: id=%.120q", id)
+	}
 	in := e.internals()
 	if in == nil {
 		return DeviceStatus{}
@@ -270,6 +285,9 @@ func (e *stEngine) DeviceStatus(id string) DeviceStatus {
 }
 
 func (e *stEngine) Offers(deviceID string) []Offer {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.Offers: deviceID=%.120q", deviceID)
+	}
 	in := e.internals()
 	if in == nil {
 		return nil
@@ -294,6 +312,9 @@ func (e *stEngine) Offers(deviceID string) []Offer {
 }
 
 func (e *stEngine) Rescan(folderID string) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.Rescan: folderID=%.120q", folderID)
+	}
 	in := e.internals()
 	if in == nil {
 		return errors.New("Syncthing is not running")
@@ -306,6 +327,9 @@ func (e *stEngine) Rescan(folderID string) error {
 // of a configuration change. Should the resume fail, the next applyConfig
 // unpauses the folder again.
 func (e *stEngine) RestartFolder(folderID string) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.RestartFolder: folderID=%.120q", folderID)
+	}
 	e.mu.Lock()
 	wrapper := e.cfg
 	e.mu.Unlock()
@@ -337,6 +361,9 @@ func (e *stEngine) RestartFolder(folderID string) error {
 }
 
 func (e *stEngine) LocalBytes(folderID string) (int64, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.LocalBytes: folderID=%.120q", folderID)
+	}
 	in := e.internals()
 	if in == nil {
 		return 0, false
@@ -349,6 +376,7 @@ func (e *stEngine) LocalBytes(folderID string) (int64, bool) {
 }
 
 func (e *stEngine) UnknownDevices() []UnknownDevice {
+	logger.Debug("fileservers/servers/syncthingserv", "stEngine.UnknownDevices")
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	list := make([]UnknownDevice, 0, len(e.unknown))
@@ -362,6 +390,7 @@ func (e *stEngine) UnknownDevices() []UnknownDevice {
 // watchUnknown keeps the devices that tried to connect without being added,
 // for the admin page.
 func (e *stEngine) watchUnknown(ctx context.Context, sub events.Subscription) {
+	logger.Debug("fileservers/servers/syncthingserv", "stEngine.watchUnknown")
 	defer sub.Unsubscribe()
 	for {
 		select {
@@ -399,6 +428,7 @@ func (e *stEngine) watchUnknown(ctx context.Context, sub events.Subscription) {
 
 // listenAddresses are where Syncthing accepts connections.
 func listenAddresses(s Settings) []string {
+	logger.Debug("fileservers/servers/syncthingserv", "listenAddresses")
 	port := strconv.Itoa(s.Port)
 	addrs := []string{"tcp://:" + port, "quic://:" + port}
 	if s.Relays {
@@ -412,6 +442,7 @@ func listenAddresses(s Settings) []string {
 // them, so applying the same plan again changes nothing and no folder
 // restarts.
 func applyConfig(wrapper config.Wrapper, myID protocol.DeviceID, ec engineConfig, p plan) error {
+	logger.Debug("fileservers/servers/syncthingserv", "applyConfig")
 	waiter, err := wrapper.Modify(func(c *config.Configuration) {
 		s := ec.Settings
 
@@ -528,6 +559,9 @@ func applyConfig(wrapper config.Wrapper, myID protocol.DeviceID, ec engineConfig
 // ignoredFolders keeps the entries Syncthing already has for the folder IDs
 // that stay ignored, so their times and order do not change.
 func ignoredFolders(current []config.ObservedFolder, ids []string) []config.ObservedFolder {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "ignoredFolders: len(current)=%d len(ids)=%d", len(current), len(ids))
+	}
 	want := map[string]bool{}
 	for _, id := range ids {
 		want[id] = true
@@ -559,6 +593,9 @@ func ignoredFolders(current []config.ObservedFolder, ids []string) []config.Obse
 // folderDevices is the server plus the given devices, unchanged when the
 // set is the same.
 func folderDevices(current []config.FolderDeviceConfiguration, myID protocol.DeviceID, ids []string, known map[protocol.DeviceID]bool) []config.FolderDeviceConfiguration {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "folderDevices: len(current)=%d len(ids)=%d len(known)=%d", len(current), len(ids), len(known))
+	}
 	want := map[protocol.DeviceID]bool{myID: true}
 	for _, raw := range ids {
 		if id, err := protocol.DeviceIDFromString(raw); err == nil && known[id] {
@@ -589,6 +626,9 @@ func folderDevices(current []config.FolderDeviceConfiguration, myID protocol.Dev
 // setVersioning keeps replaced and deleted files for a number of days in
 // the folder's .stversions, or turns that off.
 func setVersioning(v *config.VersioningConfiguration, days int) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncthingserv", "setVersioning: days=%d", days)
+	}
 	if days <= 0 {
 		if v.Type != "" {
 			v.Type = ""

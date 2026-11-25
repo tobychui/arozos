@@ -25,6 +25,7 @@ import (
 	"io"
 	"unicode/utf16"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/metafile"
 )
 
@@ -41,6 +42,7 @@ const maxBlipSize = 256 << 20
 
 // DecodeBlip decodes a BLIP record (types 0xF018 - 0xF117)
 func DecodeBlip(r *Record) (*Blip, error) {
+	logger.Debug("office/internal/officeart", "DecodeBlip")
 	if r == nil || r.Type < BlipFirst || r.Type > BlipLast {
 		return nil, errors.New("not a picture record")
 	}
@@ -101,6 +103,9 @@ func DecodeBlip(r *Record) (*Blip, error) {
 // sniff corrects the stated format by the content's signature (Office
 // stores GIFs as "PNG" BLIPs)
 func sniff(data []byte, def string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/officeart", "sniff: def=%.120q", def)
+	}
 	switch {
 	case len(data) >= 8 && string(data[:8]) == "\x89PNG\r\n\x1a\n":
 		return "png"
@@ -115,6 +120,9 @@ func sniff(data []byte, def string) string {
 // inflate undoes the DEFLATE compression of a metafile BLIP: a zlib
 // stream in practice, raw DEFLATE by the letter of the specification
 func inflate(data []byte, size int) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/officeart", "inflate: size=%d", size)
+	}
 	limit := int64(maxBlipSize)
 	if size > 0 && size < maxBlipSize {
 		limit = int64(size) + 1
@@ -135,6 +143,9 @@ func inflate(data []byte, size int) ([]byte, error) {
 // ReadBSE decodes one picture store entry; delay is the stream its
 // foDelay offset points into (nil when the host embeds every picture)
 func ReadBSE(r *Record, delay []byte) *Blip {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/officeart", "ReadBSE: len(delay)=%d", len(delay))
+	}
 	if r == nil || r.Type != FBSE || len(r.Data) < 36 {
 		return nil
 	}
@@ -174,6 +185,9 @@ func ReadBSE(r *Record, delay []byte) *Blip {
 // BStore decodes the picture store of a drawing group container; entry i
 // is the picture shapes call pib i+1 (nil where it cannot be read)
 func BStore(dgg *Record, delay []byte) []*Blip {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/officeart", "BStore: len(delay)=%d", len(delay))
+	}
 	store := dgg.Child(BStoreContainer)
 	if store == nil {
 		return nil

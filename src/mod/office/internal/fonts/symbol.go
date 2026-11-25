@@ -2,6 +2,8 @@ package fonts
 
 import (
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // symbolBullets are the bullet characters of the symbol fonts, as Unicode
@@ -40,6 +42,9 @@ var symbolBullets = map[string]map[rune]symbolGlyph{
 // through the private use area (U+F06C for Wingdings "l"), which is folded
 // back first.
 func SymbolBullet(font, marker string) (string, float64, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/fonts", "SymbolBullet: font=%.120q marker=%.120q", font, marker)
+	}
 	f := strings.ToLower(strings.TrimSpace(font))
 	var table map[rune]symbolGlyph
 	switch {
@@ -68,6 +73,9 @@ func SymbolBullet(font, marker string) (string, float64, bool) {
 
 // IsSymbolFont reports whether a typeface maps letters onto pictographs
 func IsSymbolFont(font string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/fonts", "IsSymbolFont: font=%.120q", font)
+	}
 	f := strings.ToLower(strings.TrimSpace(font))
 	return strings.HasPrefix(f, "wingdings") || strings.HasPrefix(f, "webdings") ||
 		f == "symbol" || strings.Contains(f, "dingbat")
@@ -109,6 +117,9 @@ var symbolEncoding = func() map[rune]rune {
 // Codes may come through the private use area (U+F061 for "a"), which is
 // folded back first; anything else is kept as it is.
 func SymbolText(s string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/fonts", "SymbolText: s=%.120q", s)
+	}
 	var b strings.Builder
 	for _, r := range s {
 		c := r

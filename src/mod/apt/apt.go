@@ -23,6 +23,9 @@ type AptPackageManager struct {
 }
 
 func NewPackageManager(autoInstall bool) *AptPackageManager {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("apt", "NewPackageManager: autoInstall=%t", autoInstall)
+	}
 	return &AptPackageManager{
 		AllowAutoInstall: autoInstall,
 	}
@@ -30,6 +33,9 @@ func NewPackageManager(autoInstall bool) *AptPackageManager {
 
 // Install the given package if not exists. Set mustComply to true for "panic on failed to install"
 func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("apt", "AptPackageManager.InstallIfNotExists: pkgname=%.120q mustComply=%t", pkgname, mustComply)
+	}
 	//Clear the pkgname
 	pkgname = strings.ReplaceAll(pkgname, "&", "")
 	pkgname = strings.ReplaceAll(pkgname, "|", "")
@@ -68,6 +74,9 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 }
 
 func PackageExists(pkgname string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("apt", "PackageExists: pkgname=%.120q", pkgname)
+	}
 	if runtime.GOOS == "windows" {
 		//Check if the command already exists in windows path paramters.
 		cmd := exec.Command("where.exe", pkgname, "2>", "nul")
@@ -115,6 +124,9 @@ func PackageExists(pkgname string) (bool, error) {
 }
 
 func HandlePackageListRequest(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("apt", "HandlePackageListRequest: r=%s", logger.RequestSummary(r))
+	}
 	if runtime.GOOS == "windows" {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("{\"error\":\"" + "Function disabled on Windows" + "\"}"))

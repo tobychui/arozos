@@ -61,6 +61,7 @@ type NotificationQueue struct {
 }
 
 func NewNotificationQueue() *NotificationQueue {
+	logger.Debug("notification", "NewNotificationQueue")
 	thisQueue := list.New()
 
 	return &NotificationQueue{
@@ -71,12 +72,16 @@ func NewNotificationQueue() *NotificationQueue {
 
 // Add a notification agent to the queue
 func (q *NotificationQueue) RegisterNotificationAgent(agent Agent) {
+	logger.DebugTrace("notification", "NotificationQueue.RegisterNotificationAgent")
 	q.Agents = append(q.Agents, &agent)
 }
 
 // GetAgentByName returns the registered agent with the given name, or nil if
 // no such agent is registered.
 func (q *NotificationQueue) GetAgentByName(name string) Agent {
+	if logger.IsDebug() {
+		logger.Debugf("notification", "NotificationQueue.GetAgentByName: name=%.120q", name)
+	}
 	for _, agent := range q.Agents {
 		if (*agent).Name() == name {
 			return *agent
@@ -88,6 +93,7 @@ func (q *NotificationQueue) GetAgentByName(name string) Agent {
 // ListConsumerAgentNames returns the names of all registered agents that can
 // consume (deliver) notifications.
 func (q *NotificationQueue) ListConsumerAgentNames() []string {
+	logger.Debug("notification", "NotificationQueue.ListConsumerAgentNames")
 	names := []string{}
 	for _, agent := range q.Agents {
 		if (*agent).IsConsumer() {
@@ -98,6 +104,7 @@ func (q *NotificationQueue) ListConsumerAgentNames() []string {
 }
 
 func (q *NotificationQueue) BroadcastNotification(message *NotificationPayload) error {
+	logger.Debug("notification", "NotificationQueue.BroadcastNotification")
 	//Send notification to consumer agents
 	for _, agent := range q.Agents {
 		thisAgent := *agent
@@ -131,6 +138,9 @@ func (q *NotificationQueue) BroadcastNotification(message *NotificationPayload) 
 // high, case-insensitive) into one of the Priority* constants. Any unknown
 // value falls back to PriorityMedium.
 func PriorityFromString(priority string) int {
+	if logger.IsDebug() {
+		logger.Debugf("notification", "PriorityFromString: priority=%.120q", priority)
+	}
 	switch strings.ToLower(strings.TrimSpace(priority)) {
 	case "low":
 		return PriorityLow
@@ -146,6 +156,9 @@ func PriorityFromString(priority string) int {
 // PriorityToString converts a Priority* constant back into its human readable
 // form. Any unknown value is reported as "medium".
 func PriorityToString(priority int) string {
+	if logger.IsDebug() {
+		logger.Debugf("notification", "PriorityToString: priority=%d", priority)
+	}
 	switch priority {
 	case PriorityLow:
 		return "low"
@@ -159,6 +172,9 @@ func PriorityToString(priority int) string {
 // NormalizePriority clamps an arbitrary integer into a valid Priority* value,
 // treating the zero value (unset) as PriorityMedium.
 func NormalizePriority(priority int) int {
+	if logger.IsDebug() {
+		logger.Debugf("notification", "NormalizePriority: priority=%d", priority)
+	}
 	if priority < PriorityLow {
 		return PriorityMedium
 	}

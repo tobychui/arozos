@@ -10,6 +10,7 @@ import (
 
 	"imuslab.com/arozos/mod/agi"
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -37,6 +38,7 @@ type Handler struct {
 New WebRoot Handler create a new handler for handling and routing webroots
 */
 func NewWebRootHandler(options Options) *Handler {
+	logger.Debug("www", "NewWebRootHandler")
 	//Create the homepage database table
 	options.Database.NewTable("www")
 
@@ -47,6 +49,9 @@ func NewWebRootHandler(options Options) *Handler {
 }
 
 func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("www", "Handler.RouteRequest: r=%s", logger.RequestSummary(r))
+	}
 	//Check if it is reaching www root folder or any files directly under www.
 	if filepath.ToSlash(filepath.Clean(r.URL.Path)) == "/www" {
 		//Direct access of the root folder. Serve the homepage description.
@@ -174,10 +179,14 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveNotFoundTemplate(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("www", "serveNotFoundTemplate: r=%s", logger.RequestSummary(r))
+	}
 	http.ServeFile(w, r, "system/errors/notfound.html")
 }
 
 func handleWebrootError(w http.ResponseWriter) {
+	logger.Debug("www", "handleWebrootError")
 	w.WriteHeader(http.StatusInternalServerError)
 	if utils.FileExists("./system/www/nowebroot.html") {
 		content, err := os.ReadFile("./system/www/nowebroot.html")

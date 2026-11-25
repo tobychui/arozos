@@ -18,10 +18,16 @@ import (
 	"encoding/binary"
 	"unicode/utf16"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/officeart"
 )
 
-func decodeUTF16(u []uint16) []rune { return utf16.Decode(u) }
+func decodeUTF16(u []uint16) []rune {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "decodeUTF16: len(u)=%d", len(u))
+	}
+	return utf16.Decode(u)
+}
 
 // paragraph exception masks
 const (
@@ -104,6 +110,7 @@ type rd struct {
 }
 
 func (r *rd) u16() int {
+	logger.DebugTrace("office/ppt", "rd.u16")
 	if r.p+2 > len(r.b) {
 		r.bad = true
 		r.p = len(r.b)
@@ -114,9 +121,13 @@ func (r *rd) u16() int {
 	return v
 }
 
-func (r *rd) s16() int { return int(int16(r.u16())) }
+func (r *rd) s16() int {
+	logger.DebugTrace("office/ppt", "rd.s16")
+	return int(int16(r.u16()))
+}
 
 func (r *rd) u32() uint32 {
+	logger.DebugTrace("office/ppt", "rd.u32")
 	if r.p+4 > len(r.b) {
 		r.bad = true
 		r.p = len(r.b)
@@ -128,6 +139,7 @@ func (r *rd) u32() uint32 {
 }
 
 func (r *rd) color() colorIdx {
+	logger.DebugTrace("office/ppt", "rd.color")
 	if r.p+4 > len(r.b) {
 		r.bad = true
 		r.p = len(r.b)
@@ -140,6 +152,7 @@ func (r *rd) color() colorIdx {
 
 // readPF reads a TextPFException
 func (r *rd) readPF() pf {
+	logger.DebugTrace("office/ppt", "rd.readPF")
 	var f pf
 	f.mask = r.u32()
 	m := f.mask
@@ -201,6 +214,7 @@ func (r *rd) readPF() pf {
 
 // readCF reads a TextCFException
 func (r *rd) readCF() cf {
+	logger.DebugTrace("office/ppt", "rd.readCF")
 	var f cf
 	f.mask = r.u32()
 	m := f.mask
@@ -233,6 +247,7 @@ func (r *rd) readCF() cf {
 
 // over lays the fields b states over a
 func (a pf) over(b pf) pf {
+	logger.DebugTrace("office/ppt", "pf.over")
 	m := b.mask
 	if m&(pfHasBullet|pfBulletHasFont|pfBulletHasClr|pfBulletHasSize) != 0 {
 		for _, bit := range []uint32{pfHasBullet, pfBulletHasFont, pfBulletHasClr, pfBulletHasSize} {
@@ -287,6 +302,7 @@ func (a pf) over(b pf) pf {
 }
 
 func (a cf) over(b cf) cf {
+	logger.DebugTrace("office/ppt", "cf.over")
 	m := b.mask
 	for _, bit := range []uint32{cfBold, cfItalic, cfUnderline, cfShadow} {
 		if m&bit != 0 {
@@ -334,6 +350,7 @@ type masterStyle struct {
 // the five base types a level only states what differs from the level
 // above it, as LibreOffice's PPTStyleSheet reads them
 func parseMasterStyle(r *officeart.Record) *masterStyle {
+	logger.DebugTrace("office/ppt", "parseMasterStyle")
 	ms := &masterStyle{}
 	d := &rd{b: r.Data}
 	n := d.u16()
@@ -394,6 +411,7 @@ type textBlock struct {
 // addTextRecord feeds one record of a text sequence (SlideListWithText or
 // a ClientTextbox) into the blocks
 func addTextRecord(blocks *[]*textBlock, r *officeart.Record) {
+	logger.DebugTrace("office/ppt", "addTextRecord")
 	cur := func() *textBlock {
 		if len(*blocks) == 0 {
 			return nil
@@ -451,6 +469,7 @@ func addTextRecord(blocks *[]*textBlock, r *officeart.Record) {
 // interactiveRef encodes an InteractiveInfo container's link as
 // "link:<id>" for hyperlinks, "#next" / "#prev" / ... for jumps
 func interactiveRef(ii *officeart.Record) string {
+	logger.DebugTrace("office/ppt", "interactiveRef")
 	a := ii.Child(rtInteractiveAtom)
 	if a == nil || len(a.Data) < 12 {
 		return ""
@@ -476,6 +495,9 @@ func interactiveRef(ii *officeart.Record) string {
 }
 
 func itoaU(v uint32) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "itoaU: v=%d", v)
+	}
 	if v == 0 {
 		return "0"
 	}
@@ -490,6 +512,9 @@ func itoaU(v uint32) string {
 // readStyleProps reads a StyleTextPropAtom: paragraph runs, then
 // character runs, each covering the text plus one character
 func (t *textBlock) readStyleProps(b []byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "textBlock.readStyleProps: len(b)=%d", len(b))
+	}
 	r := &rd{b: b}
 	n := len(t.text) + 1
 	for got := 0; got < n && !r.bad && r.p < len(b); {
@@ -515,6 +540,9 @@ func (t *textBlock) readStyleProps(b []byte) {
 
 // readRuler reads a TextRulerAtom: per level margins and indents
 func readRuler(b []byte) *ruler {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "readRuler: len(b)=%d", len(b))
+	}
 	r := &rd{b: b}
 	m := r.u32()
 	ru := &ruler{}
@@ -552,6 +580,9 @@ var baseCF = cf{size: 18, color: colorIdx{index: 1}}
 // the basic type (title, body, notes, other) and the master's own style
 // for a derived type (centre title, centre / half / quarter body)
 func (p *pres) styleChain(m *slideRec, typ int) []*masterStyle {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "pres.styleChain: typ=%d", typ)
+	}
 	var out []*masterStyle
 	if p.envStyle != nil {
 		out = append(out, p.envStyle)
@@ -581,6 +612,9 @@ func (p *pres) styleChain(m *slideRec, typ int) []*masterStyle {
 // resolve gives the paragraph and character formatting a run of text of
 // type typ at an indent level ends up with
 func resolve(chain []*masterStyle, level int) (pf, cf) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "resolve: len(chain)=%d level=%d", len(chain), level)
+	}
 	p, c := basePF, baseCF
 	if level > 4 {
 		level = 4

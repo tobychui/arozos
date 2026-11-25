@@ -12,9 +12,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func getFileSize(filename string) int64 {
+	if logger.IsDebug() {
+		logger.Debugf("updates", "getFileSize: filename=%.120q", filename)
+	}
 	fi, err := os.Stat(filename)
 	if err != nil {
 		return -1
@@ -24,6 +29,7 @@ func getFileSize(filename string) int64 {
 }
 
 func getDownloadFileSize(url string) (int, error) {
+	logger.Debug("updates", "getDownloadFileSize")
 	headResp, err := http.Head(url)
 
 	if err != nil {
@@ -34,6 +40,9 @@ func getDownloadFileSize(url string) (int, error) {
 }
 
 func downloadFile(url string, dest string) error {
+	if logger.IsDebug() {
+		logger.Debugf("updates", "downloadFile: dest=%.120q", dest)
+	}
 	out, err := os.Create(dest)
 
 	if err != nil {
@@ -64,6 +73,9 @@ func downloadFile(url string, dest string) error {
 }
 
 func extractTarGz(gzipStream io.Reader, unzipPath string, progressUpdateFunction func(int, float64, string)) error {
+	if logger.IsDebug() {
+		logger.Debugf("updates", "extractTarGz: unzipPath=%.120q", unzipPath)
+	}
 	uncompressedStream, err := gzip.NewReader(gzipStream)
 	if err != nil {
 		return err
@@ -106,6 +118,9 @@ func extractTarGz(gzipStream io.Reader, unzipPath string, progressUpdateFunction
 }
 
 func getSHA1Hash(filename string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("updates", "getSHA1Hash: filename=%.120q", filename)
+	}
 	f, err := os.Open(filename)
 	if err != nil {
 		return "", err
@@ -120,6 +135,9 @@ func getSHA1Hash(filename string) (string, error) {
 }
 
 func readCheckSumFile(fileContent string, filename string, checksum string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("updates", "readCheckSumFile: filename=%.120q checksum=%.120q", filename, checksum)
+	}
 	checkSumFromFile := strings.Split(fileContent, "\r\n")
 	for _, line := range checkSumFromFile {
 		checkSumLine := strings.Split(line, " *")

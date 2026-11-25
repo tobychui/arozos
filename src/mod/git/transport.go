@@ -22,6 +22,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // defaultRemote is used whenever a request does not name one.
@@ -30,6 +32,9 @@ const defaultRemote = "origin"
 // buildAuth returns the go-git auth method for a username / token pair, or nil
 // when neither is set (anonymous access to a public repository).
 func buildAuth(username string, token string) transport.AuthMethod {
+	if logger.IsDebug() {
+		logger.Debugf("git", "buildAuth: username=%.120q", username)
+	}
 	username = strings.TrimSpace(username)
 	token = strings.TrimSpace(token)
 
@@ -51,6 +56,9 @@ func buildAuth(username string, token string) transport.AuthMethod {
 
 // Fetch updates the remote-tracking refs without touching the working tree.
 func (m *Manager) Fetch(realpath string, req *TransportRequest) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.Fetch: realpath=%.120q", realpath)
+	}
 	repo, err := m.open(realpath)
 	if err != nil {
 		return err
@@ -76,6 +84,9 @@ func (m *Manager) Fetch(realpath string, req *TransportRequest) error {
 // only performs fast-forward merges, so a diverged branch surfaces as a
 // non-fast-forward error which is passed through verbatim.
 func (m *Manager) Pull(realpath string, req *TransportRequest) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.Pull: realpath=%.120q", realpath)
+	}
 	_, tree, err := m.worktree(realpath)
 	if err != nil {
 		return "", err
@@ -113,6 +124,9 @@ func (m *Manager) Pull(realpath string, req *TransportRequest) (string, error) {
 // set the branch is configured to track the remote afterwards, so the next
 // status call can report ahead / behind counters.
 func (m *Manager) Push(realpath string, req *TransportRequest) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.Push: realpath=%.120q", realpath)
+	}
 	repo, err := m.open(realpath)
 	if err != nil {
 		return "", err
@@ -173,6 +187,9 @@ func (m *Manager) Push(realpath string, req *TransportRequest) (string, error) {
 // setUpstream records branch.<name>.remote / .merge so the branch tracks the
 // remote, mirroring `git push -u`.
 func setUpstream(repo *gogit.Repository, branch string, remoteName string) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "setUpstream: branch=%.120q remoteName=%.120q", branch, remoteName)
+	}
 	cfg, err := repo.Config()
 	if err != nil {
 		return err
@@ -192,6 +209,7 @@ func setUpstream(repo *gogit.Repository, branch string, remoteName string) error
 
 // remoteOrDefault reads the remote name from a request, defaulting to "origin".
 func remoteOrDefault(req *TransportRequest) string {
+	logger.Debug("git", "remoteOrDefault")
 	if req == nil || strings.TrimSpace(req.Remote) == "" {
 		return defaultRemote
 	}
@@ -202,6 +220,7 @@ func remoteOrDefault(req *TransportRequest) string {
 // and looked up per hosting service. SCP-style addresses (git@host:owner/repo)
 // are understood as well as regular URLs.
 func RemoteHost(remoteURL string) string {
+	logger.Debug("git", "RemoteHost")
 	remoteURL = strings.TrimSpace(remoteURL)
 	if remoteURL == "" {
 		return ""
@@ -225,6 +244,9 @@ func RemoteHost(remoteURL string) string {
 // RemoteURLForName returns the first configured URL of a remote, used to work
 // out which stored credential applies to an operation.
 func (m *Manager) RemoteURLForName(realpath string, name string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.RemoteURLForName: realpath=%.120q name=%.120q", realpath, name)
+	}
 	remotes, err := m.Remotes(realpath)
 	if err != nil {
 		return "", err

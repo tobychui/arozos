@@ -28,6 +28,7 @@ import (
 */
 
 func (g *Gateway) ZipLibRegister() {
+	logger.Debug("agi", "Gateway.ZipLibRegister")
 	err := g.RegisterLib("ziplib", g.injectZipFileLibFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -36,6 +37,7 @@ func (g *Gateway) ZipLibRegister() {
 }
 
 func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectZipFileLibFunctions")
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -1481,6 +1483,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 // items are skipped); a single string is one source. ok is false for any other
 // value, such as undefined or a number.
 func ziplibSourceList(sourcesObj interface{}) (sources []string, ok bool) {
+	logger.Debug("agi", "ziplibSourceList")
 	switch v := sourcesObj.(type) {
 	case []string:
 		return append([]string{}, v...), true

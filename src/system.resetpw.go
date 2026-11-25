@@ -9,6 +9,7 @@ import (
 
 	auth "imuslab.com/arozos/mod/auth"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -19,12 +20,16 @@ import (
 */
 
 func system_resetpw_init() {
+	logger.Debug("Core", "system_resetpw_init")
 	http.HandleFunc("/system/reset/validateResetKey", system_resetpw_validateResetKeyHandler)
 	http.HandleFunc("/system/reset/confirmPasswordReset", system_resetpw_confirmReset)
 }
 
 // Validate if the ysername and rkey is valid
 func system_resetpw_validateResetKeyHandler(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_resetpw_validateResetKeyHandler: r=%s", logger.RequestSummary(r))
+	}
 	username, err := utils.PostPara(r, "username")
 	if err != nil {
 		utils.SendErrorResponse(w, "Invalid username or key")
@@ -53,6 +58,9 @@ func system_resetpw_validateResetKeyHandler(w http.ResponseWriter, r *http.Reque
 }
 
 func system_resetpw_confirmReset(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_resetpw_confirmReset: r=%s", logger.RequestSummary(r))
+	}
 	username, _ := utils.PostPara(r, "username")
 	rkey, _ := utils.PostPara(r, "rkey")
 	newpw, _ := utils.PostPara(r, "pw")
@@ -87,6 +95,9 @@ func system_resetpw_confirmReset(w http.ResponseWriter, r *http.Request) {
 }
 
 func system_resetpw_validateResetKey(username string, key string) error {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_resetpw_validateResetKey: username=%.120q", username)
+	}
 	//Get current password from db
 	passwordInDB := ""
 	err := sysdb.Read("auth", "passhash/"+username, &passwordInDB)
@@ -104,6 +115,9 @@ func system_resetpw_validateResetKey(username string, key string) error {
 }
 
 func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_resetpw_handlePasswordReset: r=%s", logger.RequestSummary(r))
+	}
 	//Check if the user click on this link with reset password key string. If not, ask the user to input one
 	acc, err := utils.GetPara(r, "acc")
 	if err != nil || acc == "" {
@@ -145,6 +159,9 @@ func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) 
 }
 
 func system_resetpw_serveIdEnterInterface(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_resetpw_serveIdEnterInterface: r=%s", logger.RequestSummary(r))
+	}
 	//Reset Key or Username not found, Serve entering interface
 	imgsrc := filepath.Join(vendorResRoot, "vendor_icon.png")
 	if !fs.FileExists(imgsrc) {

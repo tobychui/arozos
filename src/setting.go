@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"imuslab.com/arozos/mod/info/logger"
 	module "imuslab.com/arozos/mod/modules"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -31,6 +32,7 @@ var (
 )
 
 func SystemSettingInit() {
+	logger.Debug("Core", "SystemSettingInit")
 	http.HandleFunc("/system/setting/list", system_setting_handleListing)
 
 	//Register the module
@@ -50,6 +52,7 @@ func SystemSettingInit() {
 
 // Setting group defination. Your setting module defination must match the group in-order to be shown
 func system_setting_getSettingGroups() []settingGroup {
+	logger.Debug("Core", "system_setting_getSettingGroups")
 	groups := []settingGroup{
 		{
 			Name:     "Host Information",
@@ -154,6 +157,7 @@ func system_setting_getSettingGroups() []settingGroup {
 }
 
 func registerSetting(thismodule settingModule) {
+	logger.DebugTrace("Core", "registerSetting")
 	settingModules = append(settingModules, thismodule)
 }
 
@@ -168,6 +172,9 @@ type settingGroupTree struct {
 // registration order. Groups left without a visible page are dropped, so the
 // sidebar never shows an empty group.
 func buildSettingTree(groups []settingGroup, mods []settingModule, isAdmin bool) []settingGroupTree {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "buildSettingTree: len(groups)=%d len(mods)=%d isAdmin=%t", len(groups), len(mods), isAdmin)
+	}
 	tree := []settingGroupTree{}
 	for _, g := range groups {
 		visible := []settingModule{}
@@ -185,6 +192,9 @@ func buildSettingTree(groups []settingGroup, mods []settingModule, isAdmin bool)
 
 // List all the setting modules and output it as JSON
 func system_setting_handleListing(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "system_setting_handleListing: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")

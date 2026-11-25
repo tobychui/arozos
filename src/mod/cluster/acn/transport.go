@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // DefaultRequestTimeout bounds one node-to-node request. Cloudflare returns
@@ -39,6 +41,9 @@ type Transport struct {
 }
 
 func tlsConfig(insecure bool) *tls.Config {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "tlsConfig: insecure=%t", insecure)
+	}
 	if !insecure {
 		return nil
 	}
@@ -48,6 +53,9 @@ func tlsConfig(insecure bool) *tls.Config {
 // NewTransport creates a transport. insecureTLS accepts self-signed peer
 // certificates, which the admin can enable for LAN-only clusters.
 func NewTransport(signer *Signer, resolver PeerResolver, hub *TunnelHub, insecureTLS bool) *Transport {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "NewTransport: insecureTLS=%t", insecureTLS)
+	}
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.TLSClientConfig = tlsConfig(insecureTLS)
 	tr.MaxIdleConnsPerHost = 8
@@ -64,6 +72,9 @@ func NewTransport(signer *Signer, resolver PeerResolver, hub *TunnelHub, insecur
 
 // SetInsecureTLS toggles acceptance of self-signed peer certificates.
 func (t *Transport) SetInsecureTLS(insecure bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "Transport.SetInsecureTLS: insecure=%t", insecure)
+	}
 	if tr, ok := t.Client.Transport.(*http.Transport); ok {
 		tr.TLSClientConfig = tlsConfig(insecure)
 		tr.CloseIdleConnections()
@@ -72,6 +83,9 @@ func (t *Transport) SetInsecureTLS(insecure bool) {
 
 // JoinURL glues a node base URL and an ACN path.
 func JoinURL(baseURL string, path string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/acn", "JoinURL: path=%.120q", path)
+	}
 	return strings.TrimRight(baseURL, "/") + path
 }
 
@@ -79,6 +93,9 @@ func JoinURL(baseURL string, path string) string {
 // carry: the signature headers, the content type and every X-Aroz-* header
 // (higher layers use those for per-chunk metadata).
 func signedHeaders(req *http.Request) http.Header {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "signedHeaders: req=%s", logger.RequestSummary(req))
+	}
 	h := http.Header{}
 	for k, vals := range req.Header {
 		ck := http.CanonicalHeaderKey(k)
@@ -92,6 +109,7 @@ func signedHeaders(req *http.Request) http.Header {
 }
 
 func readResponse(resp *http.Response) (*Response, error) {
+	logger.Debug("cluster/acn", "readResponse")
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, MaxSignedBody))
 	if err != nil {
@@ -104,6 +122,9 @@ func readResponse(resp *http.Response) (*Response, error) {
 // headers are added; otherwise the request is anonymous (used before a node
 // has joined, e.g. for hello and join).
 func (t *Transport) DoURL(ctx context.Context, baseURL string, method string, path string, body []byte, sign bool) (*Response, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "Transport.DoURL: method=%.120q path=%.120q sign=%t", method, path, sign)
+	}
 	if body == nil {
 		body = []byte{}
 	}
@@ -130,10 +151,16 @@ func (t *Transport) DoURL(ctx context.Context, baseURL string, method string, pa
 // Do sends a signed request to the named cluster node. path is the ACN path
 // including any query string.
 func (t *Transport) Do(ctx context.Context, nodeID string, method string, path string, body []byte) (*Response, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/acn", "Transport.Do: nodeID=%.120q method=%.120q path=%.120q", nodeID, method, path)
+	}
 	return t.DoWithHeaders(ctx, nodeID, method, path, body, nil)
 }
 
 func applyExtra(req *http.Request, extra http.Header) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "applyExtra: req=%s", logger.RequestSummary(req))
+	}
 	for k, vals := range extra {
 		for _, v := range vals {
 			req.Header.Add(k, v)
@@ -144,6 +171,9 @@ func applyExtra(req *http.Request, extra http.Header) {
 // DoWithHeaders is Do with additional request headers (only X-Aroz-* and
 // Content-Type survive tunnel and relay hops).
 func (t *Transport) DoWithHeaders(ctx context.Context, nodeID string, method string, path string, body []byte, extra http.Header) (*Response, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "Transport.DoWithHeaders: nodeID=%.120q method=%.120q path=%.120q", nodeID, method, path)
+	}
 	if body == nil {
 		body = []byte{}
 	}
@@ -220,6 +250,9 @@ func (t *Transport) DoWithHeaders(ctx context.Context, nodeID string, method str
 // DoJSON2 sends in as JSON and returns the raw response, leaving status
 // interpretation to the caller (for endpoints that use 409 as a signal).
 func (t *Transport) DoJSON2(ctx context.Context, nodeID string, method string, path string, in interface{}) (*Response, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "Transport.DoJSON2: nodeID=%.120q method=%.120q path=%.120q", nodeID, method, path)
+	}
 	var body []byte
 	if in != nil {
 		js, err := json.Marshal(in)
@@ -234,6 +267,9 @@ func (t *Transport) DoJSON2(ctx context.Context, nodeID string, method string, p
 // DoJSON posts in as JSON to a node and decodes the JSON reply into out
 // (which may be nil). Non-2xx replies become errors.
 func (t *Transport) DoJSON(ctx context.Context, nodeID string, method string, path string, in interface{}, out interface{}) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "Transport.DoJSON: nodeID=%.120q method=%.120q path=%.120q", nodeID, method, path)
+	}
 	var body []byte
 	if in != nil {
 		js, err := json.Marshal(in)

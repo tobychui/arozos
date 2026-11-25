@@ -3,6 +3,8 @@ package nightly
 import (
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -43,6 +45,9 @@ type TaskManager struct {
 }
 
 func NewNightlyTaskManager(nightlyTaskRunTime int) *TaskManager {
+	if logger.IsDebug() {
+		logger.Debugf("time/nightly", "NewNightlyTaskManager: nightlyTaskRunTime=%d", nightlyTaskRunTime)
+	}
 	//Create a new return structure
 	thisManager := TaskManager{
 		NightlTasks: []func(){},
@@ -67,17 +72,20 @@ func NewNightlyTaskManager(nightlyTaskRunTime int) *TaskManager {
 }
 
 func (tm *TaskManager) NightlyTaskRun() {
+	logger.Debug("time/nightly", "TaskManager.NightlyTaskRun")
 	for _, nightlyTask := range tm.NightlTasks {
 		nightlyTask()
 	}
 }
 
 func (tm *TaskManager) RegisterNightlyTask(task func()) {
+	logger.DebugTrace("time/nightly", "TaskManager.RegisterNightlyTask")
 	tm.RegisterNightlyTaskWithOption(TaskOption{}, task)
 }
 
 // Register a nightly task that only runs where its option allows it
 func (tm *TaskManager) RegisterNightlyTaskWithOption(option TaskOption, task func()) {
+	logger.DebugTrace("time/nightly", "TaskManager.RegisterNightlyTaskWithOption")
 	tm.NightlTasks = append(tm.NightlTasks, func() {
 		if !tm.ShouldRun(option) {
 			return
@@ -96,6 +104,7 @@ func (tm *TaskManager) RegisterNightlyTaskWithOption(option TaskOption, task fun
 
 // Set the function that reports if this host is the cluster master node
 func (tm *TaskManager) SetMasterNodeResolver(resolver func() bool) {
+	logger.Debug("time/nightly", "TaskManager.SetMasterNodeResolver")
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 	tm.masterNodeResolver = resolver
@@ -103,6 +112,7 @@ func (tm *TaskManager) SetMasterNodeResolver(resolver func() bool) {
 
 // Check if this host is currently the master node of its cluster
 func (tm *TaskManager) IsMasterNode() bool {
+	logger.Debug("time/nightly", "TaskManager.IsMasterNode")
 	tm.mu.RLock()
 	resolver := tm.masterNodeResolver
 	tm.mu.RUnlock()
@@ -118,6 +128,7 @@ func (tm *TaskManager) IsMasterNode() bool {
 // of gating the whole task, so local drives are still maintained on every
 // node while the shared cluster drive is left to the master node.
 func (tm *TaskManager) ShouldRun(option TaskOption) bool {
+	logger.Debug("time/nightly", "TaskManager.ShouldRun")
 	if option.MasterNodeOnly {
 		return tm.IsMasterNode()
 	}

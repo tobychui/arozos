@@ -24,6 +24,7 @@ import (
 */
 
 func sendJSON(w http.ResponseWriter, value interface{}) {
+	logger.Debug("info/hardwareinfo", "sendJSON")
 	jsonData, err := json.Marshal(value)
 	if err != nil {
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
@@ -32,6 +33,9 @@ func sendJSON(w http.ResponseWriter, value interface{}) {
 }
 
 func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "GetCPUInfo: r=%s", logger.RequestSummary(r))
+	}
 	info := CPUInfo{
 		Freq:        "Undefined",
 		Hardware:    "unknown",
@@ -51,6 +55,9 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 
 // Ifconfig lists the product names of the network adapters
 func Ifconfig(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "Ifconfig: r=%s", logger.RequestSummary(r))
+	}
 	names := []string{}
 	adapters, _ := wininfo.NetAdapters()
 	for _, adapter := range adapters {
@@ -64,6 +71,9 @@ func Ifconfig(w http.ResponseWriter, r *http.Request) {
 // GetDriveStat lists the drive letters; a drive without a readable volume
 // has an empty file system and free space
 func GetDriveStat(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "GetDriveStat: r=%s", logger.RequestSummary(r))
+	}
 	drives := []LogicalDisk{}
 	disks, _ := wininfo.LogicalDisks()
 	for _, disk := range disks {
@@ -77,6 +87,9 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetUSB(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "GetUSB: r=%s", logger.RequestSummary(r))
+	}
 	devices, err := wininfo.USBDevices()
 	if err != nil || devices == nil {
 		devices = []string{}
@@ -86,6 +99,9 @@ func GetUSB(w http.ResponseWriter, r *http.Request) {
 
 // GetRamInfo is the installed memory in bytes
 func GetRamInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("info/hardwareinfo", "GetRamInfo: r=%s", logger.RequestSummary(r))
+	}
 	installed, err := wininfo.InstalledMemory()
 	if err != nil {
 		installed = 0

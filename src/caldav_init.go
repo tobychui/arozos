@@ -27,6 +27,7 @@ var CalDAVHandler *caldav.Handler
 // CalDAVInit initialises the CalDAV server and registers API endpoints.
 // It must be called after AuthInit() and UserSystemInit().
 func CalDAVInit() {
+	logger.Debug("Core", "CalDAVInit")
 	CalDAVHandler = caldav.NewHandler(caldav.HandlerOptions{
 		AuthAgent:   authAgent,
 		UserHandler: userHandler,
@@ -51,6 +52,9 @@ func CalDAVInit() {
 // handleCalDAVCredentials returns the CalDAV server URL, username and an
 // auto-login token the caller can use as a CalDAV password on iOS.
 func handleCalDAVCredentials(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleCalDAVCredentials: r=%s", logger.RequestSummary(r))
+	}
 	username, err := authAgent.GetUserName(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "Unable to get username")

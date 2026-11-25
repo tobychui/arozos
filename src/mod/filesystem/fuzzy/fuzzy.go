@@ -2,6 +2,8 @@ package fuzzy
 
 import (
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -27,6 +29,9 @@ type Matcher struct {
 }
 
 func NewFuzzyMatcher(fuzzyInput string, caseSensitive bool) *Matcher {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/fuzzy", "NewFuzzyMatcher: fuzzyInput=%.120q caseSensitive=%t", fuzzyInput, caseSensitive)
+	}
 	m, e := buildFuzzyChunks(fuzzyInput, caseSensitive)
 	return &Matcher{
 		caseSensitive: caseSensitive,
@@ -36,6 +41,9 @@ func NewFuzzyMatcher(fuzzyInput string, caseSensitive bool) *Matcher {
 }
 
 func (m *Matcher) Match(filename string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/fuzzy", "Matcher.Match: filename=%.120q", filename)
+	}
 	if !m.caseSensitive {
 		filename = strings.ToLower(filename)
 	}
@@ -58,6 +66,9 @@ func (m *Matcher) Match(filename string) bool {
 
 // Check if a fuzzyKey require precise searching
 func buildFuzzyChunks(fuzzyInput string, caseSensitive bool) ([]string, []string) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/fuzzy", "buildFuzzyChunks: fuzzyInput=%.120q caseSensitive=%t", fuzzyInput, caseSensitive)
+	}
 	includeList := []string{}
 	excludeList := []string{}
 	preciseExclude := false //Exclude precise word from buffer

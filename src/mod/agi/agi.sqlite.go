@@ -13,10 +13,10 @@ import (
 	"strings"
 	"sync"
 
-	_ "modernc.org/sqlite"
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/info/logger"
+	_ "modernc.org/sqlite"
 )
 
 /*
@@ -46,6 +46,7 @@ import (
 */
 
 func (g *Gateway) SQLiteLibRegister() {
+	logger.Debug("agi", "Gateway.SQLiteLibRegister")
 	err := g.RegisterLib("sqlite", g.injectSQLiteLibFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -54,6 +55,7 @@ func (g *Gateway) SQLiteLibRegister() {
 }
 
 func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectSQLiteLibFunctions")
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -414,6 +416,9 @@ const sqliteBusyTimeoutMs = 5000
 // carry pragmas - in that case the bare path is returned and SQLite falls back to
 // its defaults rather than failing to open.
 func sqliteBuildDSN(rpath string) string {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "sqliteBuildDSN: rpath=%.120q", rpath)
+	}
 	if strings.Contains(rpath, "?") {
 		return rpath
 	}
@@ -440,12 +445,18 @@ func sqliteBuildDSN(rpath string) string {
 // connection. The driver only hands the query on to SQLite for a file: URI, and
 // the write oriented settings of sqliteBuildDSN would fail on such a connection.
 func sqliteBuildReadOnlyDSN(rpath string) string {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "sqliteBuildReadOnlyDSN: rpath=%.120q", rpath)
+	}
 	uri := url.URL{Path: filepath.ToSlash(rpath)}
 	return "file:" + uri.EscapedPath() + "?mode=ro&_pragma=busy_timeout(" + strconv.Itoa(sqliteBusyTimeoutMs) + ")"
 }
 
 // sqliteParseParams unmarshals a JSON array of query parameter values.
 func sqliteParseParams(paramsJSON string) []interface{} {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "sqliteParseParams: paramsJSON=%.120q", paramsJSON)
+	}
 	if paramsJSON == "" || paramsJSON == "null" || paramsJSON == "[]" {
 		return nil
 	}
@@ -458,6 +469,7 @@ func sqliteParseParams(paramsJSON string) []interface{} {
 
 // sqliteConvertValue normalises values scanned from SQLite rows for JSON encoding.
 func sqliteConvertValue(v interface{}) interface{} {
+	logger.Debug("agi", "sqliteConvertValue")
 	if b, ok := v.([]byte); ok {
 		return string(b)
 	}
@@ -466,5 +478,8 @@ func sqliteConvertValue(v interface{}) interface{} {
 
 // sqliteQuoteIdent safely double-quotes an SQL identifier.
 func sqliteQuoteIdent(name string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("agi", "sqliteQuoteIdent: name=%.120q", name)
+	}
 	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }

@@ -3,6 +3,8 @@ package pdfrender
 import (
 	"encoding/binary"
 	"errors"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -37,6 +39,9 @@ type ttFont struct {
 }
 
 func be16(b []byte, off int) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "be16: len(b)=%d off=%d", len(b), off)
+	}
 	if off < 0 || off > len(b)-2 {
 		return 0
 	}
@@ -44,10 +49,16 @@ func be16(b []byte, off int) int {
 }
 
 func be16s(b []byte, off int) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "be16s: len(b)=%d off=%d", len(b), off)
+	}
 	return int(int16(be16(b, off)))
 }
 
 func be32(b []byte, off int) uint32 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "be32: len(b)=%d off=%d", len(b), off)
+	}
 	if off < 0 || off > len(b)-4 {
 		return 0
 	}
@@ -56,6 +67,9 @@ func be32(b []byte, off int) uint32 {
 
 // tableSlice returns a bounds checked sub slice
 func tableSlice(b []byte, off, n int64) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "tableSlice: len(b)=%d off=%d n=%d", len(b), off, n)
+	}
 	if off < 0 || n < 0 || off > int64(len(b)) || n > int64(len(b))-off {
 		return nil
 	}
@@ -63,6 +77,7 @@ func tableSlice(b []byte, off, n int64) []byte {
 }
 
 func parseSFNT(data []byte) (*ttFont, error) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "parseSFNT")
 	if len(data) < 12 {
 		return nil, errFont
 	}
@@ -195,6 +210,9 @@ func parseSFNT(data []byte) (*ttFont, error) {
 
 // advance returns the advance width of a glyph in font units
 func (f *ttFont) advance(gid int) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "ttFont.advance: gid=%d", gid)
+	}
 	if len(f.advances) == 0 {
 		return 0
 	}
@@ -209,6 +227,9 @@ func (f *ttFont) advance(gid int) int {
 
 // lookupCmap finds the glyph of code in one subtable, 0 when missing
 func lookupCmap(s cmapSub, code uint32) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "lookupCmap: code=%d", code)
+	}
 	d := s.data
 	switch s.format {
 	case 0:
@@ -281,6 +302,9 @@ func lookupCmap(s cmapSub, code uint32) int {
 // cmapLookup looks a code up in the first subtable of the given platform
 // and encoding. It returns -1 when there is no such subtable.
 func (f *ttFont) cmapLookup(platform, encoding int, code uint32) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "ttFont.cmapLookup: platform=%d encoding=%d code=%d", platform, encoding, code)
+	}
 	for _, s := range f.cmaps {
 		if s.platform == platform && s.encoding == encoding {
 			return lookupCmap(s, code)
@@ -290,6 +314,9 @@ func (f *ttFont) cmapLookup(platform, encoding int, code uint32) int {
 }
 
 func (f *ttFont) hasCmap(platform, encoding int) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "ttFont.hasCmap: platform=%d encoding=%d", platform, encoding)
+	}
 	for _, s := range f.cmaps {
 		if s.platform == platform && s.encoding == encoding {
 			return true
@@ -300,6 +327,9 @@ func (f *ttFont) hasCmap(platform, encoding int) bool {
 
 // unicodeGID maps a Unicode value through the best Unicode subtable
 func (f *ttFont) unicodeGID(r rune) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "ttFont.unicodeGID: r=%d", r)
+	}
 	for _, pe := range [][2]int{{3, 10}, {3, 1}, {0, 4}, {0, 3}, {0, 6}, {0, 0}, {0, 1}, {0, 2}} {
 		if g := f.cmapLookup(pe[0], pe[1], uint32(r)); g > 0 {
 			return g
@@ -309,6 +339,9 @@ func (f *ttFont) unicodeGID(r rune) int {
 }
 
 func (f *ttFont) gidForName(name string) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "ttFont.gidForName: name=%.120q", name)
+	}
 	if f.nameToGID == nil {
 		f.nameToGID = map[string]int{}
 		for i, n := range f.postNames {
@@ -325,6 +358,9 @@ func (f *ttFont) gidForName(name string) int {
 
 // glyphPath returns the outline of a glyph in font units
 func (f *ttFont) glyphPath(gid int) *path {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "ttFont.glyphPath: gid=%d", gid)
+	}
 	if f.cff != nil && f.glyf == nil {
 		return f.cff.glyphPath(gid)
 	}
@@ -334,6 +370,9 @@ func (f *ttFont) glyphPath(gid int) *path {
 }
 
 func (f *ttFont) appendGlyph(p *path, gid int, m matrix, depth int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "ttFont.appendGlyph: gid=%d depth=%d", gid, depth)
+	}
 	if depth > 8 || gid < 0 || gid+1 >= len(f.loca) {
 		return
 	}
@@ -397,6 +436,9 @@ func (f *ttFont) appendGlyph(p *path, gid int, m matrix, depth int) {
 }
 
 func (f *ttFont) simpleGlyph(p *path, g []byte, nc int, m matrix) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "ttFont.simpleGlyph: len(g)=%d nc=%d", len(g), nc)
+	}
 	if nc == 0 {
 		return
 	}
@@ -502,6 +544,9 @@ func (f *ttFont) simpleGlyph(p *path, g []byte, nc int, m matrix) {
 
 // emitQuadContour adds one TrueType contour (on / off curve points)
 func emitQuadContour(p *path, pts []point, on []bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "emitQuadContour: len(pts)=%d len(on)=%d", len(pts), len(on))
+	}
 	n := len(pts)
 	if n == 0 {
 		return

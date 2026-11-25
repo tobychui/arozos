@@ -64,6 +64,9 @@ type reminderStore struct {
 // ── Storage helpers ───────────────────────────────────────────────────────────
 
 func (h *Handler) remindersFilePath(username string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.remindersFilePath: username=%.120q", username)
+	}
 	userObj, err := h.userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
 		return "", err
@@ -76,6 +79,9 @@ func (h *Handler) remindersFilePath(username string) (string, error) {
 }
 
 func (h *Handler) loadReminderStore(username string) (reminderStore, error) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.loadReminderStore: username=%.120q", username)
+	}
 	store := reminderStore{Lists: []reminderList{}, Reminders: []ReminderItem{}}
 	p, err := h.remindersFilePath(username)
 	if err != nil {
@@ -95,6 +101,9 @@ func (h *Handler) loadReminderStore(username string) (reminderStore, error) {
 }
 
 func (h *Handler) loadReminders(username string) ([]ReminderItem, error) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.loadReminders: username=%.120q", username)
+	}
 	store, err := h.loadReminderStore(username)
 	if err != nil {
 		return nil, err
@@ -103,6 +112,9 @@ func (h *Handler) loadReminders(username string) ([]ReminderItem, error) {
 }
 
 func (h *Handler) saveReminderStore(username string, store reminderStore) error {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.saveReminderStore: username=%.120q", username)
+	}
 	p, err := h.remindersFilePath(username)
 	if err != nil {
 		return err
@@ -126,6 +138,7 @@ func (h *Handler) saveReminderStore(username string, store reminderStore) error 
 // defaultListID returns the list a CalDAV-created reminder should belong to:
 // the first existing list, or "ls_default" to match the web-app's seed list.
 func defaultListID(store reminderStore) string {
+	logger.Debug("caldav", "defaultListID")
 	if len(store.Lists) > 0 {
 		return store.Lists[0].ID
 	}
@@ -135,6 +148,9 @@ func defaultListID(store reminderStore) string {
 // ── HTTP handlers (called from caldav.go dispatch) ─────────────────────────────
 
 func (h *Handler) handleGetReminder(w http.ResponseWriter, r *http.Request, id string, username string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.handleGetReminder: r=%s id=%.120q username=%.120q", logger.RequestSummary(r), id, username)
+	}
 	reminders, err := h.loadReminders(username)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -158,6 +174,9 @@ func (h *Handler) handleGetReminder(w http.ResponseWriter, r *http.Request, id s
 }
 
 func (h *Handler) handlePutReminder(w http.ResponseWriter, body string, id string, username string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.handlePutReminder: id=%.120q username=%.120q", id, username)
+	}
 	newRm, err := icsToReminder(body, id)
 	if err != nil || newRm.Title == "" {
 		logger.PrintAndLog("CalDAV", "PUT: VTODO parse failed for "+id, err)
@@ -211,6 +230,9 @@ func (h *Handler) handlePutReminder(w http.ResponseWriter, body string, id strin
 }
 
 func (h *Handler) handleDeleteReminder(w http.ResponseWriter, id string, username string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.handleDeleteReminder: id=%.120q username=%.120q", id, username)
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -251,6 +273,7 @@ func (h *Handler) handleDeleteReminder(w http.ResponseWriter, id string, usernam
 
 // reminderToICS serialises a ReminderItem as a VCALENDAR / VTODO string.
 func reminderToICS(rm ReminderItem) string {
+	logger.Debug("caldav", "reminderToICS")
 	var sb strings.Builder
 	sb.WriteString("BEGIN:VCALENDAR\r\n")
 	sb.WriteString("VERSION:2.0\r\n")
@@ -295,6 +318,9 @@ func reminderToICS(rm ReminderItem) string {
 // icsToReminder parses a VCALENDAR string containing a VTODO into a ReminderItem.
 // idHint is used as the reminder ID when the UID is absent or needs normalising.
 func icsToReminder(icsData string, idHint string) (ReminderItem, error) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "icsToReminder: icsData=%.120q idHint=%.120q", icsData, idHint)
+	}
 	lines := unfoldICSLines(icsData)
 
 	rm := ReminderItem{ID: idHint}
@@ -363,6 +389,9 @@ func icsToReminder(icsData string, idHint string) (ReminderItem, error) {
 // Reminders use floating local time (no timezone) so the literal wall-clock
 // time set on the desktop matches what iOS shows and vice-versa.
 func reminderDueToICS(dueDate, dueTime string) string {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "reminderDueToICS: dueDate=%.120q dueTime=%.120q", dueDate, dueTime)
+	}
 	d := strings.ReplaceAll(dueDate, "-", "")
 	if dueTime == "" {
 		return "DUE;VALUE=DATE:" + d
@@ -375,6 +404,9 @@ func reminderDueToICS(dueDate, dueTime string) string {
 // DUE property, treating the value as floating local time.  An all-day DUE
 // (VALUE=DATE) yields an empty time.
 func parseICSDue(key, val string) (dueDate, dueTime string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "parseICSDue: val=%.120q", val)
+	}
 	val = strings.TrimSpace(val)
 	val = strings.TrimSuffix(val, "Z") // ignore UTC designator; treat as wall-clock
 	if len(val) >= 8 {
@@ -395,6 +427,9 @@ func parseICSDue(key, val string) (dueDate, dueTime string) {
 // arozPriorityToICS maps the ArozOS priority (0..3) to an iCalendar PRIORITY
 // (1=high .. 9=low, 0=undefined) using the values iOS understands.
 func arozPriorityToICS(p int) int {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "arozPriorityToICS: p=%d", p)
+	}
 	switch p {
 	case 3: // High
 		return 1
@@ -409,6 +444,9 @@ func arozPriorityToICS(p int) int {
 
 // icsPriorityToAroz maps an iCalendar PRIORITY back to the ArozOS scale.
 func icsPriorityToAroz(p int) int {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "icsPriorityToAroz: p=%d", p)
+	}
 	switch {
 	case p <= 0:
 		return 0 // None / undefined
@@ -423,6 +461,7 @@ func icsPriorityToAroz(p int) int {
 
 // reminderETag returns a quoted MD5 ETag for the given reminder.
 func reminderETag(rm ReminderItem) string {
+	logger.Debug("caldav", "reminderETag")
 	data, _ := json.Marshal(rm)
 	h := md5.Sum(data)
 	return fmt.Sprintf(`"%x"`, h)
@@ -430,6 +469,9 @@ func reminderETag(rm ReminderItem) string {
 
 // remindersCTag returns an unquoted MD5 sync token for the whole collection.
 func remindersCTag(reminders []ReminderItem) string {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "remindersCTag: len(reminders)=%d", len(reminders))
+	}
 	data, _ := json.Marshal(reminders)
 	h := md5.Sum(data)
 	return fmt.Sprintf("%x", h)

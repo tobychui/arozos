@@ -2,9 +2,14 @@ package mdns
 
 import (
 	"net"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func stringInSlice(a string, list []string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("network/mdns", "stringInSlice: a=%.120q len(list)=%d", a, len(list))
+	}
 	for _, b := range list {
 		if b == a {
 			return true
@@ -14,6 +19,7 @@ func stringInSlice(a string, list []string) bool {
 }
 
 func getMacAddr() ([]string, error) {
+	logger.Debug("network/mdns", "getMacAddr")
 	ifas, err := net.Interfaces()
 	if err != nil {
 		return nil, err
@@ -29,14 +35,17 @@ func getMacAddr() ([]string, error) {
 }
 
 func getMaxMacAddrString(maxLength int) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/mdns", "getMaxMacAddrString: maxLength=%d", maxLength)
+	}
 	ifas, err := net.Interfaces()
 	if err != nil {
 		return "", err
 	}
 
 	type ifaceInfo struct {
-		mac    string
-		isLAN  bool
+		mac      string
+		isLAN    bool
 		priority int
 	}
 

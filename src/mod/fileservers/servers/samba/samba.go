@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -38,6 +39,7 @@ type ShareConfig struct {
 }
 
 func NewSambaShareManager(userHandler *user.UserHandler) (*ShareManager, error) {
+	logger.Debug("fileservers/servers/samba", "NewSambaShareManager")
 	if runtime.GOOS == "linux" {
 		//Check if samba installed
 		if !utils.FileExists("/bin/smbcontrol") {
@@ -54,6 +56,7 @@ func NewSambaShareManager(userHandler *user.UserHandler) (*ShareManager, error) 
 
 // ReadSambaShares reads  / lists the smb.conf file and extracts all existing shares
 func (s *ShareManager) ReadSambaShares() ([]ShareConfig, error) {
+	logger.Debug("fileservers/servers/samba", "ShareManager.ReadSambaShares")
 	file, err := os.Open(s.SambaConfigPath)
 	if err != nil {
 		return nil, err
@@ -121,6 +124,9 @@ func (s *ShareManager) ReadSambaShares() ([]ShareConfig, error) {
 
 // Check if a share name is already used
 func (s *ShareManager) ShareNameExists(sharename string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.ShareNameExists: sharename=%.120q", sharename)
+	}
 	allShares, err := s.ReadSambaShares()
 	if err != nil {
 		return false, err
@@ -137,6 +143,9 @@ func (s *ShareManager) ShareNameExists(sharename string) (bool, error) {
 
 // A basic filter to remove system created smb shares entry in the list
 func (s *ShareManager) FilterSystemCreatedShares(shares []ShareConfig) []ShareConfig {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.FilterSystemCreatedShares: len(shares)=%d", len(shares))
+	}
 	namesToRemove := []string{"global", "printers", "print$"}
 	filteredShares := []ShareConfig{}
 	for _, share := range shares {
@@ -149,6 +158,7 @@ func (s *ShareManager) FilterSystemCreatedShares(shares []ShareConfig) []ShareCo
 
 // CreateNewSambaShare converts the shareConfig to string and appends it to smb.conf if the share name does not already exist
 func (s *ShareManager) CreateNewSambaShare(shareToCreate *ShareConfig) error {
+	logger.Debug("fileservers/servers/samba", "ShareManager.CreateNewSambaShare")
 	// Path to smb.conf
 	smbConfPath := s.SambaConfigPath
 
@@ -198,6 +208,9 @@ func (s *ShareManager) CreateNewSambaShare(shareToCreate *ShareConfig) error {
 
 // RemoveSambaShareConfig removes the Samba share configuration from smb.conf
 func (s *ShareManager) RemoveSambaShareConfig(shareName string) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.RemoveSambaShareConfig: shareName=%.120q", shareName)
+	}
 	// Check if the share exists
 	shareExists, err := s.ShareExists(shareName)
 	if err != nil {
@@ -275,6 +288,9 @@ func (s *ShareManager) RemoveSambaShareConfig(shareName string) error {
 
 // ShareExists checks if a given share name exists in smb.conf
 func (s *ShareManager) ShareExists(shareName string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.ShareExists: shareName=%.120q", shareName)
+	}
 	// Path to smb.conf
 	smbConfPath := s.SambaConfigPath
 
@@ -303,6 +319,9 @@ func (s *ShareManager) ShareExists(shareName string) (bool, error) {
 
 // Add a new user to smb.conf share by name
 func (s *ShareManager) AddUserToSambaShare(shareName, username string) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.AddUserToSambaShare: shareName=%.120q username=%.120q", shareName, username)
+	}
 	targetShare, err := s.GetShareByName(shareName)
 	if err != nil {
 		return err
@@ -332,11 +351,17 @@ func (s *ShareManager) AddUserToSambaShare(shareName, username string) error {
 
 // Return if the user can access this samba share
 func (s *ShareManager) UserCanAccessShare(targetSmbShare *ShareConfig, username string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/samba", "ShareManager.UserCanAccessShare: username=%.120q", username)
+	}
 	return utils.StringInArray(targetSmbShare.ValidUsers, username)
 }
 
 // Get a list of shares that this user have access to
 func (s *ShareManager) GetUsersShare(username string) ([]*ShareConfig, error) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.GetUsersShare: username=%.120q", username)
+	}
 	allShares, err := s.ReadSambaShares()
 	if err != nil {
 		return nil, err
@@ -355,6 +380,9 @@ func (s *ShareManager) GetUsersShare(username string) ([]*ShareConfig, error) {
 
 // Remove a user from smb.conf share by name
 func (s *ShareManager) RemoveUserFromSambaShare(shareName, username string) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.RemoveUserFromSambaShare: shareName=%.120q username=%.120q", shareName, username)
+	}
 	targetShare, err := s.GetShareByName(shareName)
 	if err != nil {
 		return err
@@ -411,6 +439,9 @@ func (s *ShareManager) RemoveUserFromSambaShare(shareName, username string) erro
 
 // Get a share by name
 func (s *ShareManager) GetShareByName(shareName string) (*ShareConfig, error) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.GetShareByName: shareName=%.120q", shareName)
+	}
 	allShares, err := s.ReadSambaShares()
 	if err != nil {
 		return nil, err

@@ -83,6 +83,7 @@ type HandlerOptions struct {
 
 // NewHandler constructs a CalDAV Handler.
 func NewHandler(opts HandlerOptions) *Handler {
+	logger.Debug("caldav", "NewHandler")
 	prefix := strings.TrimRight(opts.Prefix, "/")
 	if prefix == "" {
 		prefix = "/caldav"
@@ -96,6 +97,9 @@ func NewHandler(opts HandlerOptions) *Handler {
 
 // ServeHTTP implements http.Handler.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.ServeHTTP: r=%s", logger.RequestSummary(r))
+	}
 	username, ok := h.authenticate(r)
 	if !ok {
 		w.Header().Set("WWW-Authenticate", `Basic realm="ArozOS CalDAV"`)
@@ -130,6 +134,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // authenticate validates HTTP Basic Auth credentials: username must match the
 // owner of the supplied auto-login token.
 func (h *Handler) authenticate(r *http.Request) (string, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.authenticate: r=%s", logger.RequestSummary(r))
+	}
 	username, password, ok := r.BasicAuth()
 	if !ok || password == "" {
 		return "", false
@@ -144,6 +151,7 @@ func (h *Handler) authenticate(r *http.Request) (string, bool) {
 // ── OPTIONS ──────────────────────────────────────────────────────────────────
 
 func (h *Handler) handleOptions(w http.ResponseWriter) {
+	logger.Debug("caldav", "Handler.handleOptions")
 	w.Header().Set("DAV", "1, 2, calendar-access")
 	w.Header().Set("Allow", "OPTIONS, PROPFIND, REPORT, GET, HEAD, PUT, DELETE")
 	w.WriteHeader(http.StatusOK)
@@ -152,6 +160,9 @@ func (h *Handler) handleOptions(w http.ResponseWriter) {
 // ── PROPFIND ─────────────────────────────────────────────────────────────────
 
 func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request, path string, username string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.handlePropfind: r=%s path=%.120q username=%.120q", logger.RequestSummary(r), path, username)
+	}
 	depth := r.Header.Get("Depth")
 	if depth == "" {
 		depth = "0"
@@ -180,6 +191,9 @@ func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request, path st
 }
 
 func (h *Handler) propfindRoot(w http.ResponseWriter, username string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.propfindRoot: username=%.120q", username)
+	}
 	principalHref := h.prefix + "/" + username + "/"
 	body := xmlHeader() +
 		`<D:multistatus xmlns:D="DAV:">` + "\n" +
@@ -201,6 +215,9 @@ func (h *Handler) propfindRoot(w http.ResponseWriter, username string) {
 // enumerates the child calendar collections (events + reminders) so iOS can
 // discover both the Calendar and Reminders services from a single account.
 func (h *Handler) propfindPrincipal(w http.ResponseWriter, username string, depth string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.propfindPrincipal: username=%.120q depth=%.120q", username, depth)
+	}
 	principalHref := h.prefix + "/" + username + "/"
 
 	var sb strings.Builder
@@ -237,6 +254,9 @@ func (h *Handler) propfindPrincipal(w http.ResponseWriter, username string, dept
 }
 
 func (h *Handler) propfindCalendar(w http.ResponseWriter, username string, depth string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.propfindCalendar: username=%.120q depth=%.120q", username, depth)
+	}
 	events, err := h.loadEvents(username)
 	if err != nil {
 		logger.PrintAndLog("CalDAV", "load events for "+username, err)
@@ -263,6 +283,9 @@ func (h *Handler) propfindCalendar(w http.ResponseWriter, username string, depth
 
 // propfindReminders answers PROPFIND on the VTODO (reminders) collection.
 func (h *Handler) propfindReminders(w http.ResponseWriter, username string, depth string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.propfindReminders: username=%.120q depth=%.120q", username, depth)
+	}
 	reminders, err := h.loadReminders(username)
 	if err != nil {
 		logger.PrintAndLog("CalDAV", "load reminders for "+username, err)
@@ -290,6 +313,9 @@ func (h *Handler) propfindReminders(w http.ResponseWriter, username string, dept
 // calendarCollectionResponse renders the <D:response> for a calendar collection
 // advertising the given supported component (VEVENT or VTODO).
 func calendarCollectionResponse(href, displayName, compName, ctag string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("caldav", "calendarCollectionResponse: href=%.120q displayName=%.120q compName=%.120q ctag=%.120q", href, displayName, compName, ctag)
+	}
 	return `  <D:response>` + "\n" +
 		`    <D:href>` + href + `</D:href>` + "\n" +
 		`    <D:propstat>` + "\n" +
@@ -305,6 +331,9 @@ func calendarCollectionResponse(href, displayName, compName, ctag string) string
 }
 
 func eventPropfindResponse(href, etag string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("caldav", "eventPropfindResponse: href=%.120q etag=%.120q", href, etag)
+	}
 	return `  <D:response>` + "\n" +
 		`    <D:href>` + href + `</D:href>` + "\n" +
 		`    <D:propstat>` + "\n" +
@@ -321,6 +350,9 @@ func eventPropfindResponse(href, etag string) string {
 // ── REPORT ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) handleReport(w http.ResponseWriter, r *http.Request, path string, username string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.handleReport: r=%s path=%.120q username=%.120q", logger.RequestSummary(r), path, username)
+	}
 	parts := splitURLPath(path)
 	if len(parts) < 2 {
 		http.Error(w, "Not Found", http.StatusNotFound)
@@ -400,6 +432,9 @@ func (h *Handler) handleReport(w http.ResponseWriter, r *http.Request, path stri
 // ── GET / HEAD ────────────────────────────────────────────────────────────────
 
 func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request, path string, username string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.handleGet: r=%s path=%.120q username=%.120q", logger.RequestSummary(r), path, username)
+	}
 	collection, eventID := parseResourcePath(path)
 	if eventID == "" {
 		http.Error(w, "Not Found", http.StatusNotFound)
@@ -436,6 +471,9 @@ func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request, path string,
 // ── PUT ───────────────────────────────────────────────────────────────────────
 
 func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request, path string, username string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.handlePut: r=%s path=%.120q username=%.120q", logger.RequestSummary(r), path, username)
+	}
 	collection, eventID := parseResourcePath(path)
 	if eventID == "" {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -500,6 +538,9 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request, path string,
 // ── DELETE ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request, path string, username string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.handleDelete: r=%s path=%.120q username=%.120q", logger.RequestSummary(r), path, username)
+	}
 	collection, eventID := parseResourcePath(path)
 	if eventID == "" {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -544,6 +585,9 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request, path stri
 // ── Storage helpers ───────────────────────────────────────────────────────────
 
 func (h *Handler) eventsFilePath(username string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.eventsFilePath: username=%.120q", username)
+	}
 	userObj, err := h.userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
 		return "", err
@@ -556,6 +600,9 @@ func (h *Handler) eventsFilePath(username string) (string, error) {
 }
 
 func (h *Handler) loadEvents(username string) ([]CalendarEvent, error) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.loadEvents: username=%.120q", username)
+	}
 	p, err := h.eventsFilePath(username)
 	if err != nil {
 		return nil, err
@@ -575,6 +622,9 @@ func (h *Handler) loadEvents(username string) ([]CalendarEvent, error) {
 }
 
 func (h *Handler) saveEvents(username string, events []CalendarEvent) error {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "Handler.saveEvents: username=%.120q len(events)=%d", username, len(events))
+	}
 	p, err := h.eventsFilePath(username)
 	if err != nil {
 		return err
@@ -595,17 +645,22 @@ func (h *Handler) saveEvents(username string, events []CalendarEvent) error {
 // ── XML / path utilities ──────────────────────────────────────────────────────
 
 func writeXML(w http.ResponseWriter, body string) {
+	logger.Debug("caldav", "writeXML")
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 	w.WriteHeader(207)
 	fmt.Fprint(w, body)
 }
 
 func xmlHeader() string {
+	logger.DebugTrace("caldav", "xmlHeader")
 	return `<?xml version="1.0" encoding="UTF-8"?>` + "\n"
 }
 
 // xmlEsc escapes the five XML predefined entities.
 func xmlEsc(s string) string {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "xmlEsc: s=%.120q", s)
+	}
 	s = strings.ReplaceAll(s, "&", "&amp;")
 	s = strings.ReplaceAll(s, "<", "&lt;")
 	s = strings.ReplaceAll(s, ">", "&gt;")
@@ -617,6 +672,9 @@ func xmlEsc(s string) string {
 // splitURLPath trims slashes and splits a URL path into segments,
 // returning an empty slice for the root.
 func splitURLPath(path string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "splitURLPath: path=%.120q", path)
+	}
 	path = strings.Trim(path, "/")
 	if path == "" {
 		return []string{}
@@ -627,6 +685,9 @@ func splitURLPath(path string) []string {
 // extractEventID returns the event ID encoded in a path like
 // /{username}/calendar/{id}.ics, or "" if the path is not an event URL.
 func extractEventID(path string) string {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "extractEventID: path=%.120q", path)
+	}
 	collection, id := parseResourcePath(path)
 	if collection != "calendar" {
 		return ""
@@ -638,6 +699,9 @@ func extractEventID(path string) string {
 // into its collection ("calendar" or "reminders") and resource ID.  Both are
 // returned empty when the path does not address a known resource.
 func parseResourcePath(path string) (collection string, id string) {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "parseResourcePath: path=%.120q", path)
+	}
 	parts := splitURLPath(path)
 	if len(parts) != 3 {
 		return "", ""
@@ -654,6 +718,9 @@ func parseResourcePath(path string) (collection string, id string) {
 // namespace attributes on the element, so we match by tag name suffix
 // and URL-decode before comparing against calHref.
 func hrefsToIDSet(body string, calHref string) map[string]bool {
+	if logger.IsDebug() {
+		logger.Debugf("caldav", "hrefsToIDSet: calHref=%.120q", calHref)
+	}
 	result := make(map[string]bool)
 	for _, chunk := range strings.Split(body, "<") {
 		// Skip closing tags

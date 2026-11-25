@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 )
 
@@ -40,12 +41,14 @@ type optNum struct {
 }
 
 func (o *optBool) merge(src optBool) {
+	logger.DebugTrace("office/docx", "optBool.merge")
 	if src.set {
 		*o = src
 	}
 }
 
 func (o *optNum) merge(src optNum) {
+	logger.DebugTrace("office/docx", "optNum.merge")
 	if src.set {
 		*o = src
 	}
@@ -54,6 +57,7 @@ func (o *optNum) merge(src optNum) {
 // onOff reads a WordprocessingML ST_OnOff element: present without w:val
 // means on
 func onOff(n *xmltree.Node) optBool {
+	logger.DebugTrace("office/docx", "onOff")
 	if n == nil {
 		return optBool{}
 	}
@@ -66,6 +70,9 @@ func onOff(n *xmltree.Node) optBool {
 
 // numAttr reads a numeric attribute (Google Docs writes "100.0")
 func numAttr(n *xmltree.Node, name string) optNum {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "numAttr: name=%.120q", name)
+	}
 	if n == nil {
 		return optNum{}
 	}
@@ -95,6 +102,7 @@ type docxRPr struct {
 }
 
 func parseRPr(n *xmltree.Node) docxRPr {
+	logger.DebugTrace("office/docx", "parseRPr")
 	r := docxRPr{}
 	if n == nil {
 		return r
@@ -143,6 +151,7 @@ func parseRPr(n *xmltree.Node) docxRPr {
 }
 
 func (r *docxRPr) merge(src docxRPr) {
+	logger.DebugTrace("office/docx", "docxRPr.merge")
 	r.b.merge(src.b)
 	r.i.merge(src.i)
 	r.strike.merge(src.strike)
@@ -185,6 +194,7 @@ type docxBorder struct {
 
 // visible reports whether the border draws anything
 func (b docxBorder) visible() bool {
+	logger.DebugTrace("office/docx", "docxBorder.visible")
 	switch b.val {
 	case "", "nil", "none":
 		return false
@@ -193,6 +203,7 @@ func (b docxBorder) visible() bool {
 }
 
 func parseBorder(n *xmltree.Node) (docxBorder, bool) {
+	logger.DebugTrace("office/docx", "parseBorder")
 	if n == nil {
 		return docxBorder{}, false
 	}
@@ -234,6 +245,7 @@ type docxPPr struct {
 }
 
 func parsePPr(n *xmltree.Node) docxPPr {
+	logger.DebugTrace("office/docx", "parsePPr")
 	p := docxPPr{}
 	if n == nil {
 		return p
@@ -321,6 +333,9 @@ func parsePPr(n *xmltree.Node) docxPPr {
 }
 
 func onOff2(s string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "onOff2: s=%.120q", s)
+	}
 	switch strings.ToLower(s) {
 	case "1", "true", "on":
 		return true
@@ -329,6 +344,7 @@ func onOff2(s string) bool {
 }
 
 func (p *docxPPr) merge(src docxPPr) {
+	logger.DebugTrace("office/docx", "docxPPr.merge")
 	if src.style != "" {
 		p.style = src.style
 	}
@@ -407,6 +423,7 @@ type docxTblPr struct {
 }
 
 func parseTblPr(n *xmltree.Node) docxTblPr {
+	logger.DebugTrace("office/docx", "parseTblPr")
 	t := docxTblPr{}
 	if n == nil {
 		return t
@@ -433,6 +450,7 @@ func parseTblPr(n *xmltree.Node) docxTblPr {
 }
 
 func parseBorderSet(n *xmltree.Node) map[string]docxBorder {
+	logger.DebugTrace("office/docx", "parseBorderSet")
 	if n == nil {
 		return nil
 	}
@@ -455,6 +473,7 @@ func parseBorderSet(n *xmltree.Node) map[string]docxBorder {
 }
 
 func parseMarginSet(n *xmltree.Node) map[string]optNum {
+	logger.DebugTrace("office/docx", "parseMarginSet")
 	if n == nil {
 		return nil
 	}
@@ -476,6 +495,7 @@ func parseMarginSet(n *xmltree.Node) map[string]optNum {
 }
 
 func (t *docxTblPr) merge(src docxTblPr) {
+	logger.DebugTrace("office/docx", "docxTblPr.merge")
 	if src.style != "" {
 		t.style = src.style
 	}
@@ -530,6 +550,7 @@ type docxStyleSheet struct {
 }
 
 func parseStyleSheet(raw []byte) *docxStyleSheet {
+	logger.DebugTrace("office/docx", "parseStyleSheet")
 	ss := &docxStyleSheet{
 		styles:      map[string]*docxStyle{},
 		resolvedP:   map[string]*docxPPr{},
@@ -576,6 +597,9 @@ func parseStyleSheet(raw []byte) *docxStyleSheet {
 
 // chain returns the style and its basedOn ancestors, root first
 func (ss *docxStyleSheet) chain(id string) []*docxStyle {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxStyleSheet.chain: id=%.120q", id)
+	}
 	var out []*docxStyle
 	seen := map[string]bool{}
 	for id != "" && !seen[id] {
@@ -593,6 +617,9 @@ func (ss *docxStyleSheet) chain(id string) []*docxStyle {
 // paraStyle resolves a paragraph style (the default one when id is empty)
 // into the pPr/rPr it contributes on top of docDefaults
 func (ss *docxStyleSheet) paraStyle(id string) (*docxPPr, *docxRPr) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxStyleSheet.paraStyle: id=%.120q", id)
+	}
 	if id == "" || ss.styles[id] == nil {
 		id = ss.defPara
 	}
@@ -613,6 +640,9 @@ func (ss *docxStyleSheet) paraStyle(id string) (*docxPPr, *docxRPr) {
 
 // charStyle returns what a character style chain contributes
 func (ss *docxStyleSheet) charStyle(id string) docxRPr {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxStyleSheet.charStyle: id=%.120q", id)
+	}
 	r := docxRPr{}
 	for _, st := range ss.chain(id) {
 		r.merge(st.rPr)
@@ -622,6 +652,9 @@ func (ss *docxStyleSheet) charStyle(id string) docxRPr {
 
 // tableStyle resolves a table style (TableNormal behind it)
 func (ss *docxStyleSheet) tableStyle(id string) *docxTblPr {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxStyleSheet.tableStyle: id=%.120q", id)
+	}
 	key := "tbl:" + id
 	if t, ok := ss.resolvedTbl[key]; ok {
 		return t
@@ -642,6 +675,9 @@ func (ss *docxStyleSheet) tableStyle(id string) *docxTblPr {
 // headingLevel reports which heading (1-6) a paragraph style is, 0 for none.
 // Title and Subtitle come back as -1 and -2.
 func (ss *docxStyleSheet) headingLevel(id string) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxStyleSheet.headingLevel: id=%.120q", id)
+	}
 	// walk from the style itself towards its roots: a custom style based
 	// on a heading is that heading
 	chain := ss.chain(id)
@@ -657,6 +693,9 @@ func (ss *docxStyleSheet) headingLevel(id string) int {
 }
 
 func styleNameLevel(id, name string) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "styleNameLevel: id=%.120q name=%.120q", id, name)
+	}
 	n := strings.ToLower(id)
 	if name != "" {
 		n = strings.ToLower(name)

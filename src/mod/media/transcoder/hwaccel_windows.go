@@ -3,6 +3,8 @@
 
 package transcoder
 
+import "imuslab.com/arozos/mod/info/logger"
+
 /*
 	hwaccel_windows.go
 
@@ -15,6 +17,7 @@ package transcoder
 */
 
 func candidateHWProfiles() []*hwEncoderProfile {
+	logger.DebugTrace("media/transcoder", "candidateHWProfiles")
 	return []*hwEncoderProfile{
 		{
 			Name:        "NVIDIA NVENC",

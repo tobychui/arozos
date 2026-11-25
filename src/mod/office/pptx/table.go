@@ -19,11 +19,15 @@ import (
 	"encoding/xml"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/units"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 )
 
 func xmlAttr(name, val string) xml.Attr {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "xmlAttr: name=%.120q val=%.120q", name, val)
+	}
 	return xml.Attr{Name: xml.Name{Local: name}, Value: val}
 }
 
@@ -33,6 +37,7 @@ type tblFlags struct {
 }
 
 func readTblFlags(tblPr *xmltree.Node) tblFlags {
+	logger.DebugTrace("office/pptx", "readTblFlags")
 	on := func(a string) bool { v := tblPr.Attr(a); return v == "1" || v == "true" }
 	return tblFlags{
 		firstRow: on("firstRow"), lastRow: on("lastRow"),
@@ -57,6 +62,7 @@ const noTableStyleID = "{2D5ABB26-0587-4C30-8999-92F81FD0307C}"
 // tableStyleFor finds the style a table names, in ppt/tableStyles.xml. A
 // table that names none uses the list's default, as PowerPoint does.
 func (sc *slideCtx) tableStyleFor(tbl *xmltree.Node) *xmltree.Node {
+	logger.DebugTrace("office/pptx", "slideCtx.tableStyleFor")
 	lst := sc.doc.tree("ppt/tableStyles.xml")
 	id := ""
 	if tp := tbl.First("tblPr"); tp != nil {
@@ -83,6 +89,7 @@ func (sc *slideCtx) tableStyleFor(tbl *xmltree.Node) *xmltree.Node {
 // cellBorder is the rule the cells state themselves, on their own tcPr, for
 // a table whose style draws none: the first edge line found in reading order
 func (sc *slideCtx) cellBorder(tbl *xmltree.Node, cm coordMap) (string, float64) {
+	logger.DebugTrace("office/pptx", "slideCtx.cellBorder")
 	for _, tr := range tbl.All("tr") {
 		for _, tc := range tr.All("tc") {
 			pr := tc.First("tcPr")
@@ -106,6 +113,9 @@ func (sc *slideCtx) cellBorder(tbl *xmltree.Node, cm coordMap) (string, float64)
 // styleParts lists the parts of a style that reach cell (r, c), lowest
 // priority first - the order PowerPoint applies them in
 func styleParts(style *xmltree.Node, f tblFlags, r, c, rows, cols int) []*xmltree.Node {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "styleParts: r=%d c=%d rows=%d cols=%d", r, c, rows, cols)
+	}
 	var out []*xmltree.Node
 	add := func(name string) {
 		if p := style.First(name); p != nil {
@@ -166,6 +176,9 @@ func styleParts(style *xmltree.Node, f tblFlags, r, c, rows, cols int) []*xmltre
 
 // lookOf folds the parts reaching a cell into what it looks like
 func (sc *slideCtx) lookOf(parts []*xmltree.Node) cellLook {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "slideCtx.lookOf: len(parts)=%d", len(parts))
+	}
 	var lk cellLook
 	for _, p := range parts {
 		if ts := p.First("tcTxStyle"); ts != nil {
@@ -203,6 +216,7 @@ func (sc *slideCtx) lookOf(parts []*xmltree.Node) cellLook {
 // falling back to the outer top edge): its colour and width in px, or ""
 // when the style draws none
 func (sc *slideCtx) tableBorder(style *xmltree.Node, cm coordMap) (string, float64) {
+	logger.DebugTrace("office/pptx", "slideCtx.tableBorder")
 	bdr := style.Path("wholeTbl", "tcStyle", "tcBdr")
 	if bdr == nil {
 		return "", 0
@@ -228,6 +242,7 @@ func (sc *slideCtx) tableBorder(style *xmltree.Node, cm coordMap) (string, float
 // lookTextStyle turns a cell's look into a list style the cell text can
 // inherit from: its weight, slant and colour as the default run
 func lookTextStyle(lk cellLook) *xmltree.Node {
+	logger.DebugTrace("office/pptx", "lookTextStyle")
 	if lk.color == "" && lk.bold == "" && lk.italic == "" {
 		return nil
 	}

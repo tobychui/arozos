@@ -139,6 +139,7 @@ type seenEntry struct {
 
 // DefaultSettings is what a user starts with.
 func DefaultSettings() UserSettings {
+	logger.DebugTrace("fileservers/servers/syncserv", "DefaultSettings")
 	return UserSettings{
 		Folder:      DefaultFolder,
 		ByType:      true,
@@ -161,6 +162,7 @@ type Manager struct {
 
 // NewManager prepares the manager.
 func NewManager(opt *ManagerOption) (*Manager, error) {
+	logger.Debug("fileservers/servers/syncserv", "NewManager")
 	if opt.Sysdb == nil || opt.OpenFolder == nil {
 		return nil, errors.New("the sync server is missing its database or folders")
 	}
@@ -186,6 +188,7 @@ func NewManager(opt *ManagerOption) (*Manager, error) {
 
 // IsEnabled implements fileservers.Server.
 func (m *Manager) IsEnabled() bool {
+	logger.Debug("fileservers/servers/syncserv", "Manager.IsEnabled")
 	enabled := false
 	if m.opt.Sysdb.KeyExists(settingsTable, keyEnabled) {
 		m.opt.Sysdb.Read(settingsTable, keyEnabled, &enabled)
@@ -196,6 +199,9 @@ func (m *Manager) IsEnabled() bool {
 // ServerToggle implements fileservers.Server. The endpoint is served by the
 // web server, so turning it on or off only changes whether it answers.
 func (m *Manager) ServerToggle(enabled bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.ServerToggle: enabled=%t", enabled)
+	}
 	if err := m.opt.Sysdb.Write(settingsTable, keyEnabled, enabled); err != nil {
 		return err
 	}
@@ -211,11 +217,13 @@ func (m *Manager) ServerToggle(enabled bool) error {
 // address through the one the browser used, which is right behind a
 // reverse proxy as well, so none is listed here.
 func (m *Manager) GetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
+	logger.DebugTrace("fileservers/servers/syncserv", "Manager.GetEndpoints")
 	return []*fileservers.Endpoint{}
 }
 
 // Config returns what the admin picked.
 func (m *Manager) Config() Config {
+	logger.Debug("fileservers/servers/syncserv", "Manager.Config")
 	config := Config{Groups: []string{}, MaxFileMB: DefaultMaxFileMB}
 	if m.opt.Sysdb.KeyExists(settingsTable, keyConfig) {
 		m.opt.Sysdb.Read(settingsTable, keyConfig, &config)
@@ -230,12 +238,16 @@ func (m *Manager) Config() Config {
 }
 
 func (m *Manager) setConfig(config Config) error {
+	logger.DebugTrace("fileservers/servers/syncserv", "Manager.setConfig")
 	return m.opt.Sysdb.Write(settingsTable, keyConfig, config)
 }
 
 // Allowed reports whether a user may use the server: admins always, others
 // when they are in one of the groups the admin picked.
 func (m *Manager) Allowed(username string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.Allowed: username=%.120q", username)
+	}
 	if username == "" || (m.opt.UserExists != nil && !m.opt.UserExists(username)) {
 		return false
 	}
@@ -248,6 +260,9 @@ func (m *Manager) Allowed(username string) bool {
 
 // Settings returns what a user picked, and whether they turned it on.
 func (m *Manager) Settings(username string) (UserSettings, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.Settings: username=%.120q", username)
+	}
 	settings := DefaultSettings()
 	if username == "" || !m.opt.Sysdb.KeyExists(settingsTable, prefixUser+username) {
 		return settings, false
@@ -259,12 +274,16 @@ func (m *Manager) Settings(username string) (UserSettings, bool) {
 }
 
 func (m *Manager) setSettings(username string, settings UserSettings) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncserv", "Manager.setSettings: username=%.120q", username)
+	}
 	return m.opt.Sysdb.Write(settingsTable, prefixUser+username, settings)
 }
 
 // ValidateSettings checks the choices of a user and fills in the defaults
 // of empty ones.
 func ValidateSettings(s UserSettings) (UserSettings, error) {
+	logger.Debug("fileservers/servers/syncserv", "ValidateSettings")
 	s.Folder = strings.TrimSpace(s.Folder)
 	if s.Folder == "" || !strings.Contains(s.Folder, ":/") {
 		return s, errors.New("Pick a folder of your drives, as user:/Phone Uploads")
@@ -292,10 +311,16 @@ func ValidateSettings(s UserSettings) (UserSettings, error) {
 }
 
 func (m *Manager) hasSyncPassword(username string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncserv", "Manager.hasSyncPassword: username=%.120q", username)
+	}
 	return m.opt.Sysdb.KeyExists(settingsTable, prefixSecret+username)
 }
 
 func (m *Manager) activity(username string) Activity {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.activity: username=%.120q", username)
+	}
 	activity := Activity{}
 	m.opt.Sysdb.Read(settingsTable, prefixStats+username, &activity)
 	return activity
@@ -304,6 +329,9 @@ func (m *Manager) activity(username string) Activity {
 // userLock serialises the uploads of one user, so two requests with the
 // same file name never write it at the same time.
 func (m *Manager) userLock(username string) *sync.Mutex {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.userLock: username=%.120q", username)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	lock, ok := m.userLocks[username]
@@ -316,6 +344,9 @@ func (m *Manager) userLock(username string) *sync.Mutex {
 
 // forgetUser removes everything kept for a user.
 func (m *Manager) forgetUser(username string) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.forgetUser: username=%.120q", username)
+	}
 	m.opt.Sysdb.Delete(settingsTable, prefixUser+username)
 	m.opt.Sysdb.Delete(settingsTable, prefixSecret+username)
 	m.opt.Sysdb.Delete(settingsTable, prefixStats+username)
@@ -328,12 +359,18 @@ func (m *Manager) forgetUser(username string) {
 */
 
 func seenKey(username, name string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncserv", "seenKey: username=%.120q name=%.120q", username, name)
+	}
 	return prefixSeen + username + "/" + strings.ToLower(name)
 }
 
 // seen tells whether a file of this name was received in the last 30 days,
 // and where it went.
 func (m *Manager) seen(username, name string, now time.Time) (seenEntry, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.seen: username=%.120q name=%.120q", username, name)
+	}
 	entry := seenEntry{}
 	key := seenKey(username, name)
 	if !m.opt.Sysdb.KeyExists(settingsTable, key) {
@@ -349,11 +386,17 @@ func (m *Manager) seen(username, name string, now time.Time) (seenEntry, bool) {
 }
 
 func (m *Manager) remember(username, name, rel string, now time.Time) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/syncserv", "Manager.remember: username=%.120q name=%.120q rel=%.120q", username, name, rel)
+	}
 	m.opt.Sysdb.Write(settingsTable, seenKey(username, name), seenEntry{T: now.Unix(), P: rel})
 }
 
 // pruneSeen drops the names older than 30 days, at most once an hour.
 func (m *Manager) pruneSeen(username string, now time.Time) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.pruneSeen: username=%.120q", username)
+	}
 	m.mu.Lock()
 	last := m.lastPrune[username]
 	if now.Sub(last) < time.Hour {
@@ -376,6 +419,9 @@ func (m *Manager) pruneSeen(username string, now time.Time) {
 }
 
 func (m *Manager) forgetSeen(username string) int {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.forgetSeen: username=%.120q", username)
+	}
 	entries, err := m.opt.Sysdb.ListTableWithPrefix(settingsTable, prefixSeen+username+"/")
 	if err != nil {
 		return 0
@@ -387,6 +433,9 @@ func (m *Manager) forgetSeen(username string) int {
 }
 
 func (m *Manager) countSeen(username string, now time.Time) int {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/syncserv", "Manager.countSeen: username=%.120q", username)
+	}
 	entries, err := m.opt.Sysdb.ListTableWithPrefix(settingsTable, prefixSeen+username+"/")
 	if err != nil {
 		return 0
@@ -417,6 +466,7 @@ type UserRow struct {
 // Users lists who turned the server on. Accounts deleted since are left out
 // and forgotten, so that a new account of the same name starts with it off.
 func (m *Manager) Users() []UserRow {
+	logger.Debug("fileservers/servers/syncserv", "Manager.Users")
 	rows := []UserRow{}
 	entries, err := m.opt.Sysdb.ListTableWithPrefix(settingsTable, prefixUser)
 	if err != nil {

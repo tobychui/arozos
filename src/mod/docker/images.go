@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -38,6 +39,9 @@ type ImageInfo struct {
 
 // validateImageRef rejects empty or malformed image references.
 func validateImageRef(ref string) error {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "validateImageRef: ref=%.120q", ref)
+	}
 	if ref == "" {
 		return errors.New("empty image reference")
 	}
@@ -49,6 +53,7 @@ func validateImageRef(ref string) error {
 
 // ListImages returns all locally stored images.
 func (d *DockerManager) ListImages() ([]ImageInfo, error) {
+	logger.Debug("docker", "DockerManager.ListImages")
 	out, err := runDocker("images", "--format", "{{json .}}")
 	if err != nil {
 		return nil, err
@@ -59,6 +64,9 @@ func (d *DockerManager) ListImages() ([]ImageInfo, error) {
 // parseImageList parses the line-delimited JSON of `docker images`. Malformed
 // lines are skipped defensively.
 func parseImageList(out []byte) ([]ImageInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "parseImageList: len(out)=%d", len(out))
+	}
 	results := []ImageInfo{}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		line = strings.TrimSpace(line)
@@ -76,6 +84,9 @@ func parseImageList(out []byte) ([]ImageInfo, error) {
 
 // RemoveImage removes a local image by reference or ID.
 func (d *DockerManager) RemoveImage(ref string) error {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.RemoveImage: ref=%.120q", ref)
+	}
 	if err := validateImageRef(ref); err != nil {
 		return err
 	}
@@ -87,6 +98,9 @@ func (d *DockerManager) RemoveImage(ref string) error {
 
 // HandleImageList serves the local image list as JSON.
 func (d *DockerManager) HandleImageList(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleImageList: r=%s", logger.RequestSummary(r))
+	}
 	images, err := d.ListImages()
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -98,6 +112,9 @@ func (d *DockerManager) HandleImageList(w http.ResponseWriter, r *http.Request) 
 
 // HandleImageRemove removes a local image (POST, field "id").
 func (d *DockerManager) HandleImageRemove(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleImageRemove: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
@@ -117,6 +134,9 @@ func (d *DockerManager) HandleImageRemove(w http.ResponseWriter, r *http.Request
 // HandleImagePull streams `docker pull <image>` progress over a websocket. The
 // browser opens this with a GET websocket carrying ?image=<ref>.
 func (d *DockerManager) HandleImagePull(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleImagePull: r=%s", logger.RequestSummary(r))
+	}
 	ref, err := utils.GetPara(r, "image")
 	if err != nil {
 		http.Error(w, "missing image reference", http.StatusBadRequest)

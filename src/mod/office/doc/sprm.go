@@ -17,10 +17,14 @@ package doc
 	from its style, so each set is written out as it is.
 */
 
+import "imuslab.com/arozos/mod/info/logger"
 import "encoding/binary"
 
 // eachSprm walks a grpprl
 func eachSprm(grpprl []byte, fn func(op uint16, arg []byte)) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "eachSprm: len(grpprl)=%d", len(grpprl))
+	}
 	le := binary.LittleEndian
 	p := 0
 	for p+2 <= len(grpprl) {
@@ -81,6 +85,9 @@ func eachSprm(grpprl []byte, fn func(op uint16, arg []byte)) {
 }
 
 func u16(b []byte) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "u16: len(b)=%d", len(b))
+	}
 	if len(b) < 2 {
 		if len(b) == 1 {
 			return int(b[0])
@@ -90,9 +97,17 @@ func u16(b []byte) int {
 	return int(binary.LittleEndian.Uint16(b))
 }
 
-func s16(b []byte) int { return int(int16(u16(b))) }
+func s16(b []byte) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "s16: len(b)=%d", len(b))
+	}
+	return int(int16(u16(b)))
+}
 
 func u32(b []byte) uint32 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "u32: len(b)=%d", len(b))
+	}
 	if len(b) < 4 {
 		return 0
 	}
@@ -100,6 +115,9 @@ func u32(b []byte) uint32 {
 }
 
 func b0(b []byte) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "b0: len(b)=%d", len(b))
+	}
 	if len(b) == 0 {
 		return 0
 	}
@@ -121,6 +139,9 @@ type color struct {
 }
 
 func icoColor(ico int) color {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "icoColor: ico=%d", ico)
+	}
 	if ico <= 0 || ico >= len(icoColors) {
 		return color{auto: true}
 	}
@@ -129,6 +150,9 @@ func icoColor(ico int) color {
 
 // colorRef decodes a COLORREF (red, green, blue, auto flag)
 func colorRef(b []byte) color {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "colorRef: len(b)=%d", len(b))
+	}
 	if len(b) < 4 {
 		return color{auto: true}
 	}
@@ -148,6 +172,9 @@ type brc struct {
 
 // brc80 decodes a BRC80 (4 bytes, ico colour)
 func brc80(b []byte) brc {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "brc80: len(b)=%d", len(b))
+	}
 	if len(b) < 4 {
 		return brc{}
 	}
@@ -159,6 +186,9 @@ func brc80(b []byte) brc {
 
 // brc97 decodes a BRC (8 bytes, RGB colour)
 func brc97(b []byte) brc {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "brc97: len(b)=%d", len(b))
+	}
 	if len(b) < 8 {
 		return brc{}
 	}
@@ -175,11 +205,17 @@ type shd struct {
 
 // shd80 decodes a 16-bit SHD80 (ico colours)
 func shd80(v int) shd {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "shd80: v=%d", v)
+	}
 	return shd{fore: icoColor(v & 0x1F), back: icoColor((v >> 5) & 0x1F), pat: (v >> 10) & 0x3F}
 }
 
 // shd97 decodes a 10-byte SHD
 func shd97(b []byte) shd {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "shd97: len(b)=%d", len(b))
+	}
 	if len(b) < 10 {
 		return shd{}
 	}
@@ -248,11 +284,15 @@ type chp struct {
 }
 
 func newChp() *chp {
+	logger.DebugTrace("office/doc", "newChp")
 	return &chp{ul: -1, highlight: -1, iss: -1, ftc: [4]int{-1, -1, -1, -1}, istd: -1,
 		lang: [3]int{-1, -1, -1}, emphasis: -1, picLoc: -1, charScale: 0}
 }
 
 func (c *chp) toggle(i int) (on, set bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "chp.toggle: i=%d", i)
+	}
 	if c.togSet&(1<<i) == 0 {
 		return false, false
 	}
@@ -261,6 +301,9 @@ func (c *chp) toggle(i int) (on, set bool) {
 
 // applyChp applies one character sprm
 func (c *chp) apply(op uint16, a []byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "chp.apply: op=%d len(a)=%d", op, len(a))
+	}
 	if t, ok := toggleSprms[op]; ok {
 		v := b0(a)
 		bit := uint32(1) << t
@@ -417,11 +460,15 @@ type pap struct {
 }
 
 func newPap() *pap {
+	logger.DebugTrace("office/doc", "newPap")
 	return &pap{jc: -1, beforeAuto: -1, afterAuto: -1, keep: -1, keepNext: -1, pageBefore: -1,
 		widow: -1, outline: -1, ilvl: -1, ilfo: -1, bidi: -1, contextual: -1, hugePapx: -1}
 }
 
 func (p *pap) apply(op uint16, a []byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "pap.apply: op=%d len(a)=%d", op, len(a))
+	}
 	ip := func(v int) *int { return &v }
 	switch op {
 	case 0x4600:
@@ -534,6 +581,9 @@ func (p *pap) apply(op uint16, a []byte) {
 // changeTabs applies sprmPChgTabsPapx / sprmPChgTabs: deletions, then
 // additions
 func (p *pap) changeTabs(a []byte, close bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "pap.changeTabs: len(a)=%d close=%t", len(a), close)
+	}
 	if len(a) < 1 {
 		return
 	}
@@ -616,10 +666,14 @@ type tap struct {
 }
 
 func newTap() *tap {
+	logger.DebugTrace("office/doc", "newTap")
 	return &tap{jc: -1, padding: [4]int{-1, -1, -1, -1}}
 }
 
 func (t *tap) apply(op uint16, a []byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "tap.apply: op=%d len(a)=%d", op, len(a))
+	}
 	switch op {
 	case 0x5400, 0x548A:
 		t.jc = u16(a)
@@ -717,6 +771,9 @@ func (t *tap) apply(op uint16, a []byte) {
 
 // setShades stores the SHDs of the cells from first on
 func (t *tap) setShades(first int, a []byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "tap.setShades: first=%d len(a)=%d", first, len(a))
+	}
 	for i := 0; i+10 <= len(a); i += 10 {
 		k := first + i/10
 		for len(t.shades) <= k {
@@ -729,6 +786,9 @@ func (t *tap) setShades(first int, a []byte) {
 
 // defTable reads sprmTDefTable: the cell edges and each cell's TC80
 func (t *tap) defTable(a []byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "tap.defTable: len(a)=%d", len(a))
+	}
 	if len(a) < 1 {
 		return
 	}
@@ -765,6 +825,9 @@ func (t *tap) defTable(a []byte) {
 
 // setBrc applies sprmTSetBrc(80): borders of a range of cells
 func (t *tap) setBrc(a []byte, wide bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "tap.setBrc: len(a)=%d wide=%t", len(a), wide)
+	}
 	if len(a) < 3 {
 		return
 	}
@@ -808,11 +871,15 @@ type sep struct {
 
 // defaultSep are the section defaults a SEPX modifies
 func defaultSep() sep {
+	logger.DebugTrace("office/doc", "defaultSep")
 	return sep{bkc: 2, cols: 1, colSpace: 720, hdrTop: 720, hdrBottom: 720,
 		pageW: 12240, pageH: 15840, left: 1800, right: 1800, top: 1440, bottom: 1440, pgnStart: 1}
 }
 
 func (s *sep) apply(op uint16, a []byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "sep.apply: op=%d len(a)=%d", op, len(a))
+	}
 	switch op {
 	case 0x3009:
 		s.bkc = b0(a)

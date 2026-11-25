@@ -29,6 +29,7 @@ import (
 
 	filesystem "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/abstractions/sharefs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/share/shareEntry"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -49,12 +50,14 @@ type sharedEntry struct {
 }
 
 func (e *sharedEntry) first() *shareEntry.ShareOption {
+	logger.DebugTrace("share", "sharedEntry.first")
 	return e.Shares[0]
 }
 
 // permissions merges what the shares of one file allow: the user could use
 // any of their links, so the most generous of them applies.
 func (e *sharedEntry) permissions() (canBrowse bool, canDownload bool, canUpload bool) {
+	logger.Debug("share", "sharedEntry.permissions")
 	for _, so := range e.Shares {
 		canBrowse = canBrowse || (so.IsFolder && so.ShowFileList)
 		canDownload = canDownload || so.AllowDownload
@@ -66,6 +69,9 @@ func (e *sharedEntry) permissions() (canBrowse bool, canDownload bool, canUpload
 // isAddressedTo reports whether a share names the user as a recipient, see
 // the note at the top of this file
 func isAddressedTo(so *shareEntry.ShareOption, username string, groups []string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("share", "isAddressedTo: username=%.120q len(groups)=%d", username, len(groups))
+	}
 	if so.Owner == username {
 		return false
 	}
@@ -98,6 +104,7 @@ func isAddressedTo(so *shareEntry.ShareOption, username string, groups []string)
 // itemBaseName is the name a shared file or folder would like to have on the
 // drive: its own name, or for a whole shared drive the drive's id
 func itemBaseName(so *shareEntry.ShareOption) string {
+	logger.Debug("share", "itemBaseName")
 	vrootID, subpath, err := filesystem.GetIDFromVirtualPath(so.FileVirtualPath)
 	if err != nil {
 		return so.UUID
@@ -112,6 +119,9 @@ func itemBaseName(so *shareEntry.ShareOption) string {
 // nameWithSuffix puts a suffix after a name, before the extension of a file:
 // "report.pdf" -> "report (bob).pdf", "Photos" -> "Photos (bob)"
 func nameWithSuffix(name string, suffix string, isDir bool) string {
+	if logger.IsDebug() {
+		logger.Debugf("share", "nameWithSuffix: name=%.120q suffix=%.120q isDir=%t", name, suffix, isDir)
+	}
 	ext := ""
 	if !isDir {
 		ext = path.Ext(name)
@@ -134,6 +144,9 @@ shares, never on whether the file is reachable right now, so a drive that is
 offline for a moment does not rename everything after it.
 */
 func sharedWith(all []*shareEntry.ShareOption, username string, groups []string, now time.Time) []*sharedEntry {
+	if logger.IsDebug() {
+		logger.Debugf("share", "sharedWith: len(all)=%d username=%.120q len(groups)=%d", len(all), username, len(groups))
+	}
 	addressed := []*shareEntry.ShareOption{}
 	for _, so := range all {
 		if so.IsExpired(now) || so.HasPassword() || !isAddressedTo(so, username, groups) {
@@ -193,6 +206,9 @@ type sharedDriveCache struct {
 }
 
 func (c *sharedDriveCache) get(username string, now time.Time) ([]*sharefs.Item, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "sharedDriveCache.get: username=%.120q", username)
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	entry, ok := c.users[username]
@@ -203,6 +219,9 @@ func (c *sharedDriveCache) get(username string, now time.Time) ([]*sharefs.Item,
 }
 
 func (c *sharedDriveCache) put(username string, items []*sharefs.Item, now time.Time) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "sharedDriveCache.put: username=%.120q len(items)=%d", username, len(items))
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.users == nil {
@@ -213,6 +232,7 @@ func (c *sharedDriveCache) put(username string, items []*sharefs.Item, now time.
 
 // clear drops every user's root, after a share was created, changed or removed
 func (c *sharedDriveCache) clear() {
+	logger.Debug("share", "sharedDriveCache.clear")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.users = nil
@@ -220,6 +240,9 @@ func (c *sharedDriveCache) clear() {
 
 // Items lists what is shared with a user, for the share:/ drive
 func (s *Manager) Items(username string) []*sharefs.Item {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.Items: username=%.120q", username)
+	}
 	now := time.Now()
 	if items, ok := s.driveCache.get(username, now); ok {
 		return items
@@ -233,6 +256,9 @@ func (s *Manager) Items(username string) []*sharefs.Item {
 // its file lives on. An entry whose owner or drive cannot be resolved right
 // now is left out; its name stays reserved, see sharedWith.
 func (s *Manager) buildSharedDriveItems(username string, now time.Time) []*sharefs.Item {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.buildSharedDriveItems: username=%.120q", username)
+	}
 	items := []*sharefs.Item{}
 	if s.options.UserHandler == nil || s.options.ShareEntryTable == nil {
 		return items
@@ -285,6 +311,7 @@ func (s *Manager) buildSharedDriveItems(username string, now time.Time) []*share
 
 // IsSharedDrive reports whether a file system handler is the share:/ drive
 func IsSharedDrive(fsh *filesystem.FileSystemHandler) bool {
+	logger.Debug("share", "IsSharedDrive")
 	if fsh == nil {
 		return false
 	}
@@ -312,6 +339,9 @@ type SharedItemInfo struct {
 // HandleSharedDriveVisible tells the File Manager whether to show the Shared
 // with me entry to this user
 func (s *Manager) HandleSharedDriveVisible(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.HandleSharedDriveVisible: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -324,6 +354,9 @@ func (s *Manager) HandleSharedDriveVisible(w http.ResponseWriter, r *http.Reques
 // what each item allows, which the File Manager uses to offer only the file
 // operations that can work on it.
 func (s *Manager) HandleListSharedWithMe(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.HandleListSharedWithMe: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")

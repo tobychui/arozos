@@ -47,6 +47,7 @@ type disabledState struct {
 // LoadDisabledModules reads the disabled module names from the store. Call it
 // before the modules register, so a disabled one never shows up at boot.
 func (m *ModuleHandler) LoadDisabledModules(store StateStore) error {
+	logger.Debug("modules", "ModuleHandler.LoadDisabledModules")
 	m.stateStore = store
 	entries, err := store.ListTable("module")
 	if err != nil {
@@ -72,6 +73,9 @@ func (m *ModuleHandler) LoadDisabledModules(store StateStore) error {
 
 // IsModuleDisabled reports whether an admin switched this module off
 func (m *ModuleHandler) IsModuleDisabled(moduleName string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.IsModuleDisabled: moduleName=%.120q", moduleName)
+	}
 	m.disabled.mu.RLock()
 	defer m.disabled.mu.RUnlock()
 	return m.disabled.names[strings.ToLower(moduleName)]
@@ -81,6 +85,9 @@ func (m *ModuleHandler) IsModuleDisabled(moduleName string) bool {
 // folder (e.g. "web/Setup Wizard") is disabled. A folder that registered no
 // module at all, such as SystemAO or script, is never disabled.
 func (m *ModuleHandler) IsSourceFolderDisabled(folder string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.IsSourceFolderDisabled: folder=%.120q", folder)
+	}
 	if folder == "" {
 		return false
 	}
@@ -95,6 +102,7 @@ func (m *ModuleHandler) IsSourceFolderDisabled(folder string) bool {
 // account falls back to) always stay on, as does any module that a permission
 // group still boots into.
 func (m *ModuleHandler) CanDisableModule(module *ModuleInfo) error {
+	logger.Debug("modules", "ModuleHandler.CanDisableModule")
 	if module == nil {
 		return errors.New("Module not exists")
 	}
@@ -113,11 +121,15 @@ func (m *ModuleHandler) CanDisableModule(module *ModuleInfo) error {
 }
 
 func isProtectedModule(module *ModuleInfo) bool {
+	logger.DebugTrace("modules", "isProtectedModule")
 	return module.Name == "System Setting" || module.Name == "Desktop" || strings.EqualFold(module.Group, "System Tools")
 }
 
 // SetModuleEnabled switches a module on or off and saves the choice
 func (m *ModuleHandler) SetModuleEnabled(moduleName string, enabled bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.SetModuleEnabled: moduleName=%.120q enabled=%t", moduleName, enabled)
+	}
 	if enabled {
 		return m.enableModule(moduleName)
 	}
@@ -125,6 +137,9 @@ func (m *ModuleHandler) SetModuleEnabled(moduleName string, enabled bool) error 
 }
 
 func (m *ModuleHandler) disableModule(moduleName string) error {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.disableModule: moduleName=%.120q", moduleName)
+	}
 	var target *ModuleInfo
 	remaining := []*ModuleInfo{}
 	for _, module := range m.LoadedModule {
@@ -156,6 +171,9 @@ func (m *ModuleHandler) disableModule(moduleName string) error {
 }
 
 func (m *ModuleHandler) enableModule(moduleName string) error {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.enableModule: moduleName=%.120q", moduleName)
+	}
 	var target *ModuleInfo
 	remaining := []*ModuleInfo{}
 	for _, module := range m.DisabledModule {
@@ -192,6 +210,9 @@ func (m *ModuleHandler) enableModule(moduleName string) error {
 
 // saveDisabled writes the choice. Without a store it lasts until a restart.
 func (m *ModuleHandler) saveDisabled(moduleName string, disabled bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.saveDisabled: moduleName=%.120q disabled=%t", moduleName, disabled)
+	}
 	if m.stateStore == nil {
 		return nil
 	}
@@ -203,6 +224,9 @@ func (m *ModuleHandler) saveDisabled(moduleName string, disabled bool) error {
 }
 
 func (m *ModuleHandler) setDisabledName(moduleName string, disabled bool) {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.setDisabledName: moduleName=%.120q disabled=%t", moduleName, disabled)
+	}
 	m.disabled.mu.Lock()
 	if m.disabled.names == nil {
 		m.disabled.names = map[string]bool{}
@@ -218,6 +242,9 @@ func (m *ModuleHandler) setDisabledName(moduleName string, disabled bool) {
 
 // forgetDisabled drops a removed module from the disabled list and the store
 func (m *ModuleHandler) forgetDisabled(moduleName string) {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.forgetDisabled: moduleName=%.120q", moduleName)
+	}
 	if !m.IsModuleDisabled(moduleName) {
 		return
 	}
@@ -238,6 +265,7 @@ func (m *ModuleHandler) forgetDisabled(moduleName string) {
 // module left. Office/ registers three apps: it is only closed once all three
 // are off.
 func (m *ModuleHandler) refreshDisabledFolders() {
+	logger.Debug("modules", "ModuleHandler.refreshDisabledFolders")
 	enabled := map[string]bool{}
 	for _, module := range m.LoadedModule {
 		if module.SourceFolder != "" {
@@ -257,6 +285,9 @@ func (m *ModuleHandler) refreshDisabledFolders() {
 }
 
 func (m *ModuleHandler) removeUniversalModule(moduleName string) {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.removeUniversalModule: moduleName=%.120q", moduleName)
+	}
 	if m.userHandler == nil {
 		return
 	}
@@ -272,6 +303,9 @@ func (m *ModuleHandler) removeUniversalModule(moduleName string) {
 // HandleSetModuleEnabled switches a module on or off (admin only).
 // POST module=<name>&enabled=true|false
 func (m *ModuleHandler) HandleSetModuleEnabled(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.HandleSetModuleEnabled: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "This request must be a POST")
 		return

@@ -16,6 +16,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Proppatch describes a property update instruction as defined in RFC 4918.
@@ -55,6 +57,7 @@ type Propstat struct {
 // is non-empty. If both are empty, it returns a slice containing an otherwise
 // zero Propstat whose HTTP status code is 200 OK.
 func makePropstats(x, y Propstat) []Propstat {
+	logger.Debug("network/webdav", "makePropstats")
 	pstats := make([]Propstat, 0, 2)
 	if len(x.Props) != 0 {
 		pstats = append(pstats, x)
@@ -167,6 +170,9 @@ var liveProps = map[xml.Name]struct {
 // Each Propstat has a unique status and each property name will only be part
 // of one Propstat element.
 func props(ctx context.Context, fs FileSystem, ls LockSystem, name string, pnames []xml.Name) ([]Propstat, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "props: name=%.120q len(pnames)=%d", name, len(pnames))
+	}
 	f, err := fs.OpenFile(ctx, name, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, err
@@ -215,6 +221,9 @@ func props(ctx context.Context, fs FileSystem, ls LockSystem, name string, pname
 
 // Propnames returns the property names defined for resource name.
 func propnames(ctx context.Context, fs FileSystem, ls LockSystem, name string) ([]xml.Name, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "propnames: name=%.120q", name)
+	}
 	f, err := fs.OpenFile(ctx, name, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, err
@@ -255,6 +264,9 @@ func propnames(ctx context.Context, fs FileSystem, ls LockSystem, name string) (
 //
 // See http://www.webdav.org/specs/rfc4918.html#METHOD_PROPFIND
 func allprop(ctx context.Context, fs FileSystem, ls LockSystem, name string, include []xml.Name) ([]Propstat, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "allprop: name=%.120q len(include)=%d", name, len(include))
+	}
 	pnames, err := propnames(ctx, fs, ls, name)
 	if err != nil {
 		return nil, err
@@ -275,6 +287,9 @@ func allprop(ctx context.Context, fs FileSystem, ls LockSystem, name string, inc
 // Patch patches the properties of resource name. The return values are
 // constrained in the same manner as DeadPropsHolder.Patch.
 func patch(ctx context.Context, fs FileSystem, ls LockSystem, name string, patches []Proppatch) ([]Propstat, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "patch: name=%.120q len(patches)=%d", name, len(patches))
+	}
 	conflict := false
 loop:
 	for _, patch := range patches {
@@ -337,6 +352,9 @@ loop:
 }
 
 func escapeXML(s string) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "escapeXML: s=%.120q", s)
+	}
 	for i := 0; i < len(s); i++ {
 		// As an optimization, if s contains only ASCII letters, digits or a
 		// few special characters, the escaped value is s itself and we don't
@@ -357,6 +375,9 @@ func escapeXML(s string) string {
 }
 
 func findResourceType(ctx context.Context, fs FileSystem, ls LockSystem, name string, fi os.FileInfo) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "findResourceType: name=%.120q", name)
+	}
 	if fi.IsDir() {
 		return `<D:collection xmlns:D="DAV:"/>`, nil
 	}
@@ -364,6 +385,9 @@ func findResourceType(ctx context.Context, fs FileSystem, ls LockSystem, name st
 }
 
 func findDisplayName(ctx context.Context, fs FileSystem, ls LockSystem, name string, fi os.FileInfo) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "findDisplayName: name=%.120q", name)
+	}
 	if slashClean(name) == "/" {
 		// Hide the real name of a possibly prefixed root directory.
 		return "", nil
@@ -372,10 +396,16 @@ func findDisplayName(ctx context.Context, fs FileSystem, ls LockSystem, name str
 }
 
 func findContentLength(ctx context.Context, fs FileSystem, ls LockSystem, name string, fi os.FileInfo) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav", "findContentLength: name=%.120q", name)
+	}
 	return strconv.FormatInt(fi.Size(), 10), nil
 }
 
 func findLastModified(ctx context.Context, fs FileSystem, ls LockSystem, name string, fi os.FileInfo) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav", "findLastModified: name=%.120q", name)
+	}
 	return fi.ModTime().UTC().Format(http.TimeFormat), nil
 }
 
@@ -401,6 +431,9 @@ type ContentTyper interface {
 }
 
 func findContentType(ctx context.Context, fs FileSystem, ls LockSystem, name string, fi os.FileInfo) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "findContentType: name=%.120q", name)
+	}
 	if do, ok := fi.(ContentTyper); ok {
 		ctype, err := do.ContentType(ctx)
 		if err != ErrNotImplemented {
@@ -448,6 +481,9 @@ type ETager interface {
 }
 
 func findETag(ctx context.Context, fs FileSystem, ls LockSystem, name string, fi os.FileInfo) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "findETag: name=%.120q", name)
+	}
 	if do, ok := fi.(ETager); ok {
 		etag, err := do.ETag(ctx)
 		if err != ErrNotImplemented {
@@ -461,6 +497,9 @@ func findETag(ctx context.Context, fs FileSystem, ls LockSystem, name string, fi
 }
 
 func findSupportedLock(ctx context.Context, fs FileSystem, ls LockSystem, name string, fi os.FileInfo) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav", "findSupportedLock: name=%.120q", name)
+	}
 	return `` +
 		`<D:lockentry xmlns:D="DAV:">` +
 		`<D:lockscope><D:exclusive/></D:lockscope>` +

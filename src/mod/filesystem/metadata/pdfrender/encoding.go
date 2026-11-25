@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"golang.org/x/text/encoding/charmap"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -104,6 +106,7 @@ var (
 )
 
 func init() {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "init")
 	for c := 'A'; c <= 'Z'; c++ {
 		nameToRune[string(c)] = c
 		runeToName[c] = string(c)
@@ -126,6 +129,9 @@ func init() {
 // glyphNameToRune maps a glyph name to Unicode, including the uniXXXX,
 // uXXXX and suffixed (a.sc, f_i) forms
 func glyphNameToRune(name string) (rune, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "glyphNameToRune: name=%.120q", name)
+	}
 	if r, ok := nameToRune[name]; ok {
 		return r, true
 	}
@@ -166,6 +172,7 @@ var (
 )
 
 func buildEncodings() {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "buildEncodings")
 	for i, n := range asciiNames {
 		standardEncoding[32+i] = n
 		winAnsiEncoding[32+i] = n
@@ -256,6 +263,7 @@ func buildEncodings() {
 }
 
 func encodingByName(n Name) *[256]string {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "encodingByName")
 	switch n {
 	case "StandardEncoding":
 		return &standardEncoding

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type Capacity struct {
@@ -18,6 +20,7 @@ type Capacity struct {
 // UsedPercent returns the percentage of disk space currently used (0–100).
 // Returns 0 if Total is zero to avoid division by zero.
 func (c *Capacity) UsedPercent() float64 {
+	logger.Debug("disk/diskcapacity/dftool", "Capacity.UsedPercent")
 	if c.Total == 0 {
 		return 0
 	}
@@ -26,17 +29,20 @@ func (c *Capacity) UsedPercent() float64 {
 
 // FreeBytes returns the number of bytes available for use.
 func (c *Capacity) FreeBytes() int64 {
+	logger.DebugTrace("disk/diskcapacity/dftool", "Capacity.FreeBytes")
 	return c.Available
 }
 
 // IsEmpty returns true when no capacity information has been populated
 // (i.e. Total is zero).
 func (c *Capacity) IsEmpty() bool {
+	logger.DebugTrace("disk/diskcapacity/dftool", "Capacity.IsEmpty")
 	return c.Total == 0
 }
 
 // String returns a human-readable summary of the capacity.
 func (c *Capacity) String() string {
+	logger.DebugTrace("disk/diskcapacity/dftool", "Capacity.String")
 	return fmt.Sprintf("%s: used=%d available=%d total=%d", c.PhysicalDevice, c.Used, c.Available, c.Total)
 }
 
@@ -44,6 +50,9 @@ func (c *Capacity) String() string {
 // Capacity struct. Capacity values are reported by df in 1024-byte blocks and
 // are converted to bytes before being returned.
 func parseDFOutput(output string) (*Capacity, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskcapacity/dftool", "parseDFOutput: output=%.120q", output)
+	}
 	diskInfo := strings.TrimSpace(output)
 	tmp := strings.Split(diskInfo, "\n")
 	targetDiskInfo := strings.Join(tmp[len(tmp)-1:], " ")
@@ -85,6 +94,9 @@ func parseDFOutput(output string) (*Capacity, error) {
 // GetCapacityInfoFromPath reports the size of the disk holding realpath.
 // How it is found depends on the platform (dftool_windows.go, dftool_unix.go).
 func GetCapacityInfoFromPath(realpath string) (*Capacity, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskcapacity/dftool", "GetCapacityInfoFromPath: realpath=%.120q", realpath)
+	}
 	rpathAbs, err := filepath.Abs(realpath)
 	if err != nil {
 		return nil, err

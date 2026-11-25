@@ -46,6 +46,7 @@ type sessionRevoker struct {
 // newSessionRevoker loads the revoked session ids still in effect from the
 // system database.
 func newSessionRevoker(sysdb *db.Database) *sessionRevoker {
+	logger.Debug("auth", "newSessionRevoker")
 	r := &sessionRevoker{
 		revoked:  map[string]int64{},
 		database: sysdb,
@@ -76,6 +77,9 @@ func newSessionRevoker(sysdb *db.Database) *sessionRevoker {
 
 // Revoke marks a session id as logged out.
 func (r *sessionRevoker) Revoke(sid string) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "sessionRevoker.Revoke: sid=%.120q", sid)
+	}
 	if r == nil || sid == "" {
 		return
 	}
@@ -92,6 +96,9 @@ func (r *sessionRevoker) Revoke(sid string) {
 
 // IsRevoked tells if a session id was logged out.
 func (r *sessionRevoker) IsRevoked(sid string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "sessionRevoker.IsRevoked: sid=%.120q", sid)
+	}
 	if r == nil || sid == "" {
 		return false
 	}
@@ -103,6 +110,7 @@ func (r *sessionRevoker) IsRevoked(sid string) bool {
 
 // Prune forgets the revoked ids no cookie can hold any more.
 func (r *sessionRevoker) Prune() {
+	logger.Debug("auth", "sessionRevoker.Prune")
 	if r == nil {
 		return
 	}
@@ -130,6 +138,7 @@ func (r *sessionRevoker) Prune() {
 
 // newSessionID returns a random session id.
 func newSessionID() string {
+	logger.Debug("auth", "newSessionID")
 	buf := make([]byte, sessionIDBytes)
 	if _, err := rand.Read(buf); err != nil {
 		//crypto/rand does not fail on supported platforms
@@ -140,11 +149,13 @@ func newSessionID() string {
 
 // sessionIDOf returns the session id held by a session, empty when it has none.
 func sessionIDOf(session *sessions.Session) string {
+	logger.Debug("auth", "sessionIDOf")
 	sid, _ := session.Values[sessionIDKey].(string)
 	return sid
 }
 
 // startSession gives a session that is being signed in a new session id.
 func startSession(session *sessions.Session) {
+	logger.DebugTrace("auth", "startSession")
 	session.Values[sessionIDKey] = newSessionID()
 }

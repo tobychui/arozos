@@ -6,11 +6,13 @@ import (
 	"net/http"
 
 	auth "imuslab.com/arozos/mod/auth"
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
 
 func AuthInit() {
+	logger.Debug("Core", "AuthInit")
 	//Generate session key for authentication module if empty
 	sysdb.NewTable("auth")
 	if *session_key == "" {
@@ -55,6 +57,7 @@ func AuthInit() {
 }
 
 func AuthSettingsInit() {
+	logger.Debug("Core", "AuthSettingsInit")
 	//Authentication related settings
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "System Setting",
@@ -152,6 +155,9 @@ func AuthSettingsInit() {
 // Require POST: password and admin permission
 // return true if authentication passed
 func AuthValidateSecureRequest(w http.ResponseWriter, r *http.Request, requireAdmin bool) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "AuthValidateSecureRequest: r=%s requireAdmin=%t", logger.RequestSummary(r), requireAdmin)
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)

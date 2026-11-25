@@ -31,6 +31,7 @@ import (
 const meetRoomModuleName = "MeetRoom"
 
 func (g *Gateway) MeetRoomLibRegister() {
+	logger.Debug("agi", "Gateway.MeetRoomLibRegister")
 	err := g.RegisterLib("meetroom", g.injectMeetRoomFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -43,6 +44,9 @@ func (g *Gateway) MeetRoomLibRegister() {
 // the space ID is a capability, so it is only shared with the host or a
 // caller who passed the room password check.
 func agiDescribeRoom(room *meetroom.Room, includeSpace bool) map[string]interface{} {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "agiDescribeRoom: includeSpace=%t", includeSpace)
+	}
 	desc := map[string]interface{}{
 		"roomid":       room.ID,
 		"displayid":    meetroom.FormatRoomID(room.ID),
@@ -60,6 +64,9 @@ func agiDescribeRoom(room *meetroom.Room, includeSpace bool) map[string]interfac
 
 // agiAttendanceList renders a room's attendance log for AGI scripts.
 func agiAttendanceList(records []meetroom.AttendanceRecord) []map[string]interface{} {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "agiAttendanceList: len(records)=%d", len(records))
+	}
 	list := make([]map[string]interface{}, 0, len(records))
 	for _, record := range records {
 		entry := map[string]interface{}{
@@ -77,6 +84,7 @@ func agiAttendanceList(records []meetroom.AttendanceRecord) []map[string]interfa
 }
 
 func (g *Gateway) injectMeetRoomFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectMeetRoomFunctions")
 	vm := payload.VM
 	u := payload.User
 	manager := g.Option.MeetRoomManager

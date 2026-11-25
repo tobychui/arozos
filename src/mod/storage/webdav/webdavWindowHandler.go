@@ -20,6 +20,9 @@ import (
 
 // Handle request from Windows File Explorer
 func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "Server.HandleWindowClientAccess: r=%s", logger.RequestSummary(r))
+	}
 	coookieName := "arozosWebdavToken"
 	cookie, err := r.Cookie(coookieName)
 	if err != nil {
@@ -129,6 +132,9 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 }
 
 func getIP(r *http.Request) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "getIP: r=%s", logger.RequestSummary(r))
+	}
 	//Get IP from the X-REAL-IP header
 	ip := r.Header.Get("X-REAL-IP")
 	netIP := net.ParseIP(ip)

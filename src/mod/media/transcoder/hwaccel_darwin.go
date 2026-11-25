@@ -3,6 +3,8 @@
 
 package transcoder
 
+import "imuslab.com/arozos/mod/info/logger"
+
 /*
 	hwaccel_darwin.go
 
@@ -19,6 +21,7 @@ package transcoder
 */
 
 func candidateHWProfiles() []*hwEncoderProfile {
+	logger.DebugTrace("media/transcoder", "candidateHWProfiles")
 	return []*hwEncoderProfile{
 		{
 			Name:        "Apple VideoToolbox",

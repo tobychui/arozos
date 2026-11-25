@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	subservice "imuslab.com/arozos/mod/subservice"
 	"imuslab.com/arozos/mod/utils"
@@ -34,6 +35,7 @@ var (
 )
 
 func SubserviceInit() {
+	logger.Debug("Core", "SubserviceInit")
 	//If subservice is disabled, do not register endpoints
 	if *disable_subservices {
 		return
@@ -79,6 +81,7 @@ func SubserviceInit() {
 
 // Stop all the subprocess correctly
 func SubserviceHandleShutdown() {
+	logger.Debug("Core", "SubserviceHandleShutdown")
 	if ssRouter != nil {
 		ssRouter.Close()
 	}

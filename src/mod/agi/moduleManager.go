@@ -29,6 +29,9 @@ type AgiLibInterface interface {
 
 // Register a library's identification name and its injection interface to the VM environment
 func (g *Gateway) RegisterLib(libname string, entryPoint AgiLibInjectionIntergface) error {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.RegisterLib: libname=%.120q", libname)
+	}
 	_, ok := g.LoadedAGILibrary[libname]
 	if ok {
 		//This lib already registered. Return error
@@ -46,6 +49,7 @@ func (g *Gateway) RegisterLib(libname string, entryPoint AgiLibInjectionIntergfa
 */
 
 func (g *Gateway) LoadAllFunctionalModules() {
+	logger.Debug("agi", "Gateway.LoadAllFunctionalModules")
 	g.ImageLibRegister()
 	g.FileLibRegister()
 	g.HTTPLibRegister()

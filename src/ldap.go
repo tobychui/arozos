@@ -6,10 +6,12 @@ import (
 
 	ldap "imuslab.com/arozos/mod/auth/ldap"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 )
 
 func ldapInit() {
+	logger.Debug("Core", "ldapInit")
 	//ldap
 	authIcon := filepath.Join(vendorResRoot, "auth_icon.png")
 	if !fs.FileExists(authIcon) {

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -32,6 +33,9 @@ type Manager struct {
 // NewManager creates a layout manager storing positions in the given database
 // table. The table is created if it does not exist yet.
 func NewManager(db *database.Database, tableName string) (*Manager, error) {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/layout", "NewManager: tableName=%.120q", tableName)
+	}
 	if db == nil {
 		return nil, errors.New("no database given")
 	}
@@ -47,6 +51,9 @@ func NewManager(db *database.Database, tableName string) (*Manager, error) {
 // GetIconLocation returns the stored grid position of a desktop file. An error
 // is returned when the file has never been positioned by the user.
 func (m *Manager) GetIconLocation(username string, filename string) (int, int, error) {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/layout", "Manager.GetIconLocation: username=%.120q filename=%.120q", username, filename)
+	}
 	storedLocation := ""
 	err := m.db.Read(m.table, m.locationKey(username, filename), &storedLocation)
 	if err != nil || storedLocation == "" {
@@ -65,6 +72,9 @@ func (m *Manager) GetIconLocation(username string, filename string) (int, int, e
 
 // SetIconLocation stores the grid position of a desktop file
 func (m *Manager) SetIconLocation(username string, filename string, x int, y int) error {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/layout", "Manager.SetIconLocation: username=%.120q filename=%.120q x=%d y=%d", username, filename, x, y)
+	}
 	newLocation, err := json.Marshal(IconLocation{X: x, Y: y})
 	if err != nil {
 		return err
@@ -75,11 +85,17 @@ func (m *Manager) SetIconLocation(username string, filename string, x int, y int
 
 // RemoveIconLocation forgets the stored position of a desktop file
 func (m *Manager) RemoveIconLocation(username string, filename string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("desktop/layout", "Manager.RemoveIconLocation: username=%.120q filename=%.120q", username, filename)
+	}
 	return m.db.Delete(m.table, m.locationKey(username, filename))
 }
 
 // locationKey builds the database key holding one user's icon position. As the
 // key already includes the username, positions of different users never collide.
 func (m *Manager) locationKey(username string, filename string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("desktop/layout", "Manager.locationKey: username=%.120q filename=%.120q", username, filename)
+	}
 	return username + "/filelocation/" + filename
 }

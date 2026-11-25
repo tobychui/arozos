@@ -1,6 +1,7 @@
 package pptx
 
 import (
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 	"imuslab.com/arozos/mod/office/model"
 )
@@ -23,6 +24,7 @@ import (
 // prstDashFor is the <a:prstDash> preset for an object's dash, or "" for a
 // solid line
 func prstDashFor(p model.Props) string {
+	logger.DebugTrace("office/pptx", "prstDashFor")
 	switch p.DashStyle {
 	case "dot":
 		return "sysDot"
@@ -46,6 +48,9 @@ func prstDashFor(p model.Props) string {
 // dashStyleForPrst reads a <a:prstDash> preset as the editor's dash style
 // ("" for solid)
 func dashStyleForPrst(v string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "dashStyleForPrst: v=%.120q", v)
+	}
 	switch v {
 	case "sysDot", "dot":
 		return "dot"
@@ -64,6 +69,9 @@ func dashStyleForPrst(v string) string {
 // lineHeadOf is the end an object has at its start or its end ("" for
 // none), falling back to the old arrowStart / arrowEnd flags
 func lineHeadOf(p model.Props, end bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "lineHeadOf: end=%t", end)
+	}
 	head, legacy := p.StartHead, p.ArrowStart
 	if end {
 		head, legacy = p.EndHead, p.ArrowEnd
@@ -82,6 +90,9 @@ func lineHeadOf(p model.Props, end bool) string {
 
 // lineEndType is the DrawingML <a:headEnd>/<a:tailEnd> type for an end
 func lineEndType(head string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "lineEndType: head=%.120q", head)
+	}
 	switch head {
 	case "arrow":
 		return "arrow"
@@ -97,6 +108,9 @@ func lineEndType(head string) string {
 
 // headForLineEnd reads a DrawingML end type as the editor's line end
 func headForLineEnd(t string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "headForLineEnd: t=%.120q", t)
+	}
 	switch t {
 	case "arrow":
 		return "arrow"
@@ -113,6 +127,9 @@ func headForLineEnd(t string) string {
 // lnDashAndEnds renders the dash and the two ends inside an <a:ln>, in the
 // order the schema wants them
 func lnDashAndEnds(p model.Props, withEnds bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "lnDashAndEnds: withEnds=%t", withEnds)
+	}
 	out := ""
 	if d := prstDashFor(p); d != "" {
 		out += `<a:prstDash val="` + d + `"/>`
@@ -131,6 +148,7 @@ func lnDashAndEnds(p model.Props, withEnds bool) string {
 
 // readLineEnds reads the dash and the two ends of an <a:ln> into props
 func readLineEnds(ln *xmltree.Node, props *model.Props) {
+	logger.DebugTrace("office/pptx", "readLineEnds")
 	if ln == nil {
 		return
 	}

@@ -10,6 +10,8 @@ package email
 import (
 	"errors"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var (
@@ -32,6 +34,7 @@ type AuthError struct {
 }
 
 func (e *AuthError) Error() string {
+	logger.DebugTrace("email", "AuthError.Error")
 	message := "authentication failed"
 	if e.Server != "" {
 		message = e.Server + " " + message
@@ -43,17 +46,24 @@ func (e *AuthError) Error() string {
 }
 
 func (e *AuthError) Unwrap() error {
+	logger.DebugTrace("email", "AuthError.Unwrap")
 	return ErrAuthFailed
 }
 
 // IsAuthError reports whether err means the stored credential is wrong or
 // expired, so the UI should ask the user to sign in again.
 func IsAuthError(err error) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("email", "IsAuthError: err=%v", err)
+	}
 	return errors.Is(err, ErrAuthFailed)
 }
 
 // AuthHint returns the provider hint carried by an authentication error.
 func AuthHint(err error) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "AuthHint: err=%v", err)
+	}
 	var authErr *AuthError
 	if errors.As(err, &authErr) {
 		return authErr.Hint
@@ -64,6 +74,7 @@ func AuthHint(err error) string {
 // looksLikeAuthFailure recognises the many ways servers word a rejected login
 // when they do not use the AUTHENTICATIONFAILED response code.
 func looksLikeAuthFailure(message string) bool {
+	logger.Debug("email", "looksLikeAuthFailure")
 	lower := strings.ToLower(message)
 	for _, marker := range []string{
 		"authenticationfailed", "authentication failed", "invalid credentials",

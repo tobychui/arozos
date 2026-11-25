@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	wifi "imuslab.com/arozos/mod/network/wifi"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
@@ -23,6 +24,7 @@ var (
 )
 
 func WiFiInit() {
+	logger.Debug("Core", "WiFiInit")
 	//Start the Wifi Manager
 	wifiManager = wifi.NewWiFiManager(sysdb, sudo_mode, *wpa_supplicant_path, *wan_interface_name)
 
@@ -75,6 +77,9 @@ func WiFiInit() {
 }
 
 func network_wifi_handleWiFiPower(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "network_wifi_handleWiFiPower: r=%s", logger.RequestSummary(r))
+	}
 	//Require admin permission to scan and connect wifi
 	user, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -145,6 +150,9 @@ func network_wifi_handleWiFiPower(w http.ResponseWriter, r *http.Request) {
 }
 
 func network_wifi_handleScan(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "network_wifi_handleScan: r=%s", logger.RequestSummary(r))
+	}
 	//Require admin permission to scan and connect wifi
 	user, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -197,6 +205,9 @@ func network_wifi_handleScan(w http.ResponseWriter, r *http.Request) {
 }
 
 func network_wifi_handleConnect(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "network_wifi_handleConnect: r=%s", logger.RequestSummary(r))
+	}
 	user, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "Internal Server Error")
@@ -239,6 +250,9 @@ func network_wifi_handleConnect(w http.ResponseWriter, r *http.Request) {
 }
 
 func network_wifi_handleWiFiRemove(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "network_wifi_handleWiFiRemove: r=%s", logger.RequestSummary(r))
+	}
 	//Require admin permission to scan and connect wifi
 	user, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -267,6 +281,9 @@ func network_wifi_handleWiFiRemove(w http.ResponseWriter, r *http.Request) {
 }
 
 func network_wifi_handleWiFiInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "network_wifi_handleWiFiInfo: r=%s", logger.RequestSummary(r))
+	}
 	//Get and return the current conencted WiFi Information
 	_, err := authAgent.GetUserName(w, r)
 	if err != nil {

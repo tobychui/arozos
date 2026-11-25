@@ -16,6 +16,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Element IDs used below
@@ -83,6 +85,9 @@ type bssElements struct {
 // forEachIE walks a list of information elements and calls fn for each
 // complete element. A truncated trailing element is ignored.
 func forEachIE(b []byte, fn func(id byte, data []byte)) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "forEachIE: len(b)=%d", len(b))
+	}
 	for len(b) >= 2 {
 		id := b[0]
 		l := int(b[1])
@@ -96,6 +101,9 @@ func forEachIE(b []byte, fn func(id byte, data []byte)) {
 
 // parseIEs decodes the information elements of a beacon / probe response
 func parseIEs(b []byte) bssElements {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "parseIEs: len(b)=%d", len(b))
+	}
 	e := bssElements{}
 	roaming := map[string]bool{}
 	forEachIE(b, func(id byte, d []byte) {
@@ -245,6 +253,9 @@ func parseIEs(b []byte) bssElements {
 
 // parseHEOperation reads the 6 GHz operation information of an HE operation element
 func (e *bssElements) parseHEOperation(d []byte) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "bssElements.parseHEOperation: len(d)=%d", len(d))
+	}
 	if len(d) < 6 {
 		return
 	}
@@ -270,6 +281,9 @@ func (e *bssElements) parseHEOperation(d []byte) {
 // element after its OUI and type. It returns the AKM suite types, the pairwise
 // cipher types and (RSN only) the capability field.
 func parseCipherSuites(d []byte, rsn bool) (akms []uint32, ciphers []uint32, caps uint16, ok bool) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "parseCipherSuites: len(d)=%d rsn=%t", len(d), rsn)
+	}
 	oui := []byte{0x00, 0x0F, 0xAC}
 	if !rsn {
 		oui = []byte{0x00, 0x50, 0xF2}
@@ -325,6 +339,9 @@ func parseCipherSuites(d []byte, rsn bool) (akms []uint32, ciphers []uint32, cap
 // 3 = not supported). It returns the stream count and the highest MCS of the
 // first stream, picked from maxByCode.
 func decodeMCSMap(m uint16, maxByCode []int) (streams int, maxMCS int) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "decodeMCSMap: m=%d len(maxByCode)=%d", m, len(maxByCode))
+	}
 	for i := 0; i < 8; i++ {
 		code := int(m>>(2*i)) & 0x03
 		if code == 3 {
@@ -340,6 +357,9 @@ func decodeMCSMap(m uint16, maxByCode []int) (streams int, maxMCS int) {
 
 // securityName describes the authentication an AP offers
 func (e *bssElements) securityName(privacy bool) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "bssElements.securityName: privacy=%t", privacy)
+	}
 	has := func(list []uint32, types ...uint32) bool {
 		for _, a := range list {
 			for _, t := range types {
@@ -393,6 +413,9 @@ func (e *bssElements) securityName(privacy bool) string {
 
 // cipherName joins the pairwise ciphers an AP offers
 func (e *bssElements) cipherName(privacy bool) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "bssElements.cipherName: privacy=%t", privacy)
+	}
 	names := []string{}
 	for _, c := range e.ciphers {
 		n := rsnCipherName(c)
@@ -407,6 +430,9 @@ func (e *bssElements) cipherName(privacy bool) string {
 }
 
 func rsnCipherName(t uint32) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "rsnCipherName: t=%d", t)
+	}
 	switch t {
 	case 1:
 		return "WEP-40"
@@ -429,6 +455,9 @@ func rsnCipherName(t uint32) string {
 // phyInfo works out the 802.11 amendment, Wi-Fi generation, channel width and
 // center channel of a BSS from its elements and band.
 func (e *bssElements) phyInfo(band string, legacyMaxRate float64) (phy string, generation string, width int, center int) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "bssElements.phyInfo: band=%.120q legacyMaxRate=%g", band, legacyMaxRate)
+	}
 	width = 20
 	if e.htWidth > 0 {
 		width = e.htWidth
@@ -472,6 +501,7 @@ func (e *bssElements) phyInfo(band string, legacyMaxRate float64) (phy string, g
 
 // spatialStreams returns the stream count of the newest PHY the AP supports
 func (e *bssElements) spatialStreams() int {
+	logger.Debug("network/wifi", "bssElements.spatialStreams")
 	for _, s := range []int{e.heStreams, e.vhtStreams, e.htStreams} {
 		if s > 0 {
 			return s
@@ -484,6 +514,9 @@ func (e *bssElements) spatialStreams() int {
 // its newest PHY, channel width and spatial streams, using the short guard
 // interval rates of the highest MCS it advertises.
 func estimateMaxRate(phy string, width int, streams int, maxMCS int, legacyMax float64) float64 {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "estimateMaxRate: phy=%.120q width=%d streams=%d maxMCS=%d legacyMax=%g", phy, width, streams, maxMCS, legacyMax)
+	}
 	if streams <= 0 {
 		streams = 1
 	}
@@ -535,6 +568,9 @@ func estimateMaxRate(phy string, width int, streams int, maxMCS int, legacyMax f
 // legacyRates splits a rate set (units of 500 kbps, high bit = basic rate)
 // into the basic and the full list, formatted in Mbps, plus the highest rate
 func legacyRates(rates []uint16) (basic []string, all []string, max float64) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "legacyRates: len(rates)=%d", len(rates))
+	}
 	basic = []string{}
 	all = []string{}
 	for _, r := range rates {
@@ -559,6 +595,9 @@ func legacyRates(rates []uint16) (basic []string, all []string, max float64) {
 // ratesFromIE reads the supported / extended supported rates elements, which
 // use the same encoding as legacyRates but with the basic flag in bit 7
 func ratesFromIE(b []byte) []uint16 {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "ratesFromIE: len(b)=%d", len(b))
+	}
 	rates := []uint16{}
 	forEachIE(b, func(id byte, d []byte) {
 		if id != ieSupportedRates && id != ieExtSupportedRate {
@@ -581,6 +620,9 @@ func ratesFromIE(b []byte) []uint16 {
 
 // bandOfFrequency returns the band a center frequency (MHz) belongs to
 func bandOfFrequency(mhz int) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "bandOfFrequency: mhz=%d", mhz)
+	}
 	switch {
 	case mhz >= 2400 && mhz < 2500:
 		return "2.4 GHz"
@@ -596,6 +638,9 @@ func bandOfFrequency(mhz int) string {
 
 // channelOfFrequency returns the channel number of a center frequency (MHz)
 func channelOfFrequency(mhz int) int {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "channelOfFrequency: mhz=%d", mhz)
+	}
 	switch {
 	case mhz == 2484:
 		return 14
@@ -619,6 +664,9 @@ func channelOfFrequency(mhz int) int {
 // only the channel number is known. Channels that exist in both the 5 GHz
 // and the 6 GHz band resolve to 5 GHz unless sixGHz is set.
 func frequencyOfChannel(ch int, sixGHz bool) int {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "frequencyOfChannel: ch=%d sixGHz=%t", ch, sixGHz)
+	}
 	switch {
 	case ch <= 0:
 		return 0
@@ -640,6 +688,9 @@ func frequencyOfChannel(ch int, sixGHz bool) int {
 
 // formatFrequency renders MHz as "5.180 GHz"
 func formatFrequency(mhz int) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "formatFrequency: mhz=%d", mhz)
+	}
 	if mhz <= 0 {
 		return ""
 	}
@@ -648,6 +699,9 @@ func formatFrequency(mhz int) string {
 
 // generationOfPHY maps an 802.11 amendment to its Wi-Fi generation name
 func generationOfPHY(phy string, band string) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "generationOfPHY: phy=%.120q band=%.120q", phy, band)
+	}
 	switch phy {
 	case "802.11be":
 		return "Wi-Fi 7"
@@ -667,6 +721,9 @@ func generationOfPHY(phy string, band string) string {
 // qualityFromRSSI maps an RSSI (dBm) to a 0 - 100 quality the way Windows
 // does: -100 dBm and below is 0 %, -50 dBm and above is 100 %
 func qualityFromRSSI(dbm int) int {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "qualityFromRSSI: dbm=%d", dbm)
+	}
 	if dbm == 0 {
 		return -1
 	}
@@ -682,6 +739,9 @@ func qualityFromRSSI(dbm int) int {
 
 // rssiFromQuality is the inverse of qualityFromRSSI
 func rssiFromQuality(q int) int {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "rssiFromQuality: q=%d", q)
+	}
 	if q < 0 {
 		return 0
 	}
@@ -695,6 +755,9 @@ func rssiFromQuality(q int) int {
 // ssidString turns raw SSID bytes into a string, reporting hidden SSIDs
 // (empty or all zero) as hidden
 func ssidString(b []byte) (string, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "ssidString: len(b)=%d", len(b))
+	}
 	allZero := true
 	for _, c := range b {
 		if c != 0 {
@@ -709,6 +772,9 @@ func ssidString(b []byte) (string, bool) {
 }
 
 func formatMAC(b []byte) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "formatMAC: len(b)=%d", len(b))
+	}
 	parts := make([]string, len(b))
 	for i, c := range b {
 		parts[i] = fmt.Sprintf("%02x", c)
@@ -717,10 +783,16 @@ func formatMAC(b []byte) string {
 }
 
 func isUpperLetter(c byte) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/wifi", "isUpperLetter: c=%d", c)
+	}
 	return c >= 'A' && c <= 'Z'
 }
 
 func countNonZero(b []byte) int {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "countNonZero: len(b)=%d", len(b))
+	}
 	n := 0
 	for _, c := range b {
 		if c != 0 {
@@ -731,6 +803,9 @@ func countNonZero(b []byte) int {
 }
 
 func absInt(v int) int {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "absInt: v=%d", v)
+	}
 	if v < 0 {
 		return -v
 	}
@@ -738,6 +813,9 @@ func absInt(v int) int {
 }
 
 func containsString(list []string, s string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "containsString: len(list)=%d s=%.120q", len(list), s)
+	}
 	for _, v := range list {
 		if v == s {
 			return true

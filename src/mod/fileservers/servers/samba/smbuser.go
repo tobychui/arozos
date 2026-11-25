@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // samba user info
@@ -20,6 +22,9 @@ type UserInfo struct {
 
 // AddSambaUser adds a Samba user with the given username
 func (s *ShareManager) AddSambaUser(username string, password string) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.AddSambaUser: username=%.120q", username)
+	}
 	// Check if the user already exists
 	if !unixUserExists(username) {
 		//Create unix user
@@ -41,6 +46,9 @@ func (s *ShareManager) AddSambaUser(username string, password string) error {
 
 // userExists checks if a user exists
 func unixUserExists(username string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "unixUserExists: username=%.120q", username)
+	}
 	// Check if the user exists by attempting to get their home directory
 	cmd := exec.Command("getent", "passwd", username)
 	err := cmd.Run()
@@ -49,6 +57,9 @@ func unixUserExists(username string) bool {
 
 // SetupSmbUser sets up a Samba user account with the given username and password
 func (s *ShareManager) setupSmbUser(username, password string) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.setupSmbUser: username=%.120q", username)
+	}
 	// Execute the smbpasswd command with the specified username
 	cmd := exec.Command("sudo", "smbpasswd", "-a", username)
 
@@ -84,6 +95,9 @@ func (s *ShareManager) setupSmbUser(username, password string) error {
 
 // RemoveSmbUser removes a Samba user account with the given username
 func (s *ShareManager) RemoveSmbUser(username string) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.RemoveSmbUser: username=%.120q", username)
+	}
 	// Execute the smbpasswd command with the -x flag to delete the user
 	cmd := exec.Command("sudo", "smbpasswd", "-x", username)
 
@@ -98,6 +112,9 @@ func (s *ShareManager) RemoveSmbUser(username string) error {
 
 // RemoveUnixUser removes a Unix user account with the given username
 func (s *ShareManager) RemoveUnixUser(username string) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.RemoveUnixUser: username=%.120q", username)
+	}
 	// Execute the userdel command with the specified username
 	cmd := exec.Command("sudo", "userdel", username)
 
@@ -112,6 +129,7 @@ func (s *ShareManager) RemoveUnixUser(username string) error {
 
 // ListSambaUsersInfo lists information about Samba users
 func (s *ShareManager) ListSambaUsersInfo() ([]UserInfo, error) {
+	logger.Debug("fileservers/servers/samba", "ShareManager.ListSambaUsersInfo")
 	// Execute pdbedit -L -v command
 	cmd := exec.Command("sudo", "pdbedit", "-L", "-v")
 	output, err := cmd.CombinedOutput()
@@ -159,6 +177,7 @@ func (s *ShareManager) ListSambaUsersInfo() ([]UserInfo, error) {
 // ListNTHashes returns the NT hash of every Samba user, so that the built in
 // SMB server can take them over without asking anyone for a new password.
 func (s *ShareManager) ListNTHashes() (map[string][]byte, error) {
+	logger.Debug("fileservers/servers/samba", "ShareManager.ListNTHashes")
 	out, err := exec.Command("sudo", "pdbedit", "-Lw").Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute pdbedit command: %v", err)
@@ -169,6 +188,9 @@ func (s *ShareManager) ListNTHashes() (map[string][]byte, error) {
 // parsePdbeditHashes reads the smbpasswd format of pdbedit -Lw:
 // name:uid:LM hash:NT hash:[flags]:LCT-time:
 func parsePdbeditHashes(output string) map[string][]byte {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "parsePdbeditHashes: output=%.120q", output)
+	}
 	results := map[string][]byte{}
 	for _, line := range strings.Split(output, "\n") {
 		fields := strings.Split(strings.TrimSpace(line), ":")
@@ -194,6 +216,9 @@ func parsePdbeditHashes(output string) map[string][]byte {
 // come back to life on the built in server, and machine or trust accounts
 // (W, S, I) are not people. A field that cannot be read counts as refused.
 func accountCanLogIn(flags string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "accountCanLogIn: flags=%.120q", flags)
+	}
 	flags = strings.TrimSpace(flags)
 	if len(flags) < 2 || flags[0] != '[' || flags[len(flags)-1] != ']' {
 		return false

@@ -9,6 +9,8 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/binary"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -46,6 +48,7 @@ type cryptHandler struct {
 }
 
 func newCryptHandler(d *Document, enc Dict) (*cryptHandler, error) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "newCryptHandler")
 	if enc == nil || d.name(enc["Filter"]) != "Standard" {
 		return nil, ErrEncrypted
 	}
@@ -166,6 +169,9 @@ func newCryptHandler(d *Document, enc Dict) (*cryptHandler, error) {
 
 // aes256Key derives the file key for R5 / R6 with the empty password
 func aes256Key(r int, u []byte, ue []byte) ([]byte, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "aes256Key: r=%d len(u)=%d len(ue)=%d", r, len(u), len(ue))
+	}
 	if len(u) < 48 || len(ue) < 32 {
 		return nil, false
 	}
@@ -199,6 +205,9 @@ func aes256Key(r int, u []byte, ue []byte) ([]byte, bool) {
 
 // hash2B is algorithm 2.B of ISO 32000-2
 func hash2B(password, salt, udata []byte) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "hash2B: len(udata)=%d", len(udata))
+	}
 	h := sha256.New()
 	h.Write(password)
 	h.Write(salt)
@@ -240,6 +249,9 @@ func hash2B(password, salt, udata []byte) []byte {
 }
 
 func (h *cryptHandler) objectKey(ref Ref, aesMode bool) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "cryptHandler.objectKey: aesMode=%t", aesMode)
+	}
 	if h.rev >= 5 {
 		return h.key
 	}
@@ -258,6 +270,7 @@ func (h *cryptHandler) objectKey(ref Ref, aesMode bool) []byte {
 }
 
 func (h *cryptHandler) decrypt(data []byte, ref Ref, method cryptMethod) []byte {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cryptHandler.decrypt")
 	switch method {
 	case cryptRC4:
 		c, err := rc4.NewCipher(h.objectKey(ref, false))
@@ -299,6 +312,7 @@ func (h *cryptHandler) decrypt(data []byte, ref Ref, method cryptMethod) []byte 
 
 // decryptObject decrypts the strings of a parsed object
 func (h *cryptHandler) decryptObject(o Object, ref Ref) Object {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cryptHandler.decryptObject")
 	switch v := o.(type) {
 	case String:
 		if h.strM == cryptNone {
@@ -322,6 +336,7 @@ func (h *cryptHandler) decryptObject(o Object, ref Ref) Object {
 }
 
 func stringOf(o Object) string {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "stringOf")
 	s, _ := o.(String)
 	return string(s)
 }

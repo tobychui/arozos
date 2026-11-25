@@ -19,6 +19,8 @@ import (
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -36,6 +38,9 @@ const (
 // caller can confirm before losing work — the same protection `git branch -d`
 // gives over `-D`.
 func (m *Manager) DeleteBranch(realpath string, branch string, force bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.DeleteBranch: realpath=%.120q branch=%.120q force=%t", realpath, branch, force)
+	}
 	branch = strings.TrimSpace(branch)
 	if err := validateBranchName(branch); err != nil {
 		return err
@@ -78,6 +83,9 @@ func (m *Manager) DeleteBranch(realpath string, branch string, force bool) error
 // RenameBranch renames a local branch, carrying its upstream configuration over
 // and following HEAD when the renamed branch is the checked-out one.
 func (m *Manager) RenameBranch(realpath string, oldName string, newName string) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.RenameBranch: realpath=%.120q oldName=%.120q newName=%.120q", realpath, oldName, newName)
+	}
 	oldName = strings.TrimSpace(oldName)
 	newName = strings.TrimSpace(newName)
 
@@ -132,6 +140,9 @@ func (m *Manager) RenameBranch(realpath string, oldName string, newName string) 
 // DeleteRemoteBranch deletes a branch on the remote and prunes the local
 // remote-tracking ref so it stops showing in the branch list.
 func (m *Manager) DeleteRemoteBranch(realpath string, remote string, branch string, req *TransportRequest) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.DeleteRemoteBranch: realpath=%.120q remote=%.120q branch=%.120q", realpath, remote, branch)
+	}
 	branch = strings.TrimSpace(branch)
 	if err := validateBranchName(branch); err != nil {
 		return err
@@ -174,6 +185,9 @@ still exists under both names, which is recoverable, whereas deleting first coul
 lose it entirely.
 */
 func (m *Manager) RenameRemoteBranch(realpath string, remote string, oldName string, newName string, req *TransportRequest) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.RenameRemoteBranch: realpath=%.120q remote=%.120q oldName=%.120q newName=%.120q", realpath, remote, oldName, newName)
+	}
 	oldName = strings.TrimSpace(oldName)
 	newName = strings.TrimSpace(newName)
 
@@ -241,6 +255,7 @@ func (m *Manager) RenameRemoteBranch(realpath string, remote string, oldName str
 // branchIsMerged reports whether a branch tip is reachable from HEAD, i.e. its
 // commits are already contained in the current branch.
 func branchIsMerged(repo *gogit.Repository, branchHash plumbing.Hash) (bool, error) {
+	logger.Debug("git", "branchIsMerged")
 	head, err := repo.Head()
 	if err != nil {
 		//Nothing checked out to compare against
@@ -264,6 +279,9 @@ func branchIsMerged(repo *gogit.Repository, branchHash plumbing.Hash) (bool, err
 
 // removeBranchConfig deletes a branch's tracking configuration.
 func removeBranchConfig(repo *gogit.Repository, branch string) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "removeBranchConfig: branch=%.120q", branch)
+	}
 	cfg, err := repo.Config()
 	if err != nil || cfg.Branches == nil {
 		return
@@ -278,6 +296,9 @@ func removeBranchConfig(repo *gogit.Repository, branch string) {
 
 // moveBranchConfig re-keys a branch's tracking configuration under a new name.
 func moveBranchConfig(repo *gogit.Repository, oldName string, newName string) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "moveBranchConfig: oldName=%.120q newName=%.120q", oldName, newName)
+	}
 	cfg, err := repo.Config()
 	if err != nil || cfg.Branches == nil {
 		return
@@ -303,6 +324,9 @@ func moveBranchConfig(repo *gogit.Repository, oldName string, newName string) {
 // splitRemoteRef breaks a remote-tracking ref into its remote and branch parts.
 // "refs/remotes/origin/feature/login" yields ("origin", "feature/login").
 func splitRemoteRef(fullRef string) (string, string) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "splitRemoteRef: fullRef=%.120q", fullRef)
+	}
 	trimmed := strings.TrimPrefix(fullRef, remoteRefPrefix)
 	if trimmed == fullRef {
 		//Not a remote-tracking ref
@@ -318,6 +342,9 @@ func splitRemoteRef(fullRef string) (string, string) {
 
 // remoteOrName defaults a remote name to "origin".
 func remoteOrName(remote string) string {
+	if logger.IsDebug() {
+		logger.Debugf("git", "remoteOrName: remote=%.120q", remote)
+	}
 	remote = strings.TrimSpace(remote)
 	if remote == "" {
 		return defaultRemote

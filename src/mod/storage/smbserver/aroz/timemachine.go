@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -33,6 +34,7 @@ const (
 // files (cloud and remote ones) cannot flush a write in place, and tmp:/ is
 // emptied at every boot.
 func TimeMachineEligible(fsh *filesystem.FileSystemHandler, account Account) bool {
+	logger.Debug("storage/smbserver/aroz", "TimeMachineEligible")
 	if fsh == nil || fsh.Closed || fsh.ReadOnly || fsh.RequireBuffer || fsh.IsNetworkDrive() {
 		return false
 	}
@@ -45,6 +47,9 @@ func TimeMachineEligible(fsh *filesystem.FileSystemHandler, account Account) boo
 // TimeMachinePath is the folder of a user's backups on a drive, relative to
 // the drive root.
 func TimeMachinePath(fsh *filesystem.FileSystemHandler, username string) string {
+	if logger.IsDebug() {
+		logger.Debugf("storage/smbserver/aroz", "TimeMachinePath: username=%.120q", username)
+	}
 	if fsh.Hierarchy == "user" {
 		return TimeMachineFolder
 	}
@@ -55,6 +60,7 @@ func TimeMachinePath(fsh *filesystem.FileSystemHandler, username string) string 
 // no drive, the drive is gone or no longer eligible, or one of their drives
 // already has the share's name.
 func (v *view) timeMachineShare() *share {
+	logger.Debug("storage/smbserver/aroz", "view.timeMachineShare")
 	if v.opt == nil || v.opt.TimeMachine == nil {
 		return nil
 	}
@@ -85,6 +91,7 @@ func (v *view) timeMachineShare() *share {
 // each time, as Macs ask for the free space, so a change applies at once; a
 // share whose user has since picked another drive takes no more backups.
 func (s *share) TimeMachine() (bool, uint64) {
+	logger.Debug("storage/smbserver/aroz", "share.TimeMachine")
 	if !s.timeMachine {
 		return false, 0
 	}

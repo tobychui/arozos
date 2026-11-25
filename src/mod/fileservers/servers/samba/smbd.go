@@ -3,10 +3,13 @@ package samba
 import (
 	"fmt"
 	"os/exec"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // IsSmbdRunning checks if smbd is running on the current Linux host
 func IsSmbdRunning() (bool, error) {
+	logger.Debug("fileservers/servers/samba", "IsSmbdRunning")
 	cmd := exec.Command("systemctl", "is-active", "--quiet", "smbd")
 	err := cmd.Run()
 	if err != nil {
@@ -22,6 +25,9 @@ func IsSmbdRunning() (bool, error) {
 
 // SetSmbdEnableState enables or disables smbd via systemctl
 func SetSmbdEnableState(enable bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "SetSmbdEnableState: enable=%t", enable)
+	}
 	var cmd *exec.Cmd
 	if enable {
 		//Enable smbd

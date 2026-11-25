@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Client talks to one OpenAI- or Anthropic-compatible chat completion endpoint.
@@ -32,6 +34,9 @@ type Client struct {
 // NewClient creates a client for the given endpoint. timeout <= 0 uses
 // DefaultTimeout; format defaults to "openai" unless exactly "anthropic".
 func NewClient(endpoint, apikey, format string, timeout time.Duration) *Client {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/llm", "NewClient: endpoint=%.120q format=%.120q", endpoint, format)
+	}
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
@@ -50,6 +55,9 @@ func NewClient(endpoint, apikey, format string, timeout time.Duration) *Client {
 // dispatching to the configured wire format. GenerationMs/TokensPerSecond
 // in the returned Usage are computed from the wall-clock request duration.
 func (c *Client) Chat(messages []Message, opt ChatOptions) (*ChatResponse, error) {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/llm", "Client.Chat: len(messages)=%d", len(messages))
+	}
 	start := time.Now()
 	var resp *ChatResponse
 	var err error
@@ -75,6 +83,9 @@ func (c *Client) Chat(messages []Message, opt ChatOptions) (*ChatResponse, error
 // dispatches to the configured wire format. GenerationMs/TokensPerSecond are
 // computed from the wall-clock request duration, exactly like Chat.
 func (c *Client) ChatStream(messages []Message, opt ChatOptions, cb StreamCallback) (*ChatResponse, error) {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/llm", "Client.ChatStream: len(messages)=%d", len(messages))
+	}
 	start := time.Now()
 	var resp *ChatResponse
 	var err error
@@ -98,6 +109,7 @@ func (c *Client) ChatStream(messages []Message, opt ChatOptions, cb StreamCallba
 // configured wire format. Used by connectivity tests and AGI scripts; does
 // not consume any tokens.
 func (c *Client) ListModels() ([]string, error) {
+	logger.Debug("aiservers/llm", "Client.ListModels")
 	if c.APIFormat == "anthropic" {
 		return c.listModelsAnthropic()
 	}
@@ -105,6 +117,7 @@ func (c *Client) ListModels() ([]string, error) {
 }
 
 func (c *Client) httpClient() *http.Client {
+	logger.Debug("aiservers/llm", "Client.httpClient")
 	if c.HTTP == nil {
 		return &http.Client{Timeout: DefaultTimeout}
 	}
@@ -112,6 +125,9 @@ func (c *Client) httpClient() *http.Client {
 }
 
 func truncate(s string, max int) string {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/llm", "truncate: s=%.120q max=%d", s, max)
+	}
 	s = strings.TrimSpace(s)
 	if len(s) <= max {
 		return s

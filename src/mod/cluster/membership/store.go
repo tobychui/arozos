@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -42,6 +43,9 @@ var (
 // already open) and dropped together with the membership when the node
 // leaves the cluster.
 func RegisterClusterTable(name string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "RegisterClusterTable: name=%.120q", name)
+	}
 	extraTablesMu.Lock()
 	defer extraTablesMu.Unlock()
 	for _, t := range extraClusterTables {
@@ -56,6 +60,7 @@ func RegisterClusterTable(name string) {
 }
 
 func registeredClusterTables() []string {
+	logger.Debug("cluster/membership", "registeredClusterTables")
 	extraTablesMu.Lock()
 	defer extraTablesMu.Unlock()
 	return append([]string{}, extraClusterTables...)
@@ -76,6 +81,9 @@ type storedJoinToken struct {
 }
 
 func newStore(dbfile string) (*store, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "newStore: dbfile=%.120q", dbfile)
+	}
 	db, err := database.NewDatabase(dbfile, false)
 	if err != nil {
 		return nil, err
@@ -95,6 +103,7 @@ func newStore(dbfile string) (*store, error) {
 }
 
 func (s *store) close() {
+	logger.Debug("cluster/membership", "store.close")
 	extraTablesMu.Lock()
 	if currentStore == s {
 		currentStore = nil
@@ -104,6 +113,7 @@ func (s *store) close() {
 }
 
 func (s *store) loadCluster() *ClusterInfo {
+	logger.Debug("cluster/membership", "store.loadCluster")
 	if !s.db.KeyExists(tableCluster, "info") {
 		return nil
 	}
@@ -115,10 +125,12 @@ func (s *store) loadCluster() *ClusterInfo {
 }
 
 func (s *store) saveCluster(info *ClusterInfo) error {
+	logger.DebugTrace("cluster/membership", "store.saveCluster")
 	return s.db.Write(tableCluster, "info", info)
 }
 
 func (s *store) loadConfig() LocalConfig {
+	logger.Debug("cluster/membership", "store.loadConfig")
 	var cfg LocalConfig
 	if s.db.KeyExists(tableConfig, "local") {
 		s.db.Read(tableConfig, "local", &cfg)
@@ -127,10 +139,12 @@ func (s *store) loadConfig() LocalConfig {
 }
 
 func (s *store) saveConfig(cfg LocalConfig) error {
+	logger.DebugTrace("cluster/membership", "store.saveConfig")
 	return s.db.Write(tableConfig, "local", cfg)
 }
 
 func (s *store) loadNodes() map[string]*NodeRecord {
+	logger.Debug("cluster/membership", "store.loadNodes")
 	nodes := map[string]*NodeRecord{}
 	entries, err := s.db.ListTable(tableNodes)
 	if err != nil {
@@ -147,14 +161,19 @@ func (s *store) loadNodes() map[string]*NodeRecord {
 }
 
 func (s *store) saveNode(rec *NodeRecord) error {
+	logger.DebugTrace("cluster/membership", "store.saveNode")
 	return s.db.Write(tableNodes, rec.ID, rec)
 }
 
 func (s *store) deleteNode(id string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/membership", "store.deleteNode: id=%.120q", id)
+	}
 	return s.db.Delete(tableNodes, id)
 }
 
 func (s *store) loadJoinTokens() map[string]*JoinToken {
+	logger.Debug("cluster/membership", "store.loadJoinTokens")
 	tokens := map[string]*JoinToken{}
 	entries, err := s.db.ListTable(tableJoinTokens)
 	if err != nil {
@@ -171,15 +190,20 @@ func (s *store) loadJoinTokens() map[string]*JoinToken {
 }
 
 func (s *store) saveJoinToken(t *JoinToken) error {
+	logger.DebugTrace("cluster/membership", "store.saveJoinToken")
 	return s.db.Write(tableJoinTokens, t.ID, storedJoinToken{ID: t.ID, SecretHash: t.SecretHash, Created: t.Created, Expires: t.Expires, Uses: t.Uses})
 }
 
 func (s *store) deleteJoinToken(id string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/membership", "store.deleteJoinToken: id=%.120q", id)
+	}
 	return s.db.Delete(tableJoinTokens, id)
 }
 
 // wipeCluster removes every cluster-scoped record but keeps the local config.
 func (s *store) wipeCluster() error {
+	logger.Debug("cluster/membership", "store.wipeCluster")
 	tables := append([]string{tableCluster, tableNodes, tableJoinTokens, TableIdentity}, registeredClusterTables()...)
 	for _, table := range tables {
 		if err := s.db.DropTable(table); err != nil {

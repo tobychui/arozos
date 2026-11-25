@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"imuslab.com/arozos/mod/agi"
+	"imuslab.com/arozos/mod/info/logger"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/time/nightly"
@@ -27,6 +28,7 @@ var (
 )
 
 func NightlyTasksInit() {
+	logger.DebugTrace("Core", "NightlyTasksInit")
 	/*
 		Nighty Task Manager
 
@@ -37,6 +39,7 @@ func NightlyTasksInit() {
 }
 
 func SchedulerInit() {
+	logger.Debug("Core", "SchedulerInit")
 
 	/*
 		System Scheudler
@@ -168,6 +171,9 @@ func SchedulerInit() {
 
 // handleListGroupCronPermissions returns all permission groups and their cron creation setting
 func handleListGroupCronPermissions(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleListGroupCronPermissions: r=%s", logger.RequestSummary(r))
+	}
 	ph := permissionHandler
 	permMap := ph.GetGroupCronJobPermissionList()
 
@@ -192,6 +198,9 @@ func handleListGroupCronPermissions(w http.ResponseWriter, r *http.Request) {
 
 // handleSetGroupCronPermission sets the cron creation permission for a given group (admin only)
 func handleSetGroupCronPermission(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleSetGroupCronPermission: r=%s", logger.RequestSummary(r))
+	}
 	groupName, err := utils.PostPara(r, "group")
 	if err != nil {
 		utils.SendErrorResponse(w, "Invalid group name")

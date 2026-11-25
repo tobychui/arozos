@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -29,6 +31,9 @@ const UserContentSandbox = "sandbox allow-scripts allow-forms allow-popups allow
 // kind (XSLT can turn it into HTML), and any file whose type the extension
 // does not tell, which the server or the browser would sniff.
 func IsActiveUserContent(filename string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "IsActiveUserContent: filename=%.120q", filename)
+	}
 	ext := strings.ToLower(filepath.Ext(filename))
 	if ext == "" {
 		return true
@@ -55,6 +60,9 @@ func IsActiveUserContent(filename string) bool {
 // other file gets the Content-Type of its extension set here, so a server
 // side guess from its bytes (a .png that holds HTML) never decides it.
 func SetUserContentHeaders(w http.ResponseWriter, filename string) {
+	if logger.IsDebug() {
+		logger.Debugf("utils", "SetUserContentHeaders: filename=%.120q", filename)
+	}
 	if IsActiveUserContent(filename) {
 		w.Header().Set("Content-Security-Policy", UserContentSandbox)
 		w.Header().Set("X-Content-Type-Options", "nosniff")

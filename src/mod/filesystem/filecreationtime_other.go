@@ -3,6 +3,7 @@
 
 package filesystem
 
+import "imuslab.com/arozos/mod/info/logger"
 import "os"
 
 /*
@@ -13,5 +14,6 @@ creation time as unknown so the caller can grey the field out rather than
 guessing with ctime, which is the inode change time and not a creation time.
 */
 func getFileCreationTime(fileInfo os.FileInfo) (int64, bool) {
+	logger.DebugTrace("filesystem", "getFileCreationTime")
 	return 0, false
 }

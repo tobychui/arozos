@@ -14,6 +14,8 @@ package model
 import (
 	"encoding/json"
 	"errors"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Document is the Docs document body
@@ -56,6 +58,9 @@ const (
 // HFOnPage reports whether the header/footer text shows on the given
 // 1-based page number under mode
 func HFOnPage(mode string, page int) bool {
+	if logger.IsDebug() {
+		logger.Debugf("office/model", "HFOnPage: mode=%.120q page=%d", mode, page)
+	}
 	switch mode {
 	case HFModeNone:
 		return false
@@ -69,6 +74,9 @@ func HFOnPage(mode string, page int) bool {
 // it is its own page-setup option, but a suppressed first page suppresses
 // its number too (the same thing Word's titlePg does)
 func HFPageNumberOn(doc *Document, page int) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/model", "HFPageNumberOn: page=%d", page)
+	}
 	return doc.PageNumbers && (doc.HFMode != HFModeExceptFirst || page > 1)
 }
 
@@ -95,6 +103,9 @@ type MarginsMM struct {
 
 // ParseDocumentJSON decodes the Docs body JSON into a Document
 func ParseDocumentJSON(jsonStr string) (*Document, error) {
+	if logger.IsDebug() {
+		logger.Debugf("office/model", "ParseDocumentJSON: jsonStr=%.120q", jsonStr)
+	}
 	d := Document{}
 	if err := json.Unmarshal([]byte(jsonStr), &d); err != nil {
 		return nil, errors.New("invalid document JSON: " + err.Error())
@@ -104,6 +115,7 @@ func ParseDocumentJSON(jsonStr string) (*Document, error) {
 
 // DocumentToJSON serializes a Document back to the Docs body JSON
 func DocumentToJSON(d *Document) (string, error) {
+	logger.Debug("office/model", "DocumentToJSON")
 	if d == nil {
 		return "", errors.New("nil document")
 	}

@@ -1,5 +1,7 @@
 package main
 
+import "imuslab.com/arozos/mod/info/logger"
+
 /*
 	Device Handler
 
@@ -8,6 +10,7 @@ package main
 */
 
 func DeviceServiceInit() {
+	logger.Debug("Core", "DeviceServiceInit")
 	//Register Device related settings. Compatible to ArOZ Online Beta
 	registerSetting(settingModule{
 		Name:     "Client Device",

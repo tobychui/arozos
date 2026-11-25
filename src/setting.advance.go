@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	autologin "imuslab.com/arozos/mod/auth/autologin"
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -15,6 +16,7 @@ import (
 */
 
 func AdvanceSettingInit() {
+	logger.Debug("Core", "AdvanceSettingInit")
 	/*
 
 		Define common routers

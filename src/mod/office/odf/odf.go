@@ -22,6 +22,7 @@ import (
 	"path"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/media"
 )
 
@@ -45,6 +46,7 @@ type onodeChild struct {
 }
 
 func parseOdfXML(data []byte) (*onode, error) {
+	logger.DebugTrace("office/odf", "parseOdfXML")
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	root := &onode{name: "#root", attrs: map[string]string{}}
 	stack := []*onode{root}
@@ -79,9 +81,17 @@ func parseOdfXML(data []byte) (*onode, error) {
 	return root, nil
 }
 
-func (n *onode) attr(name string) string { return n.attrs[name] }
+func (n *onode) attr(name string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "onode.attr: name=%.120q", name)
+	}
+	return n.attrs[name]
+}
 
 func (n *onode) first(name string) *onode {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "onode.first: name=%.120q", name)
+	}
 	for _, c := range n.children {
 		if c.el != nil && c.el.name == name {
 			return c.el
@@ -91,6 +101,9 @@ func (n *onode) first(name string) *onode {
 }
 
 func (n *onode) all(name string) []*onode {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "onode.all: name=%.120q", name)
+	}
 	var out []*onode
 	for _, c := range n.children {
 		if c.el != nil && c.el.name == name {
@@ -101,6 +114,9 @@ func (n *onode) all(name string) []*onode {
 }
 
 func (n *onode) path(names ...string) *onode {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "onode.path: len(names)=%d", len(names))
+	}
 	cur := n
 	for _, nm := range names {
 		cur = cur.first(nm)
@@ -113,6 +129,7 @@ func (n *onode) path(names ...string) *onode {
 
 // allText concatenates every text run under n in document order
 func (n *onode) allText() string {
+	logger.DebugTrace("office/odf", "onode.allText")
 	var sb strings.Builder
 	var walk func(x *onode)
 	walk = func(x *onode) {
@@ -149,6 +166,9 @@ const odfNs = `xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" `
 // buildOdfZip assembles a valid ODF package: stored mimetype first, then
 // the parts and pictures, with a generated manifest
 func buildOdfZip(mime string, parts map[string]string, pictures []media.Entry) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "buildOdfZip: len(parts)=%d len(pictures)=%d", len(parts), len(pictures))
+	}
 	buf := new(bytes.Buffer)
 	zw := zip.NewWriter(buf)
 
@@ -215,6 +235,7 @@ func buildOdfZip(mime string, parts map[string]string, pictures []media.Entry) (
 // readOdfZip loads an ODF package into a filename -> bytes map and returns
 // its declared mimetype ("" when absent)
 func readOdfZip(data []byte) (map[string][]byte, string, error) {
+	logger.DebugTrace("office/odf", "readOdfZip")
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, "", errors.New("not a valid OpenDocument (zip) file")
@@ -242,6 +263,7 @@ func readOdfZip(data []byte) (map[string][]byte, string, error) {
 
 // odfMeta renders a minimal meta.xml
 func odfMeta() string {
+	logger.DebugTrace("office/odf", "odfMeta")
 	return `<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
 		`<office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" ` +
 		`xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" office:version="1.2">` +
@@ -253,11 +275,17 @@ func odfMeta() string {
 
 // px -> "N.NNNcm" (ODF wants absolute lengths; 96 px per inch)
 func pxToCm(px float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "pxToCm: px=%g", px)
+	}
 	return fmt.Sprintf("%.3fcm", px*2.54/96.0)
 }
 
 // "N.NNcm" / "Nmm" / "Nin" / "Npt" -> px (0 when unparseable)
 func odfLenToPx(s string) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "odfLenToPx: s=%.120q", s)
+	}
 	s = strings.TrimSpace(s)
 	var v float64
 	var unit string
@@ -281,12 +309,18 @@ func odfLenToPx(s string) float64 {
 
 // mm -> "N.NNNcm" for page geometry
 func mmToCm(mm float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "mmToCm: mm=%g", mm)
+	}
 	return fmt.Sprintf("%.3fcm", mm/10.0)
 }
 
 // odfPicture registers picture bytes decoded from a data URL; returns the
 // package path ("" when the src is not an embeddable data URL)
 func odfPicture(src string, pics *[]media.Entry) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/odf", "odfPicture: src=%.120q", src)
+	}
 	data, ext, ok := media.DecodeDataURL(src)
 	if !ok {
 		return ""

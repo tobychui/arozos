@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -56,6 +57,9 @@ type ModuleHandler struct {
 }
 
 func NewModuleHandler(userHandler *user.UserHandler, tmpFolderPath string) *ModuleHandler {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("modules", "NewModuleHandler: tmpFolderPath=%.120q", tmpFolderPath)
+	}
 	return &ModuleHandler{
 		LoadedModule:    []*ModuleInfo{},
 		userHandler:     userHandler,
@@ -67,12 +71,18 @@ func NewModuleHandler(userHandler *user.UserHandler, tmpFolderPath string) *Modu
 // RegisterExtIcon stores a web-root-relative icon path for the given file extension.
 // ext may include or omit a leading dot; it is normalised to lowercase without dot.
 func (m *ModuleHandler) RegisterExtIcon(ext, iconPath string) {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.RegisterExtIcon: ext=%.120q iconPath=%.120q", ext, iconPath)
+	}
 	ext = strings.ToLower(strings.TrimPrefix(ext, "."))
 	m.extIconRegistry[ext] = iconPath
 }
 
 // HandleGetExtIcons serves the extension-to-icon registry as a JSON object.
 func (m *ModuleHandler) HandleGetExtIcons(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.HandleGetExtIcons: r=%s", logger.RequestSummary(r))
+	}
 	js, _ := json.Marshal(m.extIconRegistry)
 	utils.SendJSONResponse(w, string(js))
 }
@@ -82,6 +92,9 @@ func (m *ModuleHandler) HandleGetExtIcons(w http.ResponseWriter, r *http.Request
 // viewers and tools on the user's own files, so they stay as open as the
 // Utilities they were split from.
 func IsUniversalGroup(group string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "IsUniversalGroup: group=%.120q", group)
+	}
 	switch strings.ToLower(strings.TrimSpace(group)) {
 	case "utilities", "system tools":
 		return true
@@ -91,6 +104,7 @@ func IsUniversalGroup(group string) bool {
 
 // Register endpoint. Provide moduleInfo datastructure or unparsed json
 func (m *ModuleHandler) RegisterModule(module ModuleInfo) {
+	logger.Debug("modules", "ModuleHandler.RegisterModule")
 	if m.IsModuleDisabled(module.Name) && !isProtectedModule(&module) {
 		//Switched off by an admin: keep it listed for the module manager only
 		m.DisabledModule = append(m.DisabledModule, &module)
@@ -108,6 +122,7 @@ func (m *ModuleHandler) RegisterModule(module ModuleInfo) {
 
 // Sort the module list
 func (m *ModuleHandler) ModuleSortList() {
+	logger.DebugTrace("modules", "ModuleHandler.ModuleSortList")
 	sort.Slice(m.LoadedModule, func(i, j int) bool {
 		return m.LoadedModule[i].Name < m.LoadedModule[j].Name
 	})
@@ -115,6 +130,9 @@ func (m *ModuleHandler) ModuleSortList() {
 
 // Register a module from JSON string
 func (m *ModuleHandler) RegisterModuleFromJSON(jsonstring string, allowReload bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.RegisterModuleFromJSON: jsonstring=%.120q allowReload=%t", jsonstring, allowReload)
+	}
 	var thisModuleInfo ModuleInfo
 	err := json.Unmarshal([]byte(jsonstring), &thisModuleInfo)
 	if err != nil {
@@ -129,6 +147,9 @@ func (m *ModuleHandler) RegisterModuleFromJSON(jsonstring string, allowReload bo
 // Register a module from AGI script. sourceFolder is the folder of the init.agi
 // that registered it (e.g. "web/Office"), empty if unknown.
 func (m *ModuleHandler) RegisterModuleFromAGI(sourceFolder string, jsonstring string) error {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.RegisterModuleFromAGI: sourceFolder=%.120q jsonstring=%.120q", sourceFolder, jsonstring)
+	}
 	var thisModuleInfo ModuleInfo
 	err := json.Unmarshal([]byte(jsonstring), &thisModuleInfo)
 	if err != nil {
@@ -143,6 +164,9 @@ func (m *ModuleHandler) RegisterModuleFromAGI(sourceFolder string, jsonstring st
 }
 
 func (m *ModuleHandler) DeregisterModule(moduleName string) {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.DeregisterModule: moduleName=%.120q", moduleName)
+	}
 	newLoadedModuleList := []*ModuleInfo{}
 	for _, thisModule := range m.LoadedModule {
 		if thisModule.Name != moduleName {
@@ -157,6 +181,9 @@ func (m *ModuleHandler) DeregisterModule(moduleName string) {
 // e.g. "web/Office" -> Docs, Sheets, Slides. The folder is matched ignoring
 // case, like module names in permission checks.
 func (m *ModuleHandler) GetModulesFromSourceFolder(folder string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.GetModulesFromSourceFolder: folder=%.120q", folder)
+	}
 	result := []string{}
 	if folder == "" {
 		return result
@@ -172,6 +199,7 @@ func (m *ModuleHandler) GetModulesFromSourceFolder(folder string) []string {
 
 // Get a list of module names
 func (m *ModuleHandler) GetModuleNameList() []string {
+	logger.Debug("modules", "ModuleHandler.GetModuleNameList")
 	result := []string{}
 	for _, module := range m.LoadedModule {
 		result = append(result, module.Name)
@@ -181,6 +209,9 @@ func (m *ModuleHandler) GetModuleNameList() []string {
 
 // GetModuleListJSONForUser returns a JSON string of all modules the given username can access
 func (m *ModuleHandler) GetModuleListJSONForUser(username string) string {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.GetModuleListJSONForUser: username=%.120q", username)
+	}
 	userinfo, err := m.userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
 		return "[]"
@@ -197,6 +228,9 @@ func (m *ModuleHandler) GetModuleListJSONForUser(username string) string {
 
 // Handle Default Launcher
 func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.HandleDefaultLauncher: r=%s", logger.RequestSummary(r))
+	}
 	username, _ := m.userHandler.GetAuthAgent().GetUserName(w, r)
 	opr, _ := utils.GetPara(r, "opr") //Operation, accept {get, set, launch}
 	ext, _ := utils.GetPara(r, "ext")
@@ -289,6 +323,9 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 }
 
 func (m *ModuleHandler) ListLoadedModules(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.ListLoadedModules: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, _ := m.userHandler.GetUserInfoFromRequest(w, r)
 
 	///Parse a list of modules where the user has permission to access
@@ -305,6 +342,9 @@ func (m *ModuleHandler) ListLoadedModules(w http.ResponseWriter, r *http.Request
 }
 
 func (m *ModuleHandler) GetModuleInfoByID(moduleid string) *ModuleInfo {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.GetModuleInfoByID: moduleid=%.120q", moduleid)
+	}
 	for _, module := range m.LoadedModule {
 		if module.Name == moduleid {
 			return module
@@ -314,6 +354,9 @@ func (m *ModuleHandler) GetModuleInfoByID(moduleid string) *ModuleInfo {
 }
 
 func (m *ModuleHandler) GetLaunchParameter(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("modules", "ModuleHandler.GetLaunchParameter: r=%s", logger.RequestSummary(r))
+	}
 	moduleName, _ := utils.GetPara(r, "module")
 	if moduleName == "" {
 		utils.SendErrorResponse(w, "Missing paramter 'module'.")

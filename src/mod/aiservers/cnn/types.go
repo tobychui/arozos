@@ -3,6 +3,8 @@ package cnn
 import (
 	"encoding/json"
 	"fmt"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Dims is the decoded source image's dimensions in pixels.
@@ -47,6 +49,7 @@ type APIError struct {
 }
 
 func (e *APIError) Error() string {
+	logger.DebugTrace("aiservers/cnn", "APIError.Error")
 	if e.Code != "" {
 		return fmt.Sprintf("cnn: %s (%s)", e.Message, e.Code)
 	}
@@ -119,6 +122,9 @@ type imageRequest struct {
 }
 
 func newImageRequest(image []byte, mimeType string, opt RequestOptions) imageRequest {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("aiservers/cnn", "newImageRequest: len(image)=%d", len(image))
+	}
 	return imageRequest{
 		Model:          opt.Model,
 		Image:          dataURI(image, mimeType),

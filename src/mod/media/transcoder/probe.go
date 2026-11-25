@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const codecProbeTimeout = 30 * time.Second
@@ -66,6 +68,9 @@ var browserAudioCodecs = map[string]bool{
 // tenBitPixelFormats are the high-depth formats browsers generally refuse for
 // H.264. Even where the codec is supported, 10-bit H.264 (High 10) is not.
 func isHighBitDepth(pixFmt string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "isHighBitDepth: pixFmt=%.120q", pixFmt)
+	}
 	f := strings.ToLower(pixFmt)
 	return strings.Contains(f, "10le") || strings.Contains(f, "10be") ||
 		strings.Contains(f, "12le") || strings.Contains(f, "12be") ||
@@ -74,6 +79,9 @@ func isHighBitDepth(pixFmt string) bool {
 
 // ProbeMediaCodecs inspects a file and reports its primary streams.
 func ProbeMediaCodecs(inputFile string) (*MediaCodecInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "ProbeMediaCodecs: inputFile=%.120q", inputFile)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), codecProbeTimeout)
 	defer cancel()
 
@@ -97,6 +105,9 @@ func ProbeMediaCodecs(inputFile string) (*MediaCodecInfo, error) {
 // parseMediaCodecs maps ffprobe output onto a playability verdict. Separated
 // from the exec call so the rules can be unit-tested without ffmpeg present.
 func parseMediaCodecs(probeJSON []byte) (*MediaCodecInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("media/transcoder", "parseMediaCodecs: len(probeJSON)=%d", len(probeJSON))
+	}
 	var parsed struct {
 		Streams []struct {
 			CodecName string `json:"codec_name"`

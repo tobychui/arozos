@@ -7,11 +7,14 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // hostStorageUsage reports used/total bytes of the filesystem holding the
 // current working directory.
 func hostStorageUsage() (int64, int64, bool) {
+	logger.Debug("docker", "hostStorageUsage")
 	var st syscall.Statfs_t
 	if err := syscall.Statfs(".", &st); err != nil {
 		return 0, 0, false
@@ -27,6 +30,7 @@ func hostStorageUsage() (int64, int64, bool) {
 
 // hostLoadAvg reads the 1/5/15-minute load averages from /proc/loadavg.
 func hostLoadAvg() (float64, float64, float64, bool) {
+	logger.Debug("docker", "hostLoadAvg")
 	data, err := os.ReadFile("/proc/loadavg")
 	if err != nil {
 		return 0, 0, 0, false

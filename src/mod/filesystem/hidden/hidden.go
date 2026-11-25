@@ -3,6 +3,8 @@ package hidden
 import (
 	"path/filepath"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -16,11 +18,17 @@ import (
 
 // Hide a given folder
 func HideFile(folderpath string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/hidden", "HideFile: folderpath=%.120q", folderpath)
+	}
 	return hide(folderpath)
 }
 
 // Check if a given file is hidden. Set recursive to true if you want to check if the file located inside a hidden folder
 func IsHidden(filename string, recursive bool) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/hidden", "IsHidden: filename=%.120q recursive=%t", filename, recursive)
+	}
 	if recursive {
 		filename = filepath.ToSlash(filename)
 		chunks := strings.Split(filename, "/")

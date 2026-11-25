@@ -12,6 +12,7 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
 )
 
@@ -30,6 +31,7 @@ type Token struct {
 
 // Create a new CSRF Token Manager
 func NewTokenManager(uh *user.UserHandler, tokenExpireTime int64) *TokenManager {
+	logger.Debug("security/csrf", "NewTokenManager")
 	tm := TokenManager{
 		UserHandler:            uh,
 		csrfTokens:             &sync.Map{},
@@ -40,6 +42,9 @@ func NewTokenManager(uh *user.UserHandler, tokenExpireTime int64) *TokenManager 
 
 // Generate a new token
 func (m *TokenManager) GenerateNewToken(username string) string {
+	if logger.IsDebug() {
+		logger.Debugf("security/csrf", "TokenManager.GenerateNewToken: username=%.120q", username)
+	}
 	//Generate a new uuid as the token
 	newUUID := uuid.NewV4().String()
 
@@ -59,6 +64,9 @@ func (m *TokenManager) GenerateNewToken(username string) string {
 }
 
 func (m *TokenManager) GetUserTokenMap(username string) *sync.Map {
+	if logger.IsDebug() {
+		logger.Debugf("security/csrf", "TokenManager.GetUserTokenMap: username=%.120q", username)
+	}
 	usermap, ok := m.csrfTokens.Load(username)
 	if !ok {
 		//This user do not have his syncmap. Create one and save it
@@ -74,6 +82,9 @@ func (m *TokenManager) GetUserTokenMap(username string) *sync.Map {
 
 // Check if a given token is valud
 func (m *TokenManager) CheckTokenValidation(username string, token string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("security/csrf", "TokenManager.CheckTokenValidation: username=%.120q", username)
+	}
 	userSyncMap := m.GetUserTokenMap(username)
 	tokenObject, ok := userSyncMap.Load(token)
 	if !ok {
@@ -95,6 +106,7 @@ func (m *TokenManager) CheckTokenValidation(username string, token string) bool 
 }
 
 func (m *TokenManager) ClearExpiredTokens() {
+	logger.Debug("security/csrf", "TokenManager.ClearExpiredTokens")
 	currentTime := time.Now().Unix()
 	m.csrfTokens.Range(func(username, usermap interface{}) bool {
 		//For each user tokens

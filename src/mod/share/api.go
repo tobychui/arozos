@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/share/shareEntry"
 	"imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
@@ -36,6 +37,7 @@ type EndpointRegistrar interface {
 // RegisterAPIEndpoints mounts the share management API on the given router.
 // The router is expected to handle login and module permission checks.
 func (s *Manager) RegisterAPIEndpoints(router EndpointRegistrar) {
+	logger.Debug("share", "Manager.RegisterAPIEndpoints")
 	router.HandleFunc(APIPrefix+"info", s.HandleShareInfo)
 	router.HandleFunc(APIPrefix+"create", s.HandleCreateShare)
 	router.HandleFunc(APIPrefix+"update", s.HandleUpdateShare)
@@ -71,6 +73,7 @@ type ShareInfo struct {
 }
 
 func newShareInfo(so *shareEntry.ShareOption, now time.Time) *ShareInfo {
+	logger.DebugTrace("share", "newShareInfo")
 	return &ShareInfo{
 		UUID:            so.UUID,
 		FileVirtualPath: so.FileVirtualPath,
@@ -90,6 +93,7 @@ func newShareInfo(so *shareEntry.ShareOption, now time.Time) *ShareInfo {
 }
 
 func sendJSON(w http.ResponseWriter, v interface{}) {
+	logger.Debug("share", "sendJSON")
 	js, err := json.Marshal(v)
 	if err != nil {
 		utils.SendErrorResponse(w, "Unable to encode response")
@@ -101,6 +105,9 @@ func sendJSON(w http.ResponseWriter, v interface{}) {
 // requirePost rejects requests that change state through GET, so a share
 // cannot be created or edited by an image tag or a link on another site.
 func requirePost(w http.ResponseWriter, r *http.Request) bool {
+	if logger.IsDebug() {
+		logger.Debugf("share", "requirePost: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		utils.SendErrorResponse(w, "Method not allowed")
@@ -125,6 +132,9 @@ is optional, a missing field is left unchanged.
 	expireIn       seconds from now, takes priority over expireAt
 */
 func parseShareSettings(r *http.Request) (shareEntry.ShareSettings, error) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "parseShareSettings: r=%s", logger.RequestSummary(r))
+	}
 	settings := shareEntry.ShareSettings{}
 	r.ParseForm()
 
@@ -183,6 +193,9 @@ func parseShareSettings(r *http.Request) (shareEntry.ShareSettings, error) {
 }
 
 func splitNameList(list string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("share", "splitNameList: list=%.120q", list)
+	}
 	results := []string{}
 	for _, name := range strings.Split(list, ",") {
 		if name = strings.TrimSpace(name); name != "" {
@@ -200,6 +213,9 @@ will return
 3. mode string
 */
 func validateShareModes(mode string) (bool, string, []string) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "validateShareModes: mode=%.120q", mode)
+	}
 	// user:a,b,c,d
 	validModes := []string{shareEntry.PermissionAnyone, shareEntry.PermissionSignedIn, shareEntry.PermissionSameGroup}
 	if utils.StringInArray(validModes, mode) {
@@ -239,6 +255,9 @@ folderStat walks a shared folder to report its size and file count, which can
 be slow on a large folder, so the dialog asks for it separately.
 */
 func (s *Manager) HandleShareInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.HandleShareInfo: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -292,6 +311,9 @@ func (s *Manager) HandleShareInfo(w http.ResponseWriter, r *http.Request) {
 
 // HandleCreateShare always adds a new share to the given path (POST path + settings)
 func (s *Manager) HandleCreateShare(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.HandleCreateShare: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -323,6 +345,9 @@ func (s *Manager) HandleCreateShare(w http.ResponseWriter, r *http.Request) {
 
 // HandleUpdateShare changes the settings of a share (POST uuid + settings)
 func (s *Manager) HandleUpdateShare(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.HandleUpdateShare: r=%s", logger.RequestSummary(r))
+	}
 	if !requirePost(w, r) {
 		return
 	}
@@ -354,6 +379,9 @@ func (s *Manager) HandleUpdateShare(w http.ResponseWriter, r *http.Request) {
 
 // Check if a file is shared. Returns the first share of the path for older callers.
 func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.HandleShareCheck: r=%s", logger.RequestSummary(r))
+	}
 	//Get the vpath from paramters
 	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
@@ -394,6 +422,9 @@ func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
 
 // Legacy: return the first share of the path, creating one if it is not shared yet
 func (s *Manager) HandleCreateNewShare(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.HandleCreateNewShare: r=%s", logger.RequestSummary(r))
+	}
 	//Get the vpath from paramters
 	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
@@ -434,6 +465,9 @@ func (s *Manager) HandleCreateNewShare(w http.ResponseWriter, r *http.Request) {
 // signedin: Anyone logged in to this system
 // samegroup: The requesting user has the same (or more) user group as the share owner
 func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.HandleEditShare: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -472,6 +506,9 @@ func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
 
 // Delete a share by uuid, or every share on a path by vpath
 func (s *Manager) HandleDeleteShare(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.HandleDeleteShare: r=%s", logger.RequestSummary(r))
+	}
 	//Get userinfo
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -512,6 +549,9 @@ HandleListRecipients lists the users and permission groups a share can be
 given to, for the invite pickers of the share dialog.
 */
 func (s *Manager) HandleListRecipients(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.HandleListRecipients: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -557,6 +597,9 @@ func (s *Manager) HandleListRecipients(w http.ResponseWriter, r *http.Request) {
 
 // List all the shares the user can see (used by the Shares Manager)
 func (s *Manager) HandleListAllShares(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.HandleListAllShares: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -637,5 +680,6 @@ func (s *Manager) HandleListAllShares(w http.ResponseWriter, r *http.Request) {
 
 // shareOwnerOf is a small helper for handlers that need the owner of a share
 func (s *Manager) shareOwnerOf(so *shareEntry.ShareOption) (*user.User, error) {
+	logger.DebugTrace("share", "Manager.shareOwnerOf")
 	return s.options.UserHandler.GetUserInfoFromUsername(so.Owner)
 }

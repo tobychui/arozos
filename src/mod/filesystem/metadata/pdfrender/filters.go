@@ -8,6 +8,8 @@ import (
 	"io"
 
 	"golang.org/x/image/ccitt"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -23,6 +25,7 @@ var errTooLarge = errors.New("pdfrender: stream too large")
 
 // rawStream returns the stream bytes as stored, decrypted
 func (d *Document) rawStream(s *Stream) ([]byte, error) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.rawStream")
 	if s.data != nil || s.offset < 0 {
 		return s.data, nil
 	}
@@ -55,6 +58,7 @@ type filterSpec struct {
 
 // filterList reads /Filter and /DecodeParms (or the inline image short forms)
 func (d *Document) filterList(dict Dict) []filterSpec {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.filterList")
 	f := d.resolve(dict["Filter"])
 	if f == nil {
 		f = d.resolve(dict["F"])
@@ -83,6 +87,7 @@ func (d *Document) filterList(dict Dict) []filterSpec {
 }
 
 func firstOf(o Object) Object {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "firstOf")
 	if a, ok := o.(Array); ok {
 		if len(a) > 0 {
 			return a[0]
@@ -93,6 +98,7 @@ func firstOf(o Object) Object {
 }
 
 func expandFilter(n Name) Name {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "expandFilter")
 	switch n {
 	case "AHx":
 		return "ASCIIHexDecode"
@@ -114,11 +120,15 @@ func expandFilter(n Name) Name {
 
 // isImageCodec reports filters whose output is an image, not a byte stream
 func isImageCodec(n Name) bool {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "isImageCodec")
 	return n == "DCTDecode" || n == "JPXDecode" || n == "JBIG2Decode"
 }
 
 // decodeStream applies every filter of the stream
 func (d *Document) decodeStream(s *Stream, limit int) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.decodeStream: limit=%d", limit)
+	}
 	data, _, _, err := d.decodeStreamImage(s, limit, false)
 	return data, err
 }
@@ -126,6 +136,9 @@ func (d *Document) decodeStream(s *Stream, limit int) ([]byte, error) {
 // decodeStreamImage applies the filters, stopping before an image codec
 // when stopAtImage is set. It returns the data and the remaining codec.
 func (d *Document) decodeStreamImage(s *Stream, limit int, stopAtImage bool) ([]byte, Name, Dict, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.decodeStreamImage: limit=%d stopAtImage=%t", limit, stopAtImage)
+	}
 	data, err := d.rawStream(s)
 	if err != nil {
 		return nil, "", nil, err
@@ -185,6 +198,9 @@ type limitWriter struct {
 }
 
 func (w *limitWriter) Write(p []byte) (int, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "limitWriter.Write: len(p)=%d", len(p))
+	}
 	if w.buf.Len()+len(p) > w.limit {
 		return 0, errTooLarge
 	}
@@ -192,6 +208,9 @@ func (w *limitWriter) Write(p []byte) (int, error) {
 }
 
 func flateDecode(data []byte, limit int) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "flateDecode: limit=%d", limit)
+	}
 	w := &limitWriter{limit: limit}
 	zr, err := zlib.NewReader(bytes.NewReader(data))
 	if err != nil {
@@ -217,6 +236,9 @@ func flateDecode(data []byte, limit int) ([]byte, error) {
 }
 
 func nilIfData(err error, n int) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "nilIfData: err=%v n=%d", err, n)
+	}
 	if n > 0 {
 		return nil
 	}
@@ -224,6 +246,7 @@ func nilIfData(err error, n int) error {
 }
 
 func applyPredictor(d *Document, data []byte, parms Dict) ([]byte, error) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "applyPredictor")
 	if parms == nil {
 		return data, nil
 	}
@@ -310,6 +333,9 @@ func applyPredictor(d *Document, data []byte, parms Dict) ([]byte, error) {
 }
 
 func abs(v int) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "abs: v=%d", v)
+	}
 	if v < 0 {
 		return -v
 	}
@@ -318,6 +344,9 @@ func abs(v int) int {
 
 // lzwDecode is the PDF flavour of LZW (MSB first, optional early change)
 func lzwDecode(data []byte, early int, limit int) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "lzwDecode: early=%d limit=%d", early, limit)
+	}
 	type entry struct {
 		prefix int
 		last   byte
@@ -402,6 +431,7 @@ func lzwDecode(data []byte, early int, limit int) ([]byte, error) {
 }
 
 func asciiHexDecode(data []byte) []byte {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "asciiHexDecode")
 	out := make([]byte, 0, len(data)/2)
 	hi := -1
 	for _, c := range data {
@@ -426,6 +456,7 @@ func asciiHexDecode(data []byte) []byte {
 }
 
 func ascii85Decode(data []byte) []byte {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "ascii85Decode")
 	out := make([]byte, 0, len(data))
 	if bytes.HasPrefix(data, []byte("<~")) {
 		data = data[2:]
@@ -472,6 +503,9 @@ func ascii85Decode(data []byte) []byte {
 }
 
 func runLengthDecode(data []byte, limit int) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "runLengthDecode: limit=%d", limit)
+	}
 	out := make([]byte, 0, len(data)*2)
 	for i := 0; i < len(data); {
 		l := int(data[i])
@@ -503,6 +537,9 @@ func runLengthDecode(data []byte, limit int) ([]byte, error) {
 }
 
 func (d *Document) ccittDecode(data []byte, parms Dict, dict Dict, limit int) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.ccittDecode: limit=%d", limit)
+	}
 	k := 0
 	cols := 1728
 	rows := 0

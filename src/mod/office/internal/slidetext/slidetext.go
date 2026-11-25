@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/fonts"
 	"imuslab.com/arozos/mod/office/internal/units"
 )
@@ -82,6 +83,7 @@ type Style struct {
 // Parse turns the editor's stored HTML into paragraphs. A
 // document with no block markup at all comes back as a single paragraph.
 func Parse(html string, base Style) []Para {
+	logger.Debug("office/internal/slidetext", "Parse")
 	dec := xml.NewDecoder(strings.NewReader("<root>" + html + "</root>"))
 	dec.Strict = false
 	dec.AutoClose = xml.HTMLAutoClose
@@ -229,6 +231,7 @@ func Parse(html string, base Style) []Para {
 // SemiBold' at 600, which is how the reader writes a SemiBold face) is
 // the face itself, and marking it bold as well would draw it heavier.
 func styledRun(st Style, text string) Run {
+	logger.DebugTrace("office/internal/slidetext", "styledRun")
 	bold := st.Bold
 	if st.weight > 0 {
 		bold = st.weight >= 700 || (st.weight >= 600 && fonts.WeightOf(st.Font) < st.weight)
@@ -243,6 +246,7 @@ func styledRun(st Style, text string) Run {
 
 // applyBlockAttrs reads the paragraph-level CSS off a block element
 func applyBlockAttrs(p *Para, el xml.StartElement) {
+	logger.DebugTrace("office/internal/slidetext", "applyBlockAttrs")
 	decls := styleDecls(el)
 	hanging := false
 	for prop, val := range decls {
@@ -286,6 +290,7 @@ const (
 
 // applyInlineAttrs reads run-level CSS and the legacy <font> attributes
 func applyInlineAttrs(st *Style, el xml.StartElement) {
+	logger.DebugTrace("office/internal/slidetext", "applyInlineAttrs")
 	if strings.EqualFold(el.Name.Local, "font") {
 		for _, a := range el.Attr {
 			switch strings.ToLower(a.Name.Local) {
@@ -356,6 +361,7 @@ func applyInlineAttrs(st *Style, el xml.StartElement) {
 // pairs. A font-family keeps its case: it goes back out as a typeface
 // name, which PowerPoint shows as it is spelled.
 func styleDecls(el xml.StartElement) map[string]string {
+	logger.DebugTrace("office/internal/slidetext", "styleDecls")
 	raw := ""
 	for _, a := range el.Attr {
 		if strings.EqualFold(a.Name.Local, "style") {

@@ -5,11 +5,15 @@ import (
 	"net/http"
 	"strconv"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
 // Start the TFTP Server by request
 func (m *Manager) HandleTFTPServerStart(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/tftpserv", "Manager.HandleTFTPServerStart: r=%s", logger.RequestSummary(r))
+	}
 	err := m.StartTftpServer()
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -20,12 +24,18 @@ func (m *Manager) HandleTFTPServerStart(w http.ResponseWriter, r *http.Request) 
 
 // Stop the TFTP server by request
 func (m *Manager) HandleTFTPServerStop(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/tftpserv", "Manager.HandleTFTPServerStop: r=%s", logger.RequestSummary(r))
+	}
 	m.StopTftpServer()
 	utils.SendOK(w)
 }
 
 // Get the TFTP server status
 func (m *Manager) HandleTFTPServerStatus(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/tftpserv", "Manager.HandleTFTPServerStatus: r=%s", logger.RequestSummary(r))
+	}
 	status, err := m.GetTftpServerStatus()
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -38,6 +48,9 @@ func (m *Manager) HandleTFTPServerStatus(w http.ResponseWriter, r *http.Request)
 
 // Handle TFTP Server Port number change
 func (m *Manager) HandleTFTPPort(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/tftpserv", "Manager.HandleTFTPPort: r=%s", logger.RequestSummary(r))
+	}
 	newport, _ := utils.GetPara(r, "port")
 	if newport == "" {
 		//Get current port
@@ -69,6 +82,9 @@ func (m *Manager) HandleTFTPPort(w http.ResponseWriter, r *http.Request) {
 
 // Handle setting the default user for TFTP access
 func (m *Manager) HandleTFTPDefaultUser(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/tftpserv", "Manager.HandleTFTPDefaultUser: r=%s", logger.RequestSummary(r))
+	}
 	username, _ := utils.PostPara(r, "username")
 	if r.Method == http.MethodGet || username == "" {
 		//Get current default user

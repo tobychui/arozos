@@ -103,6 +103,7 @@ type Gateway struct {
 }
 
 func NewGateway(option AgiSysInfo) (*Gateway, error) {
+	logger.Debug("agi", "NewGateway")
 	//Handle startup registration of ajgi modules
 	gatewayObject := Gateway{
 		ReservedTables:   option.ReservedTables,
@@ -124,6 +125,7 @@ func NewGateway(option AgiSysInfo) (*Gateway, error) {
 }
 
 func (g *Gateway) RegisterNightlyOperations() {
+	logger.DebugTrace("agi", "Gateway.RegisterNightlyOperations")
 	g.Option.NightlyManager.RegisterNightlyTask(func() {
 		//This function will execute nightly
 		for _, scriptFile := range g.NightlyScripts {
@@ -150,6 +152,7 @@ func (g *Gateway) RegisterNightlyOperations() {
 }
 
 func (g *Gateway) InitiateAllWebAppModules() {
+	logger.Debug("agi", "Gateway.InitiateAllWebAppModules")
 	startupScripts, _ := filepath.Glob(filepath.ToSlash(filepath.Clean(g.Option.StartupRoot)) + "/*/init.agi")
 	for _, script := range startupScripts {
 		err := g.RunWebAppInitScript(script)
@@ -164,6 +167,7 @@ func (g *Gateway) InitiateAllWebAppModules() {
 // Run a web app's init.agi (e.g. "web/Office/init.agi") with system scope only.
 // The script path is what ties the modules it registers to their source folder.
 func (g *Gateway) RunWebAppInitScript(script string) error {
+	logger.Debug("agi", "Gateway.RunWebAppInitScript")
 	scriptContentByte, err := os.ReadFile(script)
 	if err != nil {
 		return err
@@ -185,6 +189,9 @@ func (g *Gateway) RunWebAppInitScript(script string) error {
 // userCanRunScript checks that the user may use a module of the script's
 // folder, and that an admin has not switched all of that folder's modules off
 func (g *Gateway) userCanRunScript(thisuser *user.User, scriptFile string, scriptScope string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.userCanRunScript: scriptFile=%.120q scriptScope=%.120q", scriptFile, scriptScope)
+	}
 	if g.Option.ScriptFolderDisabled != nil {
 		if folder := static.ScriptSourceFolder(scriptFile, scriptScope); folder != "" && g.Option.ScriptFolderDisabled(folder) {
 			return false
@@ -194,6 +201,9 @@ func (g *Gateway) userCanRunScript(thisuser *user.User, scriptFile string, scrip
 }
 
 func (g *Gateway) RaiseError(err error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.RaiseError: err=%v", err)
+	}
 	if err == nil {
 		return
 	}
@@ -204,6 +214,9 @@ func (g *Gateway) RaiseError(err error) {
 
 // Check if this table is restricted table. Return true if the access is valid
 func (g *Gateway) filterDBTable(tablename string, existsCheck bool) bool {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.filterDBTable: tablename=%.120q existsCheck=%t", tablename, existsCheck)
+	}
 	//Check if table is restricted
 	if utils.StringInArray(g.ReservedTables, tablename) {
 		return false
@@ -221,6 +234,9 @@ func (g *Gateway) filterDBTable(tablename string, existsCheck bool) bool {
 
 // Handle request from RESTFUL API
 func (g *Gateway) APIHandler(w http.ResponseWriter, r *http.Request, thisuser *user.User) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.APIHandler: r=%s", logger.RequestSummary(r))
+	}
 	scriptContent, err := utils.PostPara(r, "script")
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -232,6 +248,9 @@ func (g *Gateway) APIHandler(w http.ResponseWriter, r *http.Request, thisuser *u
 
 // Handle user requests
 func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisuser *user.User) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.InterfaceHandler: r=%s", logger.RequestSummary(r))
+	}
 	//Get user object from the request
 	//startupRoot := g.Option.StartupRoot
 	//startupRoot = filepath.ToSlash(filepath.Clean(startupRoot))
@@ -311,6 +330,9 @@ w / r : Web request and response writer
 thisuser: userObject
 */
 func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSystemHandler, scriptFile string, scriptScope string, w http.ResponseWriter, r *http.Request, thisuser *user.User) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.ExecuteAGIScript: scriptFile=%.120q scriptScope=%.120q r=%s", scriptFile, scriptScope, logger.RequestSummary(r))
+	}
 	// Check if developer debug mode is requested via URL query param (set AGI_DEV=true in ao_module)
 	devMode := r.URL.Query().Get("agi_devmode") == "true"
 
@@ -384,7 +406,15 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 		}
 	}
 
+	runStart := time.Now()
 	_, err := vm.Run(scriptContent)
+	if logger.IsDebug() {
+		debugUser := ""
+		if thisuser != nil {
+			debugUser = thisuser.Username
+		}
+		logger.Debugf("agi", "[%s] %s (scope %q, user %q) ran in %s, error: %v", execID, scriptFile, scriptScope, debugUser, time.Since(runStart), err)
+	}
 	if err != nil {
 		username := ""
 		if thisuser != nil {
@@ -443,6 +473,9 @@ Pass in http.Request pointer to enable serverless GET / POST request
 // Returns (execID, output, error) where execID matches the EXECUTION_ID
 // constant injected into the script's VM environment.
 func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scriptFile string, targetUser *user.User, w http.ResponseWriter, r *http.Request) (string, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.ExecuteAGIScriptAsUser: scriptFile=%.120q r=%s", scriptFile, logger.RequestSummary(r))
+	}
 	//Create a new vm for this request
 	vm := otto.New()
 	//Inject standard libs into the vm; capture the execution ID for log correlation.
@@ -564,6 +597,9 @@ tempFilepath, closerFunction := g.getUserSpecificTempFilePath(u, "myfile.txt")
 closerFunction();
 */
 func (g *Gateway) getUserSpecificTempFilePath(u *user.User, filename string) (string, func()) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.getUserSpecificTempFilePath: filename=%.120q", filename)
+	}
 	uuid := uuid.NewV4().String()
 	tmpFileLocation := filepath.Join(g.Option.TempFolderPath, "agiBuff", u.Username, uuid, filepath.Base(filename))
 	os.MkdirAll(filepath.Dir(tmpFileLocation), 0775)
@@ -576,6 +612,9 @@ func (g *Gateway) getUserSpecificTempFilePath(u *user.User, filename string) (st
 Buffer remote reosurces to local by fsh and rpath. Return buffer filepath on local device and its closer function
 */
 func (g *Gateway) bufferRemoteResourcesToLocal(fsh *filesystem.FileSystemHandler, u *user.User, rpath string) (string, func(), error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.bufferRemoteResourcesToLocal: rpath=%.120q", rpath)
+	}
 	buffFile, closerFunc := g.getUserSpecificTempFilePath(u, rpath)
 	f, err := fsh.FileSystemAbstraction.ReadStream(rpath)
 	if err != nil {

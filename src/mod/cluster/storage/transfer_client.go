@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/cluster/acn"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Client moves files to and from other nodes' volumes.
@@ -29,12 +30,18 @@ type Client struct {
 const chunkRetries = 3
 
 func (c *Client) postJSON(ctx context.Context, nodeID string, path string, in interface{}, out interface{}) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/storage", "Client.postJSON: nodeID=%.120q path=%.120q", nodeID, path)
+	}
 	return c.Transport.DoJSON(ctx, nodeID, http.MethodPost, path, in, out)
 }
 
 // Upload sends size bytes from r to the volume on nodeID, resuming a
 // previous attempt of the same file when the target still has chunks.
 func (c *Client) Upload(ctx context.Context, nodeID string, volumeID string, logical string, fileID string, r io.Reader, size int64, checksum string, progress func(done int64)) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Client.Upload: nodeID=%.120q volumeID=%.120q logical=%.120q fileID=%.120q size=%d checksum=%.120q", nodeID, volumeID, logical, fileID, size, checksum)
+	}
 	var begin BeginResponse
 	if err := c.postJSON(ctx, nodeID, pathBegin, BeginRequest{VolumeID: volumeID, Path: logical, Size: size, Checksum: checksum, FileID: fileID}, &begin); err != nil {
 		return err
@@ -104,12 +111,18 @@ func (c *Client) Upload(ctx context.Context, nodeID string, volumeID string, log
 // signature covers the body; extra headers ride along unsigned (the chunk
 // hash is re-verified against the signed body on the receiver).
 func (c *Client) doRaw(ctx context.Context, nodeID string, path string, body []byte, extra http.Header) (*acn.Response, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/storage", "Client.doRaw: nodeID=%.120q path=%.120q", nodeID, path)
+	}
 	return c.Transport.DoWithHeaders(ctx, nodeID, http.MethodPost, path, body, extra)
 }
 
 // Download streams the file on the given volume into w, verifying every
 // chunk and the whole-file checksum when expectChecksum is set.
 func (c *Client) Download(ctx context.Context, nodeID string, volumeID string, logical string, w io.Writer, expectChecksum string, progress func(done int64)) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Client.Download: nodeID=%.120q volumeID=%.120q logical=%.120q expectChecksum=%.120q", nodeID, volumeID, logical, expectChecksum)
+	}
 	h := sha256.New()
 	var offset int64
 	var total int64 = -1
@@ -160,6 +173,9 @@ func (c *Client) Download(ctx context.Context, nodeID string, volumeID string, l
 
 // Stat asks a node about a path on one of its volumes.
 func (c *Client) Stat(ctx context.Context, nodeID string, volumeID string, logical string) (*StatResponse, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Client.Stat: nodeID=%.120q volumeID=%.120q logical=%.120q", nodeID, volumeID, logical)
+	}
 	q := url.Values{"volume": {volumeID}, "path": {logical}}
 	resp, err := c.Transport.Do(ctx, nodeID, http.MethodGet, pathStatFile+"?"+q.Encode(), nil)
 	if err != nil {
@@ -177,21 +193,33 @@ func (c *Client) Stat(ctx context.Context, nodeID string, volumeID string, logic
 
 // Mkdir creates a directory on a remote volume.
 func (c *Client) Mkdir(ctx context.Context, nodeID string, volumeID string, logical string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/storage", "Client.Mkdir: nodeID=%.120q volumeID=%.120q logical=%.120q", nodeID, volumeID, logical)
+	}
 	return c.postJSON(ctx, nodeID, pathMkdir, PathRequest{VolumeID: volumeID, Path: logical}, nil)
 }
 
 // Delete removes a path on a remote volume.
 func (c *Client) Delete(ctx context.Context, nodeID string, volumeID string, logical string, recursive bool) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/storage", "Client.Delete: nodeID=%.120q volumeID=%.120q logical=%.120q recursive=%t", nodeID, volumeID, logical, recursive)
+	}
 	return c.postJSON(ctx, nodeID, pathDelete, PathRequest{VolumeID: volumeID, Path: logical, Recursive: recursive}, nil)
 }
 
 // Rename moves a path within a remote volume.
 func (c *Client) Rename(ctx context.Context, nodeID string, volumeID string, from string, to string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/storage", "Client.Rename: nodeID=%.120q volumeID=%.120q from=%.120q to=%.120q", nodeID, volumeID, from, to)
+	}
 	return c.postJSON(ctx, nodeID, pathRename, PathRequest{VolumeID: volumeID, Path: from, NewPath: to}, nil)
 }
 
 // List reads a directory on a remote volume.
 func (c *Client) List(ctx context.Context, nodeID string, volumeID string, logical string) ([]ListEntry, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Client.List: nodeID=%.120q volumeID=%.120q logical=%.120q", nodeID, volumeID, logical)
+	}
 	q := url.Values{"volume": {volumeID}, "path": {logical}}
 	resp, err := c.Transport.Do(ctx, nodeID, http.MethodGet, pathList+"?"+q.Encode(), nil)
 	if err != nil {
@@ -209,6 +237,9 @@ func (c *Client) List(ctx context.Context, nodeID string, volumeID string, logic
 
 // Checksum asks a node to hash a file on one of its volumes.
 func (c *Client) Checksum(ctx context.Context, nodeID string, volumeID string, logical string) (*ChecksumResponse, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/storage", "Client.Checksum: nodeID=%.120q volumeID=%.120q logical=%.120q", nodeID, volumeID, logical)
+	}
 	var out ChecksumResponse
 	if err := c.postJSON(ctx, nodeID, pathChecksum, PathRequest{VolumeID: volumeID, Path: logical}, &out); err != nil {
 		return nil, err

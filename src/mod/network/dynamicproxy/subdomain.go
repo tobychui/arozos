@@ -14,6 +14,9 @@ import (
 */
 
 func (router *Router) AddSubdomainRoutingService(hostnameWithSubdomain string, domain string, requireTLS bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("network/dynamicproxy", "Router.AddSubdomainRoutingService: hostnameWithSubdomain=%.120q domain=%.120q requireTLS=%t", hostnameWithSubdomain, domain, requireTLS)
+	}
 	if domain[len(domain)-1:] == "/" {
 		domain = domain[:len(domain)-1]
 	}

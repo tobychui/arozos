@@ -9,22 +9,30 @@ import (
 	"net/http"
 	"strconv"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
 func sendJSON(w http.ResponseWriter, v interface{}) {
+	logger.Debug("cluster/scheduling", "sendJSON")
 	js, _ := json.Marshal(v)
 	utils.SendJSONResponse(w, string(js))
 }
 
 // HandleStatus returns the weights and a per-node score preview.
 func (s *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/scheduling", "Manager.HandleStatus: r=%s", logger.RequestSummary(r))
+	}
 	sendJSON(w, s.Status())
 }
 
 // HandleWeights reads (GET) or updates (POST) the weights. POST accepts any
 // subset of the fields; missing ones keep their current value.
 func (s *Manager) HandleWeights(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/scheduling", "Manager.HandleWeights: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		sendJSON(w, s.Weights())
 		return
@@ -67,6 +75,7 @@ type Explainer func(r *http.Request) (interface{}, error)
 // /system/cluster/sched/explain and is provided by the core because it needs
 // the job records.
 func (s *Manager) RegisterAdminRoutes(register func(pattern string, handler func(http.ResponseWriter, *http.Request)), explain Explainer) {
+	logger.Debug("cluster/scheduling", "Manager.RegisterAdminRoutes")
 	register("/system/cluster/sched/status", s.HandleStatus)
 	register("/system/cluster/sched/weights", s.HandleWeights)
 	if explain != nil {

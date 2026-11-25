@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/model"
 )
 
@@ -27,6 +28,9 @@ type sharedFormula struct {
 // parts stay, string literals and quoted sheet names are left alone, and a
 // reference pushed off the grid becomes #REF!.
 func shiftFormulaRefs(f string, dCol, dRow int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "shiftFormulaRefs: f=%.120q dCol=%d dRow=%d", f, dCol, dRow)
+	}
 	if dCol == 0 && dRow == 0 {
 		return f
 	}
@@ -82,6 +86,9 @@ type a1Ref struct {
 }
 
 func (r a1Ref) shifted(dCol, dRow int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "a1Ref.shifted: dCol=%d dRow=%d", dCol, dRow)
+	}
 	c, rw := r.col, r.row
 	if !r.absC {
 		c += dCol
@@ -107,6 +114,9 @@ func (r a1Ref) shifted(dCol, dRow int) string {
 // matchCellRef reads $A$1 / A1 / $AB12 at the start of s. It refuses
 // function names (LOG10(), sheet names (Q1!) and longer identifiers.
 func matchCellRef(s string) (a1Ref, int, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "matchCellRef: s=%.120q", s)
+	}
 	var r a1Ref
 	i := 0
 	if i < len(s) && s[i] == '$' {
@@ -149,10 +159,16 @@ func matchCellRef(s string) (a1Ref, int, bool) {
 }
 
 func isASCIILetter(c byte) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "isASCIILetter: c=%d", c)
+	}
 	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
 }
 
 func isFormulaIdentChar(c byte) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "isFormulaIdentChar: c=%d", c)
+	}
 	return isASCIILetter(c) || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '$'
 }
 
@@ -186,6 +202,7 @@ var xlFutureFunctions = map[string]bool{
 var xlDynamicArrayFunctions = map[string]bool{"FILTER": true, "SORT": true}
 
 func init() {
+	logger.DebugTrace("office/xlsx", "init")
 	for _, n := range []string{"UNIQUE", "SEQUENCE", "RANDARRAY", "TAKE", "DROP", "EXPAND", "HSTACK", "VSTACK",
 		"TOCOL", "TOROW", "CHOOSECOLS", "CHOOSEROWS", "WRAPCOLS", "WRAPROWS", "TEXTSPLIT", "MODE.MULT", "SINGLE"} {
 		xlFutureFunctions[n] = true
@@ -216,6 +233,9 @@ Google Sheets ARRAYFORMULA(x), which Excel does not know, is written as a
 dynamic-array x anchored at the cell itself.
 */
 func arrayFormula(body, spill, cellRef string) (string, string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "arrayFormula: spill=%.120q cellRef=%.120q", spill, cellRef)
+	}
 	trimmed := strings.TrimSpace(body)
 	if strings.HasPrefix(strings.ToUpper(trimmed), "ARRAYFORMULA(") && strings.HasSuffix(trimmed, ")") {
 		inner := trimmed[len("ARRAYFORMULA(") : len(trimmed)-1]
@@ -231,6 +251,9 @@ func arrayFormula(body, spill, cellRef string) (string, string) {
 
 // balancedParens reports whether the parentheses outside string literals pair up
 func balancedParens(f string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "balancedParens: f=%.120q", f)
+	}
 	depth, inStr := 0, false
 	for i := 0; i < len(f); i++ {
 		switch f[i] {
@@ -255,6 +278,9 @@ func balancedParens(f string) bool {
 // scanFormula walks a formula, handing every identifier outside string
 // literals and quoted sheet names to fn, which returns its replacement
 func scanFormula(f string, fn func(ident string, callsFunction bool) string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "scanFormula: f=%.120q", f)
+	}
 	var out strings.Builder
 	n := len(f)
 	for i := 0; i < n; {
@@ -295,6 +321,9 @@ func scanFormula(f string, fn func(ident string, callsFunction bool) string) str
 
 // stripXlPrefixes removes _xlfn. / _xlws. / _xlpm. from a formula read from xlsx
 func stripXlPrefixes(f string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "stripXlPrefixes: f=%.120q", f)
+	}
 	if !strings.Contains(strings.ToLower(f), "_xl") {
 		return f
 	}
@@ -312,6 +341,9 @@ func stripXlPrefixes(f string) string {
 
 // addXlPrefixes marks future functions with _xlfn. for a formula written to xlsx
 func addXlPrefixes(f string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "addXlPrefixes: f=%.120q", f)
+	}
 	return scanFormula(f, func(ident string, callsFunction bool) string {
 		up := strings.ToUpper(ident)
 		if callsFunction && xlDynamicArrayFunctions[up] {

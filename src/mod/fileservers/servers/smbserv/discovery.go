@@ -39,6 +39,7 @@ type announcer struct {
 
 // discoverable is the admin setting, on by default.
 func (m *Manager) discoverable() bool {
+	logger.Debug("fileservers/servers/smbserv", "Manager.discoverable")
 	on := true
 	if m.opt.Sysdb.KeyExists(settingsTable, "discover") {
 		m.opt.Sysdb.Read(settingsTable, "discover", &on)
@@ -49,6 +50,7 @@ func (m *Manager) discoverable() bool {
 // discoveryUUID is the device id Windows remembers this computer by. It must
 // not change between restarts, or Explorer lists the computer twice.
 func (m *Manager) discoveryUUID() string {
+	logger.Debug("fileservers/servers/smbserv", "Manager.discoveryUUID")
 	sum := sha256.Sum256([]byte("arozos-wsd-" + m.opt.DeviceID))
 	sum[6] = sum[6]&0x0f | 0x50
 	sum[8] = sum[8]&0x3f | 0x80
@@ -58,6 +60,9 @@ func (m *Manager) discoveryUUID() string {
 // announce starts what the settings allow. Nothing here stops the server
 // from running: a port another program holds is logged and left out.
 func (m *Manager) announce(port int) *announcer {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/smbserv", "Manager.announce: port=%d", port)
+	}
 	if !m.discoverable() {
 		return nil
 	}
@@ -103,6 +108,7 @@ func (m *Manager) announce(port int) *announcer {
 }
 
 func (a *announcer) stop() {
+	logger.Debug("fileservers/servers/smbserv", "announcer.stop")
 	if a == nil {
 		return
 	}
@@ -121,15 +127,20 @@ func (a *announcer) stop() {
 // system flags, then one disk, the TimeMachine share, whose flags 0x82 say
 // it takes Time Machine backups over SMB.
 func timeMachineRecords() []string {
+	logger.DebugTrace("fileservers/servers/smbserv", "timeMachineRecords")
 	return []string{"sys=adVF=0x100", "dk0=adVN=" + aroz.TimeMachineShareName + ",adVF=0x82"}
 }
 
 // wantTimeMachineAnnouncement reports whether any Mac could back up here.
 func (m *Manager) wantTimeMachineAnnouncement() bool {
+	logger.DebugTrace("fileservers/servers/smbserv", "Manager.wantTimeMachineAnnouncement")
 	return m.appleOn() && m.anyTimeMachineDrive()
 }
 
 func registerTimeMachine(name string) *zeroconf.Server {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/smbserv", "registerTimeMachine: name=%.120q", name)
+	}
 	//The port is not used: Macs connect through the _smb._tcp service
 	s, err := registerMDNS(name, "_adisk._tcp", 9, timeMachineRecords())
 	if err != nil {
@@ -142,6 +153,7 @@ func registerTimeMachine(name string) *zeroconf.Server {
 // refreshTimeMachineAnnouncement adds or withdraws the Time Machine record
 // after a user picked a drive or dropped theirs.
 func (m *Manager) refreshTimeMachineAnnouncement() {
+	logger.Debug("fileservers/servers/smbserv", "Manager.refreshTimeMachineAnnouncement")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	a := m.announcer
@@ -167,6 +179,9 @@ func (m *Manager) refreshTimeMachineAnnouncement() {
 // "name.local", so every record pointed at "name.local.local.". A name that
 // already ends in .local is announced through RegisterProxy without it.
 func registerMDNS(instance, service string, port int, txt []string) (*zeroconf.Server, error) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/smbserv", "registerMDNS: instance=%.120q service=%.120q port=%d len(txt)=%d", instance, service, port, len(txt))
+	}
 	if hostname, err := os.Hostname(); err == nil {
 		if host, trimmed := mdnsHostName(hostname); trimmed {
 			if ips := interfaceIPs(); len(ips) > 0 {
@@ -180,6 +195,9 @@ func registerMDNS(instance, service string, port int, txt []string) (*zeroconf.S
 // mdnsHostName removes a ".local" the system host name already carries, and
 // reports whether there was one.
 func mdnsHostName(hostname string) (string, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/smbserv", "mdnsHostName: hostname=%.120q", hostname)
+	}
 	const suffix = ".local"
 	h := strings.TrimSuffix(hostname, ".")
 	if len(h) > len(suffix) && strings.EqualFold(h[len(h)-len(suffix):], suffix) {
@@ -192,6 +210,7 @@ func mdnsHostName(hostname string) (string, bool) {
 // of interfaces that are up and multicast, without loopback, and an
 // interface's link local IPv6 only when it has no global one.
 func interfaceIPs() []string {
+	logger.Debug("fileservers/servers/smbserv", "interfaceIPs")
 	out := []string{}
 	ifaces, err := net.Interfaces()
 	if err != nil {

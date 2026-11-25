@@ -15,10 +15,14 @@ import (
 Functions requested by the file server service router
 */
 func (m *ShareManager) ServerToggle(enabled bool) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("fileservers/servers/samba", "ShareManager.ServerToggle: enabled=%t", enabled)
+	}
 	return SetSmbdEnableState(enabled)
 }
 
 func (m *ShareManager) IsEnabled() bool {
+	logger.Debug("fileservers/servers/samba", "ShareManager.IsEnabled")
 	smbdRunning, err := checkSmbdRunning()
 	if err != nil {
 		logger.PrintAndLog("Samba", "Unable to get smbd state: "+err.Error(), nil)
@@ -29,6 +33,7 @@ func (m *ShareManager) IsEnabled() bool {
 }
 
 func (m *ShareManager) GetEndpoints(userInfo *user.User) []*fileservers.Endpoint {
+	logger.Debug("fileservers/servers/samba", "ShareManager.GetEndpoints")
 	//Get a list of connection endpoint for this user
 	eps := []*fileservers.Endpoint{}
 	for _, fsh := range userInfo.GetAllAccessibleFileSystemHandler() {
@@ -61,6 +66,7 @@ func (m *ShareManager) GetEndpoints(userInfo *user.User) []*fileservers.Endpoint
 }
 
 func checkSmbdRunning() (bool, error) {
+	logger.Debug("fileservers/servers/samba", "checkSmbdRunning")
 	// Run the system command to check the smbd service status
 	cmd := exec.Command("systemctl", "is-active", "--quiet", "smbd")
 	err := cmd.Run()

@@ -6,10 +6,13 @@ package filesystem
 import (
 	"os"
 	"syscall"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // macOS (HFS+ / APFS) exposes the birth time as part of stat
 func getFileCreationTime(fileInfo os.FileInfo) (int64, bool) {
+	logger.Debug("filesystem", "getFileCreationTime")
 	fileStat, ok := fileInfo.Sys().(*syscall.Stat_t)
 	if !ok || fileStat == nil {
 		return 0, false

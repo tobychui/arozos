@@ -32,6 +32,7 @@ import (
 	"errors"
 	"sort"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/docx"
 	"imuslab.com/arozos/mod/office/internal/cfb"
 	"imuslab.com/arozos/mod/office/model"
@@ -58,6 +59,7 @@ var errEncrypted = errors.New("this document is password protected; remove the p
 
 // ToDocx converts a Word 97-2003 document into a .docx file
 func ToDocx(data []byte) ([]byte, error) {
+	logger.Debug("office/doc", "ToDocx")
 	d, err := open(data)
 	if err != nil {
 		return nil, err
@@ -67,6 +69,7 @@ func ToDocx(data []byte) ([]byte, error) {
 
 // Parse converts a Word 97-2003 document into the Docs model
 func Parse(data []byte) (*model.Document, error) {
+	logger.Debug("office/doc", "Parse")
 	x, err := ToDocx(data)
 	if err != nil {
 		return nil, err
@@ -75,6 +78,7 @@ func Parse(data []byte) (*model.Document, error) {
 }
 
 func open(data []byte) (*docFile, error) {
+	logger.DebugTrace("office/doc", "open")
 	if !cfb.IsCompound(data) {
 		return nil, errors.New("not a Word 97-2003 document")
 	}
@@ -143,6 +147,9 @@ func open(data []byte) (*docFile, error) {
 
 // clampCP keeps a CP range inside the text
 func (d *docFile) clamp(cp1, cp2 int) (int, int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "docFile.clamp: cp1=%d cp2=%d", cp1, cp2)
+	}
 	n := len(d.text)
 	if cp1 < 0 {
 		cp1 = 0

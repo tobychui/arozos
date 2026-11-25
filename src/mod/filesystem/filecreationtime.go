@@ -1,5 +1,6 @@
 package filesystem
 
+import "imuslab.com/arozos/mod/info/logger"
 import "os"
 
 /*
@@ -16,6 +17,7 @@ import "os"
 // do not record a creation time, in which case the caller should hide or grey
 // out the field instead of showing a wrong date.
 func GetFileCreationTime(fileInfo os.FileInfo) (int64, bool) {
+	logger.Debug("filesystem", "GetFileCreationTime")
 	if fileInfo == nil {
 		return 0, false
 	}

@@ -3,6 +3,8 @@
 
 package transcoder
 
+import "imuslab.com/arozos/mod/info/logger"
+
 /*
 	hwaccel_other.go
 
@@ -12,5 +14,6 @@ package transcoder
 */
 
 func candidateHWProfiles() []*hwEncoderProfile {
+	logger.DebugTrace("media/transcoder", "candidateHWProfiles")
 	return nil
 }

@@ -11,14 +11,19 @@ package docker
 	state rather than attempting anything.
 */
 
+import "imuslab.com/arozos/mod/info/logger"
 import "errors"
 
 const serviceUnsupportedMsg = "Docker daemon service control is only available on Linux (systemd) hosts"
 
 func dockerServiceStatus() ServiceStatus {
+	logger.DebugTrace("docker", "dockerServiceStatus")
 	return ServiceStatus{Message: serviceUnsupportedMsg}
 }
 
 func dockerServiceAction(action string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("docker", "dockerServiceAction: action=%.120q", action)
+	}
 	return errors.New(serviceUnsupportedMsg)
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type Console struct {
@@ -12,12 +14,14 @@ type Console struct {
 }
 
 func NewConsole(handler func(string) string) *Console {
+	logger.DebugTrace("console", "NewConsole")
 	return &Console{
 		Handler: handler,
 	}
 }
 
 func (c *Console) ListenAndHandle() {
+	logger.Debug("console", "Console.ListenAndHandle")
 	for {
 		reader := bufio.NewReader(os.Stdin)
 		text, _ := reader.ReadString('\n')

@@ -21,11 +21,16 @@ import (
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Add stages the given repo-relative paths. Deleted paths are removed from the
 // index, which is what go-git's Add already does for a missing file.
 func (m *Manager) Add(realpath string, files []string) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.Add: realpath=%.120q len(files)=%d", realpath, len(files))
+	}
 	_, tree, err := m.worktree(realpath)
 	if err != nil {
 		return err
@@ -45,6 +50,9 @@ func (m *Manager) Add(realpath string, files []string) error {
 
 // AddAll stages every change in the working tree, equivalent to `git add -A`.
 func (m *Manager) AddAll(realpath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.AddAll: realpath=%.120q", realpath)
+	}
 	_, tree, err := m.worktree(realpath)
 	if err != nil {
 		return err
@@ -56,6 +64,9 @@ func (m *Manager) AddAll(realpath string) error {
 // Unstage removes the given paths from the index while leaving the working tree
 // untouched, equivalent to `git restore --staged`.
 func (m *Manager) Unstage(realpath string, files []string) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.Unstage: realpath=%.120q len(files)=%d", realpath, len(files))
+	}
 	_, tree, err := m.worktree(realpath)
 	if err != nil {
 		return err
@@ -80,6 +91,9 @@ func (m *Manager) Unstage(realpath string, files []string) error {
 // from, so they are deleted instead — the same thing GitHub Desktop's "Discard
 // changes" does.
 func (m *Manager) Discard(realpath string, files []string) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.Discard: realpath=%.120q len(files)=%d", realpath, len(files))
+	}
 	_, tree, err := m.worktree(realpath)
 	if err != nil {
 		return err
@@ -125,6 +139,9 @@ func (m *Manager) Discard(realpath string, files []string) error {
 // Commit stages req.Files (or every tracked change when req.All is set) and
 // writes a commit. The new commit hash is returned.
 func (m *Manager) Commit(realpath string, req *CommitRequest) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.Commit: realpath=%.120q", realpath)
+	}
 	if req == nil || strings.TrimSpace(req.Message) == "" {
 		return "", errors.New("commit message cannot be empty")
 	}
@@ -168,6 +185,9 @@ func (m *Manager) Commit(realpath string, req *CommitRequest) (string, error) {
 // refuses to commit without an author, so an explicit error beats its generic
 // validation message.
 func resolveSignature(repo *gogit.Repository, name string, email string) (*object.Signature, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "resolveSignature: name=%.120q", name)
+	}
 	name = strings.TrimSpace(name)
 	email = strings.TrimSpace(email)
 
@@ -204,6 +224,9 @@ func resolveSignature(repo *gogit.Repository, name string, email string) (*objec
 // sanitiseLocalEmail turns an author name into a usable placeholder address for
 // users who never configured one.
 func sanitiseLocalEmail(name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("git", "sanitiseLocalEmail: name=%.120q", name)
+	}
 	local := strings.Map(func(r rune) rune {
 		switch {
 		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '.', r == '-', r == '_':
@@ -223,6 +246,9 @@ func sanitiseLocalEmail(name string) string {
 
 // cleanRepoPaths normalises a list of repo-relative paths, dropping empties.
 func cleanRepoPaths(files []string) ([]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "cleanRepoPaths: len(files)=%d", len(files))
+	}
 	results := []string{}
 	for _, file := range files {
 		if strings.TrimSpace(file) == "" {
@@ -240,6 +266,9 @@ func cleanRepoPaths(files []string) ([]string, error) {
 // cleanRepoPath validates that a path stays inside the repository. Paths come
 // from the browser, so a "../" escape must never reach the filesystem.
 func cleanRepoPath(file string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "cleanRepoPath: file=%.120q", file)
+	}
 	//Treat backslashes as separators on every platform. filepath.Clean only
 	//knows the host separator, so a Windows-style path would otherwise slip
 	//through unchanged on Linux and fail the cross-platform checks below.

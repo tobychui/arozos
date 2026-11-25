@@ -12,9 +12,13 @@ import (
 	"github.com/srwiley/oksvg"
 	"github.com/srwiley/rasterx"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func generateThumbnailForSVG(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "generateThumbnailForSVG: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
+	}
 	if fsh.RequireBuffer {
 		return "", nil
 	}

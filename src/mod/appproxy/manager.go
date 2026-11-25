@@ -11,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -87,6 +89,9 @@ type endpointRuntime struct {
 const maxLastLeaks = 10
 
 func (rt *endpointRuntime) recordLeak(path string) {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "endpointRuntime.recordLeak: path=%.120q", path)
+	}
 	rt.leaks.Add(1)
 	rt.leakMu.Lock()
 	defer rt.leakMu.Unlock()
@@ -97,6 +102,7 @@ func (rt *endpointRuntime) recordLeak(path string) {
 }
 
 func (rt *endpointRuntime) stats() Stats {
+	logger.Debug("appproxy", "endpointRuntime.stats")
 	rt.leakMu.Lock()
 	defer rt.leakMu.Unlock()
 	return Stats{
@@ -122,6 +128,7 @@ type Manager struct {
 
 // NewManager loads the saved endpoints and returns a ready manager
 func NewManager(opts Options) (*Manager, error) {
+	logger.Debug("appproxy", "NewManager")
 	if opts.Store == nil {
 		return nil, errors.New("appproxy: a store is required")
 	}
@@ -169,6 +176,9 @@ func NewManager(opts Options) (*Manager, error) {
 }
 
 func newTransport(skipVerify bool) *http.Transport {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "newTransport: skipVerify=%t", skipVerify)
+	}
 	t := &http.Transport{
 		Proxy: nil,
 		DialContext: (&net.Dialer{
@@ -189,6 +199,7 @@ func newTransport(skipVerify bool) *http.Transport {
 
 // install builds the runtime of an endpoint and indexes it (replacing an older one)
 func (m *Manager) install(ep *Endpoint) {
+	logger.Debug("appproxy", "Manager.install")
 	rt := &endpointRuntime{ep: ep}
 	rt.proxy = m.newReverseProxy(rt)
 
@@ -210,12 +221,18 @@ func (m *Manager) install(ep *Endpoint) {
 }
 
 func (m *Manager) runtimeBySlug(slug string) *endpointRuntime {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.runtimeBySlug: slug=%.120q", slug)
+	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.bySlug[slug]
 }
 
 func (m *Manager) runtimeByHost(host string) *endpointRuntime {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.runtimeByHost: host=%.120q", host)
+	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if len(m.byHost) == 0 {
@@ -226,6 +243,7 @@ func (m *Manager) runtimeByHost(host string) *endpointRuntime {
 
 // List returns a copy of every endpoint, sorted by name
 func (m *Manager) List() []Endpoint {
+	logger.Debug("appproxy", "Manager.List")
 	m.mu.RLock()
 	results := make([]Endpoint, 0, len(m.bySlug))
 	for _, rt := range m.bySlug {
@@ -243,6 +261,9 @@ func (m *Manager) List() []Endpoint {
 
 // Get returns a copy of one endpoint
 func (m *Manager) Get(slug string) (Endpoint, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.Get: slug=%.120q", slug)
+	}
 	rt := m.runtimeBySlug(slug)
 	if rt == nil {
 		return Endpoint{}, false
@@ -252,6 +273,9 @@ func (m *Manager) Get(slug string) (Endpoint, bool) {
 
 // Stats returns the runtime counters of one endpoint
 func (m *Manager) Stats(slug string) Stats {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.Stats: slug=%.120q", slug)
+	}
 	rt := m.runtimeBySlug(slug)
 	if rt == nil {
 		return Stats{}
@@ -261,6 +285,7 @@ func (m *Manager) Stats(slug string) Stats {
 
 // Count returns the number of published endpoints
 func (m *Manager) Count() int {
+	logger.Debug("appproxy", "Manager.Count")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return len(m.bySlug)
@@ -270,6 +295,9 @@ func (m *Manager) Count() int {
 // currentHost is the ArozOS host the admin is using, which an app hostname
 // must never take over
 func (m *Manager) Save(ep Endpoint, create bool, username string, currentHost string) (Endpoint, error) {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.Save: create=%t username=%.120q currentHost=%.120q", create, username, currentHost)
+	}
 	if err := ep.Normalize(m.opts.SelfPort); err != nil {
 		return Endpoint{}, err
 	}
@@ -319,6 +347,9 @@ func (m *Manager) Save(ep Endpoint, create bool, username string, currentHost st
 
 // Delete removes an endpoint
 func (m *Manager) Delete(slug string) error {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.Delete: slug=%.120q", slug)
+	}
 	m.mu.Lock()
 	rt, ok := m.bySlug[slug]
 	if ok {
@@ -337,6 +368,7 @@ func (m *Manager) Delete(slug string) error {
 
 // AccessibleBy returns the endpoints a user may open
 func (m *Manager) AccessibleBy(id *Identity) []Endpoint {
+	logger.Debug("appproxy", "Manager.AccessibleBy")
 	results := []Endpoint{}
 	for _, ep := range m.List() {
 		if ep.CanAccess(id) {

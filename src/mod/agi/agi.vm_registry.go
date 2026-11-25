@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -48,6 +49,7 @@ type VMInfo struct {
 }
 
 func toVMInfo(rec *VMRecord) VMInfo {
+	logger.DebugTrace("agi", "toVMInfo")
 	return VMInfo{
 		ExecID:         rec.ExecID,
 		ScriptFile:     rec.ScriptFile,
@@ -64,11 +66,13 @@ type vmRegistry struct {
 }
 
 func newVMRegistry() *vmRegistry {
+	logger.DebugTrace("agi", "newVMRegistry")
 	return &vmRegistry{records: make(map[string]*VMRecord)}
 }
 
 // register adds a record.  Called just before vm.Run() in each Execute* path.
 func (r *vmRegistry) register(rec *VMRecord) {
+	logger.Debug("agi", "vmRegistry.register")
 	r.mu.Lock()
 	r.records[rec.ExecID] = rec
 	r.mu.Unlock()
@@ -76,6 +80,9 @@ func (r *vmRegistry) register(rec *VMRecord) {
 
 // unregister removes a record.  Always called via defer so it fires even on panic.
 func (r *vmRegistry) unregister(execID string) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "vmRegistry.unregister: execID=%.120q", execID)
+	}
 	r.mu.Lock()
 	delete(r.records, execID)
 	r.mu.Unlock()
@@ -84,6 +91,9 @@ func (r *vmRegistry) unregister(execID string) {
 // list returns VMInfo for every VM visible to the requester.
 // Admins see all; regular users see only their own records.
 func (r *vmRegistry) list(requesterUsername string, isAdmin bool) []VMInfo {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "vmRegistry.list: requesterUsername=%.120q isAdmin=%t", requesterUsername, isAdmin)
+	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	result := make([]VMInfo, 0, len(r.records))
@@ -98,6 +108,9 @@ func (r *vmRegistry) list(requesterUsername string, isAdmin bool) []VMInfo {
 // forceStop sends an interrupt to the VM with the given execID.
 // Regular users may only stop their own VMs; admins may stop any.
 func (r *vmRegistry) forceStop(execID, requesterUsername string, isAdmin bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "vmRegistry.forceStop: execID=%.120q requesterUsername=%.120q isAdmin=%t", execID, requesterUsername, isAdmin)
+	}
 	r.mu.RLock()
 	rec, ok := r.records[execID]
 	r.mu.RUnlock()
@@ -122,6 +135,9 @@ func (r *vmRegistry) forceStop(execID, requesterUsername string, isAdmin bool) e
 // HandleListRuntimes returns the list of running VMs visible to the caller.
 // GET /system/ajgi/runtime/list
 func (g *Gateway) HandleListRuntimes(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.HandleListRuntimes: r=%s", logger.RequestSummary(r))
+	}
 	thisuser, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
@@ -136,6 +152,9 @@ func (g *Gateway) HandleListRuntimes(w http.ResponseWriter, r *http.Request) {
 // HandleForceStopRuntime terminates a VM identified by the execid POST parameter.
 // POST /system/ajgi/runtime/stop
 func (g *Gateway) HandleForceStopRuntime(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.HandleForceStopRuntime: r=%s", logger.RequestSummary(r))
+	}
 	thisuser, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		http.Error(w, "401 Unauthorized", http.StatusUnauthorized)

@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/http"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type ipRange struct {
@@ -44,6 +46,9 @@ var privateRanges = []ipRange{
 }
 
 func checkIfLAN(r *http.Request) bool {
+	if logger.IsDebug() {
+		logger.Debugf("prouter", "checkIfLAN: r=%s", logger.RequestSummary(r))
+	}
 	PredictedClientIP := []net.IP{}
 	forwarded := r.Header.Get("X-FORWARDED-FOR")
 	rip := r.Header.Get("X-Real-Ip") //Not that kind of RIP
@@ -88,6 +93,7 @@ func checkIfLAN(r *http.Request) bool {
 }
 
 func isPrivateSubnet(ipAddress net.IP) bool {
+	logger.Debug("prouter", "isPrivateSubnet")
 	// my use case is only concerned with ipv4 atm
 	if ipCheck := ipAddress.To4(); ipCheck != nil {
 		// iterate over all our ranges
@@ -102,6 +108,7 @@ func isPrivateSubnet(ipAddress net.IP) bool {
 }
 
 func inRange(r ipRange, ipAddress net.IP) bool {
+	logger.Debug("prouter", "inRange")
 	// strcmp type byte comparison
 	if bytes.Compare(ipAddress, r.start) >= 0 && bytes.Compare(ipAddress, r.end) < 0 {
 		return true

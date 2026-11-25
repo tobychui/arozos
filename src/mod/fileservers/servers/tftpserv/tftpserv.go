@@ -30,6 +30,7 @@ type Manager struct {
 
 // Create a new TFTP Manager
 func NewTFTPManager(option *ManagerOption) *Manager {
+	logger.Debug("fileservers/servers/tftpserv", "NewTFTPManager")
 	//Create database related tables
 	option.Sysdb.NewTable("tftp")
 	defaultEnable := false
@@ -53,6 +54,7 @@ func NewTFTPManager(option *ManagerOption) *Manager {
 }
 
 func (m *Manager) StartTftpServer() error {
+	logger.Debug("fileservers/servers/tftpserv", "Manager.StartTftpServer")
 	if m.option.TftpServer != nil {
 		//If the previous tftp server is not closed, close it and open a new one
 		m.option.TftpServer.Close()
@@ -79,6 +81,7 @@ func (m *Manager) StartTftpServer() error {
 }
 
 func (m *Manager) StopTftpServer() {
+	logger.Debug("fileservers/servers/tftpserv", "Manager.StopTftpServer")
 	if m.option.TftpServer != nil {
 		m.option.TftpServer.Close()
 	}
@@ -88,6 +91,7 @@ func (m *Manager) StopTftpServer() {
 }
 
 func (m *Manager) GetTftpServerStatus() (*ServerStatus, error) {
+	logger.Debug("fileservers/servers/tftpserv", "Manager.GetTftpServerStatus")
 	enabled := false
 	if m.option.TftpServer != nil && m.option.TftpServer.ServerRunning {
 		enabled = true
@@ -118,10 +122,14 @@ func (m *Manager) GetTftpServerStatus() (*ServerStatus, error) {
 }
 
 func (m *Manager) IsTftpServerEnabled() bool {
+	logger.DebugTrace("fileservers/servers/tftpserv", "Manager.IsTftpServerEnabled")
 	return m.option.TftpServer != nil && m.option.TftpServer.ServerRunning
 }
 
 func (m *Manager) TFTPServerToggle(enabled bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/tftpserv", "Manager.TFTPServerToggle: enabled=%t", enabled)
+	}
 	if m.option.TftpServer != nil && m.option.TftpServer.ServerRunning {
 		//Enabled
 		if !enabled {
@@ -136,6 +144,7 @@ func (m *Manager) TFTPServerToggle(enabled bool) error {
 }
 
 func (m *Manager) TFTPGetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
+	logger.Debug("fileservers/servers/tftpserv", "Manager.TFTPGetEndpoints")
 	tftpEndpoints := []*fileservers.Endpoint{}
 	port := 69
 	if m.option.TftpServer != nil {

@@ -38,6 +38,7 @@ type LoginRecord struct {
 
 // New Logger create a new logger object
 func NewLogger() (*Logger, error) {
+	logger.Debug("auth/authlogger", "NewLogger")
 	os.MkdirAll("./system/auth/", 0775)
 	db, err := database.NewDatabase("./system/auth/authlog.db", false)
 	if err != nil {
@@ -50,6 +51,9 @@ func NewLogger() (*Logger, error) {
 
 // Log the current authentication to record, Require the request object and login status
 func (l *Logger) LogAuth(r *http.Request, loginStatus bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth/authlogger", "Logger.LogAuth: r=%s loginStatus=%t", logger.RequestSummary(r), loginStatus)
+	}
 	username, _ := utils.PostPara(r, "username")
 	timestamp := time.Now().Unix()
 	//handling the reverse proxy remote IP issue
@@ -67,6 +71,9 @@ func (l *Logger) LogAuth(r *http.Request, loginStatus bool) error {
 
 // Log the current authentication to record by custom filled information. Use LogAuth if your module is authenticating via web interface
 func (l *Logger) LogAuthByRequestInfo(username string, remoteAddr string, timestamp int64, loginSucceed bool, authType string) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth/authlogger", "Logger.LogAuthByRequestInfo: username=%.120q remoteAddr=%.120q timestamp=%d loginSucceed=%t", username, remoteAddr, timestamp, loginSucceed)
+	}
 	//Get the current month as the table name, create table if not exists
 	current := time.Now().UTC()
 	tableName := current.Format("Jan-2006")
@@ -124,11 +131,13 @@ func (l *Logger) LogAuthByRequestInfo(username string, remoteAddr string, timest
 
 // Close the database when system shutdown
 func (l *Logger) Close() {
+	logger.DebugTrace("auth/authlogger", "Logger.Close")
 	l.database.Close()
 }
 
 // List the total number of months recorded in the database
 func (l *Logger) ListSummary() []string {
+	logger.Debug("auth/authlogger", "Logger.ListSummary")
 	tableNames := []string{}
 	l.database.Tables.Range(func(tableName, _ interface{}) bool {
 		tableNames = append(tableNames, tableName.(string))
@@ -139,6 +148,7 @@ func (l *Logger) ListSummary() []string {
 }
 
 func (l *Logger) ListRecords(key string) ([]LoginRecord, error) {
+	logger.Debug("auth/authlogger", "Logger.ListRecords")
 	results := []LoginRecord{}
 	if l.database.TableExists(key) {
 		//Read all record from the database to login records
@@ -162,6 +172,9 @@ func (l *Logger) ListRecords(key string) ([]LoginRecord, error) {
 // Extract the address information from the request object, the first one is the remote address from the last hop,
 // and the 2nd one is the source address filled in by the client (not accurate)
 func getIpAddressFromRequest(r *http.Request) (string, []string) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/authlogger", "getIpAddressFromRequest: r=%s", logger.RequestSummary(r))
+	}
 	lastHopAddress := r.RemoteAddr
 	possibleSourceAddress := []string{}
 	rawHeader := r.Header.Get("X-Forwarded-For")

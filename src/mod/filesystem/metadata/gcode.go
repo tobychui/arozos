@@ -18,6 +18,7 @@ import (
 
 	"github.com/nfnt/resize"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -60,6 +61,7 @@ type gcodeThumbnail struct {
 // a G-code stream, in the order they appear. Reading stops after
 // gcodeThumbnailScanLimit bytes.
 func extractGcodeThumbnails(r io.Reader) ([]gcodeThumbnail, error) {
+	logger.Debug("filesystem/metadata", "extractGcodeThumbnails")
 	scanner := bufio.NewScanner(io.LimitReader(r, gcodeThumbnailScanLimit))
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
@@ -108,6 +110,9 @@ func extractGcodeThumbnails(r io.Reader) ([]gcodeThumbnail, error) {
 // pickGcodeThumbnails orders the candidates best first: the untagged previews
 // before the alternate angles, and larger before smaller within each group.
 func pickGcodeThumbnails(thumbnails []gcodeThumbnail) []gcodeThumbnail {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "pickGcodeThumbnails: len(thumbnails)=%d", len(thumbnails))
+	}
 	ordered := make([]gcodeThumbnail, len(thumbnails))
 	copy(ordered, thumbnails)
 	sort.SliceStable(ordered, func(i, j int) bool {
@@ -124,6 +129,7 @@ func pickGcodeThumbnails(thumbnails []gcodeThumbnail) []gcodeThumbnail {
 // this build cannot decode (some slicers can emit QOI) falls through to the
 // next one instead of failing the whole file.
 func decodeGcodeThumbnail(r io.Reader) (image.Image, error) {
+	logger.Debug("filesystem/metadata", "decodeGcodeThumbnail")
 	thumbnails, err := extractGcodeThumbnails(r)
 	if err != nil && len(thumbnails) == 0 {
 		return nil, err
@@ -146,6 +152,7 @@ func decodeGcodeThumbnail(r io.Reader) (image.Image, error) {
 // generous margin, so without this the model ends up as a small island in the
 // middle of the thumbnail. An image with no transparency is returned unchanged.
 func trimTransparent(src image.Image) image.Image {
+	logger.Debug("filesystem/metadata", "trimTransparent")
 	bounds := src.Bounds()
 	minX, minY := bounds.Max.X, bounds.Max.Y
 	maxX, maxY := bounds.Min.X, bounds.Min.Y
@@ -195,6 +202,9 @@ func trimTransparent(src image.Image) image.Image {
 // far from square, so they are letterboxed rather than center cropped: cropping
 // a 230x110 preview to a square would cut most of the model out of frame.
 func fitOnCanvas(src image.Image, size int, background color.Color) image.Image {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "fitOnCanvas: size=%d", size)
+	}
 	bounds := src.Bounds()
 	width := bounds.Dx()
 	height := bounds.Dy()
@@ -219,6 +229,9 @@ func fitOnCanvas(src image.Image, size int, background color.Color) image.Image 
 }
 
 func generateThumbnailForGcode(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "generateThumbnailForGcode: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
+	}
 	if fsh.RequireBuffer {
 		return "", nil
 	}

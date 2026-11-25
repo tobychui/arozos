@@ -22,11 +22,13 @@ import (
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // inject7zLibFunctions registers all 7z functions into the ziplib JS namespace.
 // Must be called after the main vm.Run block that creates `var ziplib = {}`.
 func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.inject7zLibFunctions")
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -348,6 +350,9 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 // Handles archives without explicit directory entries by inferring dirs from
 // file paths (common in 7z).
 func szListDir(rpath, dirPath string) ([]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "szListDir: rpath=%.120q dirPath=%.120q", rpath, dirPath)
+	}
 	r, err := sevenzip.OpenReader(rpath)
 	if err != nil {
 		return nil, err
@@ -410,6 +415,9 @@ func szListDir(rpath, dirPath string) ([]string, error) {
 // sz7zListContentsJSON builds a JSON tree (same schema as listZipFileContents)
 // from all entries in the 7z archive at rpath.
 func sz7zListContentsJSON(rpath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "sz7zListContentsJSON: rpath=%.120q", rpath)
+	}
 	r, err := sevenzip.OpenReader(rpath)
 	if err != nil {
 		return "", err
@@ -457,6 +465,9 @@ func sz7zListContentsJSON(rpath string) (string, error) {
 
 // sz7zGetFileInfo returns JSON metadata for the 7z archive at rpath.
 func sz7zGetFileInfo(rpath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "sz7zGetFileInfo: rpath=%.120q", rpath)
+	}
 	r, err := sevenzip.OpenReader(rpath)
 	if err != nil {
 		return "", err
@@ -489,6 +500,9 @@ func sz7zGetFileInfo(rpath string) (string, error) {
 // sz7zExtractAll extracts every entry in the 7z at srcRpath into destRpath
 // using the provided filesystem handler.
 func sz7zExtractAll(srcRpath string, destFsh *filesystem.FileSystemHandler, destRpath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "sz7zExtractAll: srcRpath=%.120q destRpath=%.120q", srcRpath, destRpath)
+	}
 	r, err := sevenzip.OpenReader(srcRpath)
 	if err != nil {
 		return err
@@ -518,6 +532,7 @@ func sz7zExtractAll(srcRpath string, destFsh *filesystem.FileSystemHandler, dest
 // szParsePathsArg converts the second argument of extractPartial7z / extractPartialZip
 // (JS array or raw JSON string) into a []string.  Returns nil on unrecognised type.
 func szParsePathsArg(pathsObj interface{}) []string {
+	logger.Debug("agi", "szParsePathsArg")
 	var result []string
 	switch v := pathsObj.(type) {
 	case []string:
@@ -555,6 +570,9 @@ func szParsePathsArg(pathsObj interface{}) []string {
 // of selected targetPaths, applying the same strip-parent-for-folders /
 // flatten-for-files semantics as extractPartialZip.  Returns "" if not matched.
 func szMatchPartialPath(fName string, targetPaths []string) string {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "szMatchPartialPath: fName=%.120q len(targetPaths)=%d", fName, len(targetPaths))
+	}
 	for _, target := range targetPaths {
 		if target == "" || target == "/" {
 			return fName

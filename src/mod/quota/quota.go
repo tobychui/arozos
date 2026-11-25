@@ -15,6 +15,7 @@ import (
 
 	db "imuslab.com/arozos/mod/database"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // QuotaHandler Object
@@ -28,6 +29,9 @@ type QuotaHandler struct {
 
 // Create a storage quotation handler for this user
 func NewUserQuotaHandler(database *db.Database, username string, fsh []*fs.FileSystemHandler, defaultQuota int64) *QuotaHandler {
+	if logger.IsDebug() {
+		logger.Debugf("quota", "NewUserQuotaHandler: username=%.120q len(fsh)=%d defaultQuota=%d", username, len(fsh), defaultQuota)
+	}
 	//Create the quota table if not exists
 	totalQuota := defaultQuota //Use defalt quota if init first time
 	err := database.NewTable("quota")
@@ -63,11 +67,15 @@ func NewUserQuotaHandler(database *db.Database, username string, fsh []*fs.FileS
 
 // Set and Get the user storage quota
 func (q *QuotaHandler) SetUserStorageQuota(quota int64) {
+	if logger.IsDebug() {
+		logger.Debugf("quota", "QuotaHandler.SetUserStorageQuota: quota=%d", quota)
+	}
 	q.database.Write("quota", q.username+"/quota", quota)
 	q.TotalStorageQuota = quota
 }
 
 func (q *QuotaHandler) GetUserStorageQuota() int64 {
+	logger.Debug("quota", "QuotaHandler.GetUserStorageQuota")
 	quota := int64(-2)
 	q.database.Read("quota", q.username+"/quota", &quota)
 
@@ -78,6 +86,7 @@ func (q *QuotaHandler) GetUserStorageQuota() int64 {
 
 // Check if the user's quota has been initialized
 func (q *QuotaHandler) IsQuotaInitialized() bool {
+	logger.Debug("quota", "QuotaHandler.IsQuotaInitialized")
 	if q.GetUserStorageQuota() == int64(-2) {
 		return false
 	} else {
@@ -86,10 +95,14 @@ func (q *QuotaHandler) IsQuotaInitialized() bool {
 }
 
 func (q *QuotaHandler) RemoveUserQuota() {
+	logger.DebugTrace("quota", "QuotaHandler.RemoveUserQuota")
 	q.database.Delete("quota", q.username+"/quota")
 }
 
 func (q *QuotaHandler) HaveSpace(size int64) bool {
+	if logger.IsDebug() {
+		logger.Debugf("quota", "QuotaHandler.HaveSpace: size=%d", size)
+	}
 	remaining := q.TotalStorageQuota - q.UsedStorageQuota
 	if q.TotalStorageQuota == -1 {
 		return true
@@ -103,17 +116,26 @@ func (q *QuotaHandler) HaveSpace(size int64) bool {
 
 // Update the user's storage pool to new one
 func (q *QuotaHandler) UpdateUserStoragePool(fsh []*fs.FileSystemHandler) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("quota", "QuotaHandler.UpdateUserStoragePool: len(fsh)=%d", len(fsh))
+	}
 	q.fspool = fsh
 }
 
 // Claim a space for the given file and set the file ownership to this user
 func (q *QuotaHandler) AllocateSpace(filesize int64) error {
+	if logger.IsDebug() {
+		logger.Debugf("quota", "QuotaHandler.AllocateSpace: filesize=%d", filesize)
+	}
 	q.UsedStorageQuota += filesize
 	return nil
 }
 
 // Reclaim file occupied space (Call this before removing it)
 func (q *QuotaHandler) ReclaimSpace(filesize int64) error {
+	if logger.IsDebug() {
+		logger.Debugf("quota", "QuotaHandler.ReclaimSpace: filesize=%d", filesize)
+	}
 	q.UsedStorageQuota -= filesize
 	if q.UsedStorageQuota < 0 {
 		q.UsedStorageQuota = 0
@@ -123,6 +145,7 @@ func (q *QuotaHandler) ReclaimSpace(filesize int64) error {
 
 // Recalculate the user storage quota. This takes a lot of time and CPUs
 func (q *QuotaHandler) CalculateQuotaUsage() {
+	logger.Debug("quota", "QuotaHandler.CalculateQuotaUsage")
 	totalUsedVolume := int64(0)
 	for _, thisfs := range q.fspool {
 		if thisfs.Hierarchy == "user" {
@@ -149,6 +172,9 @@ func (q *QuotaHandler) CalculateQuotaUsage() {
 }
 
 func inSlice(slice []string, val string) (int, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("quota", "inSlice: len(slice)=%d val=%.120q", len(slice), val)
+	}
 	for i, item := range slice {
 		if item == val {
 			return i, true

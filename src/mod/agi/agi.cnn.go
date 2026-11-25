@@ -17,6 +17,7 @@ import (
 	"imuslab.com/arozos/mod/agi/static"
 	cnn "imuslab.com/arozos/mod/aiservers/cnn"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -59,6 +60,7 @@ type CNNServerConfig struct {
 // ── Library registration ─────────────────────────────────────────────────────
 
 func (g *Gateway) CNNLibRegister() {
+	logger.Debug("agi", "Gateway.CNNLibRegister")
 	//Make sure the storage table exists before any read / write happens.
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if !sysdb.TableExists(cnnDBTable) {
@@ -73,6 +75,7 @@ func (g *Gateway) CNNLibRegister() {
 }
 
 func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectCNNFunctions")
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -350,6 +353,7 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 
 // cnnClient builds a cnn.Client from the persisted configuration.
 func (g *Gateway) cnnClient() (*cnn.Client, error) {
+	logger.Debug("agi", "Gateway.cnnClient")
 	cfg := g.getCNNConfig()
 	if strings.TrimSpace(cfg.Endpoint) == "" {
 		return nil, errors.New("CNN inference server is not configured (System Settings > AI Integration > CNN Inference)")
@@ -360,6 +364,9 @@ func (g *Gateway) cnnClient() (*cnn.Client, error) {
 // cnnReadImage resolves a script vpath to its raw bytes and a best-effort
 // mime type, enforcing the calling user's read permission.
 func (g *Gateway) cnnReadImage(scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, u *user.User, vpath string) ([]byte, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.cnnReadImage: vpath=%.120q", vpath)
+	}
 	//Resolve relative paths against the script's directory
 	vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
@@ -396,6 +403,9 @@ func (g *Gateway) cnnReadImage(scriptFsh *filesystem.FileSystemHandler, vm *otto
 // the job object, otherwise the typed result is marshalled back as-is so the
 // script receives the exact server envelope shape.
 func cnnRespond(vm *otto.Otto, result interface{}, job *cnn.Job, err error) otto.Value {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "cnnRespond: err=%v", err)
+	}
 	if err != nil {
 		panic(vm.MakeCustomError("CNNError", err.Error()))
 	}
@@ -410,6 +420,9 @@ func cnnRespond(vm *otto.Otto, result interface{}, job *cnn.Job, err error) otto
 }
 
 func cnnIsImageExt(ext string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "cnnIsImageExt: ext=%.120q", ext)
+	}
 	switch ext {
 	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp":
 		return true
@@ -418,6 +431,9 @@ func cnnIsImageExt(ext string) bool {
 }
 
 func parseCNNOptions(s string) cnn.RequestOptions {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "parseCNNOptions: s=%.120q", s)
+	}
 	opt := cnn.RequestOptions{}
 	s = strings.TrimSpace(s)
 	if s == "" || s == "undefined" || s == "null" {
@@ -428,6 +444,9 @@ func parseCNNOptions(s string) cnn.RequestOptions {
 }
 
 func parseCNNComparisonOptions(s string) cnn.ComparisonOptions {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "parseCNNComparisonOptions: s=%.120q", s)
+	}
 	opt := cnn.ComparisonOptions{}
 	s = strings.TrimSpace(s)
 	if s == "" || s == "undefined" || s == "null" {
@@ -440,6 +459,7 @@ func parseCNNComparisonOptions(s string) cnn.ComparisonOptions {
 // ── Persistence helpers ───────────────────────────────────────────────────────
 
 func (g *Gateway) getCNNConfig() CNNServerConfig {
+	logger.Debug("agi", "Gateway.getCNNConfig")
 	cfg := CNNServerConfig{TimeoutSeconds: cnnDefaultTimeoutSeconds}
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if sysdb.KeyExists(cnnDBTable, "config") {
@@ -452,6 +472,7 @@ func (g *Gateway) getCNNConfig() CNNServerConfig {
 }
 
 func cnnMaskToken(token string) string {
+	logger.Debug("agi", "cnnMaskToken")
 	if token == "" {
 		return ""
 	}
@@ -467,6 +488,9 @@ func cnnMaskToken(token string) string {
 // GET  /system/cnn/config
 // POST /system/cnn/config  (endpoint, timeoutSeconds, token, cleartoken)
 func (g *Gateway) HandleCNNConfig(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.HandleCNNConfig: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method == http.MethodGet {
 		cfg := g.getCNNConfig()
 		js, _ := json.Marshal(map[string]interface{}{
@@ -508,6 +532,9 @@ func (g *Gateway) HandleCNNConfig(w http.ResponseWriter, r *http.Request) {
 // endpoint/token overrides so the admin can test before saving.
 // POST /system/cnn/test
 func (g *Gateway) HandleCNNTest(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.HandleCNNTest: r=%s", logger.RequestSummary(r))
+	}
 	cfg := g.getCNNConfig()
 	endpoint := cfg.Endpoint
 	token := cfg.Token

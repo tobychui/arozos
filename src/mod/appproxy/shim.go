@@ -3,6 +3,8 @@ package appproxy
 import (
 	"encoding/json"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -190,6 +192,9 @@ if (window.MutationObserver) {
 
 // renderShim returns the rewrite script for one endpoint prefix
 func renderShim(prefix string) []byte {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "renderShim: prefix=%.120q", prefix)
+	}
 	encoded, _ := json.Marshal(prefix)
 	return []byte(strings.Replace(shimTemplate, "__PREFIX__", string(encoded), 1))
 }

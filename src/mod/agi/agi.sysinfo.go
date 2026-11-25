@@ -40,6 +40,7 @@ var (
 )
 
 func (g *Gateway) SysinfoLibRegister() {
+	logger.Debug("agi", "Gateway.SysinfoLibRegister")
 	err := g.RegisterLib("sysinfo", g.injectSysinfoLibFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -48,6 +49,7 @@ func (g *Gateway) SysinfoLibRegister() {
 }
 
 func (g *Gateway) injectSysinfoLibFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectSysinfoLibFunctions")
 	vm := payload.VM
 
 	// CPU Usage – returns a float64 percentage (0–100)
@@ -122,6 +124,7 @@ func (g *Gateway) injectSysinfoLibFunctions(payload *static.AgiLibInjectionPaylo
 // GetNetworkInterfaceStats returns accumulated bits, so we convert to bytes before
 // computing the per-second rate against the previous sample.
 func getNetworkUsage() (rxRate float64, txRate float64, rxTotal int64, txTotal int64) {
+	logger.Debug("agi", "getNetworkUsage")
 	rxBits, txBits, err := netstat.GetNetworkInterfaceStats()
 	if err != nil {
 		return 0, 0, 0, 0

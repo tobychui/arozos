@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf16"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Sizes of the fixed-size WLAN API structures, in bytes
@@ -96,6 +98,9 @@ type wlanPhyRadioState struct {
 
 // utf16String decodes a fixed size, NUL terminated WCHAR array
 func utf16String(b []byte) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "utf16String: len(b)=%d", len(b))
+	}
 	u := make([]uint16, 0, len(b)/2)
 	for i := 0; i+1 < len(b); i += 2 {
 		c := binary.LittleEndian.Uint16(b[i:])
@@ -109,6 +114,9 @@ func utf16String(b []byte) string {
 
 // dot11SSID decodes a DOT11_SSID (length + 32 bytes)
 func dot11SSID(b []byte) []byte {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "dot11SSID: len(b)=%d", len(b))
+	}
 	if len(b) < dot11SSIDSize {
 		return nil
 	}
@@ -121,6 +129,7 @@ func dot11SSID(b []byte) []byte {
 
 // guidString formats a Windows GUID stored in its in-memory byte order
 func guidString(g [16]byte) string {
+	logger.Debug("network/wifi", "guidString")
 	le := binary.LittleEndian
 	return strings.ToUpper(
 		"{" + hex32(le.Uint32(g[0:4])) + "-" + hex16(le.Uint16(g[4:6])) + "-" + hex16(le.Uint16(g[6:8])) + "-" +
@@ -128,10 +137,21 @@ func guidString(g [16]byte) string {
 }
 
 func hex32(v uint32) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/wifi", "hex32: v=%d", v)
+	}
 	return hexBytes([]byte{byte(v >> 24), byte(v >> 16), byte(v >> 8), byte(v)})
 }
-func hex16(v uint16) string { return hexBytes([]byte{byte(v >> 8), byte(v)}) }
+func hex16(v uint16) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/wifi", "hex16: v=%d", v)
+	}
+	return hexBytes([]byte{byte(v >> 8), byte(v)})
+}
 func hexBytes(b []byte) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "hexBytes: len(b)=%d", len(b))
+	}
 	const digits = "0123456789abcdef"
 	s := make([]byte, 0, len(b)*2)
 	for _, c := range b {
@@ -142,6 +162,9 @@ func hexBytes(b []byte) string {
 
 // parseWlanInterfaceList decodes a WLAN_INTERFACE_INFO_LIST
 func parseWlanInterfaceList(b []byte) ([]wlanInterfaceInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "parseWlanInterfaceList: len(b)=%d", len(b))
+	}
 	if len(b) < 8 {
 		return nil, errWlanTruncated
 	}
@@ -164,6 +187,9 @@ func parseWlanInterfaceList(b []byte) ([]wlanInterfaceInfo, error) {
 
 // parseWlanAvailableNetworkList decodes a WLAN_AVAILABLE_NETWORK_LIST
 func parseWlanAvailableNetworkList(b []byte) ([]wlanAvailableNetwork, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "parseWlanAvailableNetworkList: len(b)=%d", len(b))
+	}
 	if len(b) < 8 {
 		return nil, errWlanTruncated
 	}
@@ -192,6 +218,9 @@ func parseWlanAvailableNetworkList(b []byte) ([]wlanAvailableNetwork, error) {
 // parseWlanBSSList decodes a WLAN_BSS_LIST, including the information
 // elements that follow each entry
 func parseWlanBSSList(b []byte) ([]wlanBSSEntry, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "parseWlanBSSList: len(b)=%d", len(b))
+	}
 	if len(b) < 8 {
 		return nil, errWlanTruncated
 	}
@@ -249,6 +278,9 @@ func parseWlanBSSList(b []byte) ([]wlanBSSEntry, error) {
 
 // parseWlanConnectionAttributes decodes WLAN_CONNECTION_ATTRIBUTES
 func parseWlanConnectionAttributes(b []byte) (*wlanConnectionAttributes, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "parseWlanConnectionAttributes: len(b)=%d", len(b))
+	}
 	if len(b) < wlanConnectionAttrSize {
 		return nil, errWlanTruncated
 	}
@@ -277,6 +309,9 @@ func parseWlanConnectionAttributes(b []byte) (*wlanConnectionAttributes, error) 
 
 // parseWlanRadioState decodes WLAN_RADIO_STATE
 func parseWlanRadioState(b []byte) ([]wlanPhyRadioState, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "parseWlanRadioState: len(b)=%d", len(b))
+	}
 	if len(b) < 4 {
 		return nil, errWlanTruncated
 	}
@@ -302,6 +337,7 @@ func parseWlanRadioState(b []byte) ([]wlanPhyRadioState, error) {
 
 // bssInfoFromEntry turns one WLAN_BSS_ENTRY into a WiFiInfo
 func bssInfoFromEntry(e wlanBSSEntry) WiFiInfo {
+	logger.Debug("network/wifi", "bssInfoFromEntry")
 	ies := parseIEs(e.InformationElt)
 	privacy := e.Capability&0x0010 != 0
 
@@ -385,6 +421,9 @@ func bssInfoFromEntry(e wlanBSSEntry) WiFiInfo {
 */
 
 func dot11PhyName(t uint32) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "dot11PhyName: t=%d", t)
+	}
 	switch t {
 	case 1:
 		return "802.11 FHSS"
@@ -413,6 +452,9 @@ func dot11PhyName(t uint32) string {
 }
 
 func dot11BSSTypeName(t uint32) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "dot11BSSTypeName: t=%d", t)
+	}
 	switch t {
 	case 1:
 		return "Infrastructure"
@@ -423,6 +465,9 @@ func dot11BSSTypeName(t uint32) string {
 }
 
 func dot11AuthName(t uint32) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "dot11AuthName: t=%d", t)
+	}
 	switch t {
 	case 1:
 		return "Open"
@@ -454,6 +499,9 @@ func dot11AuthName(t uint32) string {
 }
 
 func dot11CipherName(t uint32) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "dot11CipherName: t=%d", t)
+	}
 	switch t {
 	case 0x00:
 		return "None"
@@ -485,6 +533,9 @@ func dot11CipherName(t uint32) string {
 }
 
 func wlanInterfaceStateName(s uint32) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "wlanInterfaceStateName: s=%d", s)
+	}
 	switch s {
 	case 0:
 		return "not ready"
@@ -507,6 +558,9 @@ func wlanInterfaceStateName(s uint32) string {
 }
 
 func wlanConnectionModeName(m uint32) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "wlanConnectionModeName: m=%d", m)
+	}
 	switch m {
 	case 0:
 		return "Profile"
@@ -523,6 +577,9 @@ func wlanConnectionModeName(m uint32) string {
 }
 
 func dot11RadioStateName(s uint32) string {
+	if logger.IsDebug() {
+		logger.Debugf("network/wifi", "dot11RadioStateName: s=%d", s)
+	}
 	switch s {
 	case 1:
 		return "on"

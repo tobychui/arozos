@@ -28,6 +28,7 @@ type Manager struct {
 
 // Create a new raid manager
 func NewRaidManager(options Options) (*Manager, error) {
+	logger.Debug("disk/raid", "NewRaidManager")
 	//Check if platform is supported
 	if runtime.GOOS != "linux" {
 		return nil, errors.New("ArozOS do not support RAID management on this platform")
@@ -45,6 +46,9 @@ func NewRaidManager(options Options) (*Manager, error) {
 
 // Create a virtual image partition at given path with given size
 func CreateVirtualPartition(imagePath string, totalSize int64) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "CreateVirtualPartition: imagePath=%.120q totalSize=%d", imagePath, totalSize)
+	}
 	cmd := exec.Command("sudo", "dd", "if=/dev/zero", "of="+imagePath, "bs=4M", "count="+fmt.Sprintf("%dM", totalSize/(4*1024*1024)))
 
 	cmd.Stdout = os.Stdout
@@ -60,6 +64,9 @@ func CreateVirtualPartition(imagePath string, totalSize int64) error {
 
 // Format the given image file
 func FormatVirtualPartition(imagePath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "FormatVirtualPartition: imagePath=%.120q", imagePath)
+	}
 	//Check if image actually exists
 	if !utils.FileExists(imagePath) {
 		return errors.New("image file not exists")

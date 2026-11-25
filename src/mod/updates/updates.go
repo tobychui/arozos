@@ -7,10 +7,13 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Download updates from given URL, return real time progress of stage (int),  progress (int) and status text (string)
 func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL string, progressUpdateFunction func(int, float64, string)) error {
+	logger.Debug("updates", "DownloadUpdatesFromURL")
 	//Create the update download folder
 	os.RemoveAll("./updates")
 	os.MkdirAll("./updates", 0755)
@@ -148,6 +151,7 @@ func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL str
 
 // Get the update sizes, return binary size, webpack size and error if any
 func GetUpdateSizes(binaryURL string, webpackURL string) (int, int, error) {
+	logger.Debug("updates", "GetUpdateSizes")
 	bps, err := getDownloadFileSize(binaryURL)
 	if err != nil {
 		return -1, -1, err
@@ -161,6 +165,7 @@ func GetUpdateSizes(binaryURL string, webpackURL string) (int, int, error) {
 }
 
 func GetLauncherVersion() (string, error) {
+	logger.Debug("updates", "GetLauncherVersion")
 	//Check if there is a launcher listening to port 25576
 	client := http.Client{
 		Timeout: 3 * time.Second,
@@ -179,6 +184,7 @@ func GetLauncherVersion() (string, error) {
 }
 
 func CheckLauncherPortResponsive() bool {
+	logger.Debug("updates", "CheckLauncherPortResponsive")
 	client := http.Client{
 		Timeout: 3 * time.Second,
 	}

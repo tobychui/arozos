@@ -19,6 +19,7 @@ import (
 	"math"
 	"unicode/utf16"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/codepage"
 )
 
@@ -112,6 +113,9 @@ type record struct {
 // readRecords splits a workbook stream into records, folding CONTINUE
 // records into the record before them
 func readRecords(stream []byte) ([]*record, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "readRecords: len(stream)=%d", len(stream))
+	}
 	var out []*record
 	pos := 0
 	for pos+4 <= len(stream) {
@@ -148,11 +152,18 @@ type reader struct {
 	err   error
 }
 
-func newReader(r *record) *reader { return &reader{b: r.data, conts: r.conts} }
+func newReader(r *record) *reader {
+	logger.DebugTrace("office/xls", "newReader")
+	return &reader{b: r.data, conts: r.conts}
+}
 
-func (r *reader) left() int { return len(r.b) - r.pos }
+func (r *reader) left() int {
+	logger.DebugTrace("office/xls", "reader.left")
+	return len(r.b) - r.pos
+}
 
 func (r *reader) fail() {
+	logger.DebugTrace("office/xls", "reader.fail")
 	if r.err == nil {
 		r.err = errTruncated
 	}
@@ -160,6 +171,7 @@ func (r *reader) fail() {
 }
 
 func (r *reader) u8() uint8 {
+	logger.DebugTrace("office/xls", "reader.u8")
 	if r.pos+1 > len(r.b) {
 		r.fail()
 		return 0
@@ -170,6 +182,7 @@ func (r *reader) u8() uint8 {
 }
 
 func (r *reader) u16() uint16 {
+	logger.DebugTrace("office/xls", "reader.u16")
 	if r.pos+2 > len(r.b) {
 		r.fail()
 		return 0
@@ -180,6 +193,7 @@ func (r *reader) u16() uint16 {
 }
 
 func (r *reader) u32() uint32 {
+	logger.DebugTrace("office/xls", "reader.u32")
 	if r.pos+4 > len(r.b) {
 		r.fail()
 		return 0
@@ -190,6 +204,7 @@ func (r *reader) u32() uint32 {
 }
 
 func (r *reader) f64() float64 {
+	logger.DebugTrace("office/xls", "reader.f64")
 	if r.pos+8 > len(r.b) {
 		r.fail()
 		return 0
@@ -200,6 +215,9 @@ func (r *reader) f64() float64 {
 }
 
 func (r *reader) bytes(n int) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "reader.bytes: n=%d", n)
+	}
 	// against the bytes left: r.pos+n can overflow a 32-bit int
 	if n < 0 || n > len(r.b)-r.pos {
 		r.fail()
@@ -210,10 +228,16 @@ func (r *reader) bytes(n int) []byte {
 	return v
 }
 
-func (r *reader) skip(n int) { r.bytes(n) }
+func (r *reader) skip(n int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "reader.skip: n=%d", n)
+	}
+	r.bytes(n)
+}
 
 // nextCont is the next CONTINUE boundary after the current position
 func (r *reader) nextCont() int {
+	logger.DebugTrace("office/xls", "reader.nextCont")
 	for _, c := range r.conts {
 		if c > r.pos {
 			return c
@@ -224,6 +248,7 @@ func (r *reader) nextCont() int {
 
 // atCont reports whether the reader sits exactly on a CONTINUE boundary
 func (r *reader) atCont() bool {
+	logger.DebugTrace("office/xls", "reader.atCont")
 	for _, c := range r.conts {
 		if c == r.pos {
 			return true
@@ -238,6 +263,9 @@ func (r *reader) atCont() bool {
 // chars reads cch characters that start in the given width; at a
 // CONTINUE boundary the width is re-read from a new flags byte
 func (r *reader) chars(cch int, high bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "reader.chars: cch=%d high=%t", cch, high)
+	}
 	if cch <= 0 {
 		return ""
 	}
@@ -274,6 +302,7 @@ func (r *reader) chars(cch int, high bool) string {
 
 // xlString reads an XLUnicodeString (16-bit count) - BIFF8
 func (r *reader) xlString() string {
+	logger.DebugTrace("office/xls", "reader.xlString")
 	cch := int(r.u16())
 	flags := r.u8()
 	return r.chars(cch, flags&1 != 0)
@@ -281,6 +310,7 @@ func (r *reader) xlString() string {
 
 // shortString reads a ShortXLUnicodeString (8-bit count) - BIFF8
 func (r *reader) shortString() string {
+	logger.DebugTrace("office/xls", "reader.shortString")
 	cch := int(r.u8())
 	flags := r.u8()
 	return r.chars(cch, flags&1 != 0)
@@ -288,6 +318,9 @@ func (r *reader) shortString() string {
 
 // noCchString reads an XLUnicodeStringNoCch of known length - BIFF8
 func (r *reader) noCchString(cch int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "reader.noCchString: cch=%d", cch)
+	}
 	flags := r.u8()
 	return r.chars(cch, flags&1 != 0)
 }
@@ -295,6 +328,7 @@ func (r *reader) noCchString(cch int) string {
 // richString reads an XLUnicodeRichExtendedString (the SST entries):
 // formatting runs and phonetic data are skipped
 func (r *reader) richString() string {
+	logger.DebugTrace("office/xls", "reader.richString")
 	cch := int(r.u16())
 	flags := r.u8()
 	runs, ext := 0, 0
@@ -314,5 +348,8 @@ func (r *reader) richString() string {
 
 // byteString reads 8-bit characters in the workbook's code page (BIFF5)
 func (r *reader) byteString(n int, cp codepage.Decoder) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "reader.byteString: n=%d", n)
+	}
 	return cp.Decode(r.bytes(n))
 }

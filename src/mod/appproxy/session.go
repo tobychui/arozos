@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -53,6 +55,7 @@ type sessionStore struct {
 }
 
 func newSessionStore() *sessionStore {
+	logger.DebugTrace("appproxy", "newSessionStore")
 	return &sessionStore{
 		tickets:  map[string]*ticket{},
 		sessions: map[string]*session{},
@@ -60,6 +63,7 @@ func newSessionStore() *sessionStore {
 }
 
 func randomToken() string {
+	logger.Debug("appproxy", "randomToken")
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		panic("appproxy: no system randomness: " + err.Error())
@@ -69,6 +73,7 @@ func randomToken() string {
 
 // sweep drops expired entries, at most once a minute. Caller holds the lock
 func (s *sessionStore) sweep(now time.Time) {
+	logger.Debug("appproxy", "sessionStore.sweep")
 	if now.Sub(s.lastSweep) < time.Minute {
 		return
 	}
@@ -87,6 +92,9 @@ func (s *sessionStore) sweep(now time.Time) {
 
 // issueTicket creates a one-time ticket for a user to enter an endpoint
 func (s *sessionStore) issueTicket(username string, slug string, returnTo string) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "sessionStore.issueTicket: username=%.120q slug=%.120q returnTo=%.120q", username, slug, returnTo)
+	}
 	now := time.Now()
 	token := randomToken()
 	s.mu.Lock()
@@ -99,6 +107,9 @@ func (s *sessionStore) issueTicket(username string, slug string, returnTo string
 // claimTicket consumes a ticket for the endpoint and opens a session. It
 // returns the session token and the path to continue to
 func (s *sessionStore) claimTicket(token string, slug string) (string, string, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "sessionStore.claimTicket: slug=%.120q", slug)
+	}
 	now := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -119,6 +130,9 @@ func (s *sessionStore) claimTicket(token string, slug string) (string, string, b
 // resolve returns the user of a session cookie on an endpoint, revalidating
 // the account through lookup at most once a minute
 func (s *sessionStore) resolve(token string, slug string, lookup func(string) *Identity) *Identity {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "sessionStore.resolve: slug=%.120q", slug)
+	}
 	if token == "" {
 		return nil
 	}
@@ -159,6 +173,7 @@ func (s *sessionStore) resolve(token string, slug string, lookup func(string) *I
 
 // revoke ends one session
 func (s *sessionStore) revoke(token string) {
+	logger.Debug("appproxy", "sessionStore.revoke")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.sessions, token)
@@ -166,6 +181,9 @@ func (s *sessionStore) revoke(token string) {
 
 // dropEndpoint ends every session and ticket of an endpoint
 func (s *sessionStore) dropEndpoint(slug string) {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "sessionStore.dropEndpoint: slug=%.120q", slug)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for k, t := range s.tickets {

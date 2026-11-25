@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/info/wininfo"
 )
 
@@ -34,6 +35,9 @@ const query_phymem_command_darwin = "sysctl hw.memsize | awk '{print $NF}'"
 // The historical formula treated the sum as a 0–1 fraction
 // (phyMem - phyMem*sum), which goes hugely negative when sum ≈ 80.
 func darwinUsedBytesFromMemPercentSum(phyMem int64, sumMemPercent float64) int64 {
+	if logger.IsDebug() {
+		logger.Debugf("info/usageinfo", "darwinUsedBytesFromMemPercentSum: phyMem=%d sumMemPercent=%g", phyMem, sumMemPercent)
+	}
 	if phyMem <= 0 {
 		return 0
 	}
@@ -49,6 +53,7 @@ func darwinUsedBytesFromMemPercentSum(phyMem int64, sumMemPercent float64) int64
 
 // Get CPU Usage in percentage
 func GetCPUUsage() float64 {
+	logger.Debug("info/usageinfo", "GetCPUUsage")
 	usage := float64(0)
 	if runtime.GOOS == "windows" {
 		usage = windowsCPUUsage()
@@ -138,6 +143,7 @@ func GetCPUUsage() float64 {
 
 // Get RAM Usage in Numeric values
 func GetNumericRAMUsage() (int64, int64) {
+	logger.Debug("info/usageinfo", "GetNumericRAMUsage")
 	usedRam := int64(-1)
 	totalRam := int64(-1)
 	if runtime.GOOS == "windows" {
@@ -246,6 +252,7 @@ func GetNumericRAMUsage() (int64, int64) {
 
 // Get RAM usage, return used / total / used percentage
 func GetRAMUsage() (string, string, float64) {
+	logger.Debug("info/usageinfo", "GetRAMUsage")
 	usedRam := "Unknown"
 	totalRam := "Unknown"
 	usedPercentage := float64(0)
@@ -385,6 +392,7 @@ var windowsCPUSample struct {
 // recent sample (the first call, or calls too close together or too far
 // apart to mean much) it measures over half a second.
 func windowsCPUUsage() float64 {
+	logger.Debug("info/usageinfo", "windowsCPUUsage")
 	windowsCPUSample.Lock()
 	defer windowsCPUSample.Unlock()
 	now, err := wininfo.SystemTimes()

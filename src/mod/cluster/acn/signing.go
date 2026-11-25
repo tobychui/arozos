@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -93,6 +95,9 @@ type SignedIdentity struct {
 
 // canonicalString builds the byte string that is signed and verified.
 func canonicalString(method, target, clusterID, nodeID, timestamp, nonce string, bodyHash []byte) []byte {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "canonicalString: method=%.120q target=%.120q clusterID=%.120q nodeID=%.120q timestamp=%.120q", method, target, clusterID, nodeID, timestamp)
+	}
 	var b bytes.Buffer
 	b.WriteString(strings.ToUpper(method))
 	b.WriteByte('\n')
@@ -112,6 +117,9 @@ func canonicalString(method, target, clusterID, nodeID, timestamp, nonce string,
 
 // SignedTarget returns the path (plus query when present) a request is signed over.
 func SignedTarget(path string, rawQuery string) string {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "SignedTarget: path=%.120q", path)
+	}
 	if rawQuery == "" {
 		return path
 	}
@@ -122,6 +130,9 @@ func SignedTarget(path string, rawQuery string) string {
 // returns the target node ID and the original path. ok is false when the path
 // is not a relay path.
 func StripRelayPrefix(path string) (targetNode string, originalPath string, ok bool) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "StripRelayPrefix: path=%.120q", path)
+	}
 	if !strings.HasPrefix(path, RelayPrefix+"/") {
 		return "", path, false
 	}
@@ -134,6 +145,7 @@ func StripRelayPrefix(path string) (targetNode string, originalPath string, ok b
 }
 
 func newNonce() string {
+	logger.Debug("cluster/acn", "newNonce")
 	buf := make([]byte, 16)
 	rand.Read(buf)
 	return hex.EncodeToString(buf)
@@ -143,11 +155,17 @@ func newNonce() string {
 // (and query) the receiver will verify against, which for relayed requests is
 // the path without the relay prefix. body is the full request body.
 func (s *Signer) Sign(req *http.Request, target string, body []byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/acn", "Signer.Sign: req=%s target=%.120q", logger.RequestSummary(req), target)
+	}
 	s.SignAt(req, target, body, time.Now())
 }
 
 // SignAt is Sign with an explicit timestamp, used by tests.
 func (s *Signer) SignAt(req *http.Request, target string, body []byte, at time.Time) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "Signer.SignAt: req=%s target=%.120q", logger.RequestSummary(req), target)
+	}
 	ts := strconv.FormatInt(at.Unix(), 10)
 	nonce := newNonce()
 	sum := sha256.Sum256(body)
@@ -171,6 +189,7 @@ type nonceCache struct {
 }
 
 func newNonceCache(ttl time.Duration) *nonceCache {
+	logger.DebugTrace("cluster/acn", "newNonceCache")
 	return &nonceCache{
 		seen:    map[string]int64{},
 		ttl:     int64(ttl.Seconds()),
@@ -180,6 +199,9 @@ func newNonceCache(ttl time.Duration) *nonceCache {
 
 // remember returns false when the nonce was already recorded.
 func (c *nonceCache) remember(nonce string, now int64) bool {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "nonceCache.remember: now=%d", now)
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if now-c.lastGC > 60 || len(c.seen) > c.maxSize {
@@ -207,6 +229,7 @@ type Verifier struct {
 
 // NewVerifier creates a verifier backed by the given resolver.
 func NewVerifier(clusterID func() string, resolver PeerResolver) *Verifier {
+	logger.DebugTrace("cluster/acn", "NewVerifier")
 	return &Verifier{
 		ClusterID: clusterID,
 		Resolver:  resolver,
@@ -218,6 +241,9 @@ func NewVerifier(clusterID func() string, resolver PeerResolver) *Verifier {
 // ReadBody buffers and restores a request body so it can be hashed and then
 // consumed by the handler.
 func ReadBody(r *http.Request) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "ReadBody: r=%s", logger.RequestSummary(r))
+	}
 	if r.Body == nil {
 		return []byte{}, nil
 	}
@@ -237,6 +263,9 @@ func ReadBody(r *http.Request) ([]byte, error) {
 // body and returns the identity of the sender. The request body is left
 // readable for the handler.
 func (v *Verifier) Verify(r *http.Request, target string, body []byte) (*SignedIdentity, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "Verifier.Verify: r=%s target=%.120q", logger.RequestSummary(r), target)
+	}
 	nodeID := r.Header.Get(HeaderNode)
 	clusterID := r.Header.Get(HeaderCluster)
 	ts := r.Header.Get(HeaderTimestamp)
@@ -291,6 +320,9 @@ func (v *Verifier) Verify(r *http.Request, target string, body []byte) (*SignedI
 // body, derives the signed target (stripping the relay prefix when present)
 // and verifies the request.
 func (v *Verifier) VerifyRequest(r *http.Request) (*SignedIdentity, []byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "Verifier.VerifyRequest: r=%s", logger.RequestSummary(r))
+	}
 	body, err := ReadBody(r)
 	if err != nil {
 		return nil, nil, err

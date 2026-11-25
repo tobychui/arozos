@@ -5,11 +5,15 @@ import (
 	"net/http"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network"
 	"imuslab.com/arozos/mod/utils"
 )
 
 func (wl *WhiteList) HandleAddWhitelistedIP(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.HandleAddWhitelistedIP: r=%s", logger.RequestSummary(r))
+	}
 	ipRange, err := utils.PostPara(r, "iprange")
 	if err != nil {
 		utils.SendErrorResponse(w, "Invalid ip range given")
@@ -26,6 +30,9 @@ func (wl *WhiteList) HandleAddWhitelistedIP(w http.ResponseWriter, r *http.Reque
 }
 
 func (wl *WhiteList) HandleRemoveWhitelistedIP(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.HandleRemoveWhitelistedIP: r=%s", logger.RequestSummary(r))
+	}
 	ipRange, err := utils.PostPara(r, "iprange")
 	if err != nil {
 		utils.SendErrorResponse(w, "Invalid ip range given")
@@ -42,6 +49,9 @@ func (wl *WhiteList) HandleRemoveWhitelistedIP(w http.ResponseWriter, r *http.Re
 }
 
 func (wl *WhiteList) HandleSetWhitelistEnable(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.HandleSetWhitelistEnable: r=%s", logger.RequestSummary(r))
+	}
 	enableMode, _ := utils.PostPara(r, "enable")
 	if enableMode == "" {
 		//Get the current whitelist status
@@ -62,12 +72,18 @@ func (wl *WhiteList) HandleSetWhitelistEnable(w http.ResponseWriter, r *http.Req
 }
 
 func (wl *WhiteList) HandleListWhitelistedIPs(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.HandleListWhitelistedIPs: r=%s", logger.RequestSummary(r))
+	}
 	bannedIpRanges := wl.ListWhitelistedIpRanges()
 	js, _ := json.Marshal(bannedIpRanges)
 	utils.SendJSONResponse(w, string(js))
 }
 
 func (wl *WhiteList) CheckIsWhitelistedByRequest(r *http.Request) bool {
+	if logger.IsDebug() {
+		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.CheckIsWhitelistedByRequest: r=%s", logger.RequestSummary(r))
+	}
 	if wl.Enabled == false {
 		//Whitelist not enabled. Always return is whitelisted
 		return true

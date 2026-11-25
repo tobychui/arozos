@@ -25,6 +25,7 @@ type BlackList struct {
 }
 
 func NewBlacklistManager(sysdb *db.Database) *BlackList {
+	logger.Debug("auth/accesscontrol/blacklist", "NewBlacklistManager")
 	sysdb.NewTable("ipblacklist")
 
 	blacklistEnabled := false
@@ -43,6 +44,9 @@ func NewBlacklistManager(sysdb *db.Database) *BlackList {
 
 // Check if a given IP is banned
 func (bl *BlackList) IsBanned(ip string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("auth/accesscontrol/blacklist", "BlackList.IsBanned: ip=%.120q", ip)
+	}
 	if bl.Enabled == false {
 		return false
 	}
@@ -61,6 +65,7 @@ func (bl *BlackList) IsBanned(ip string) bool {
 }
 
 func (bl *BlackList) ListBannedIpRanges() []string {
+	logger.Debug("auth/accesscontrol/blacklist", "BlackList.ListBannedIpRanges")
 	entries, err := bl.database.ListTable("ipblacklist")
 	if err != nil {
 		return []string{}
@@ -79,6 +84,9 @@ func (bl *BlackList) ListBannedIpRanges() []string {
 
 // Set the ban state of a ip or ip range
 func (bl *BlackList) Ban(ipRange string) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth/accesscontrol/blacklist", "BlackList.Ban: ipRange=%.120q", ipRange)
+	}
 	//Check if the IP range is correct
 	err := accesscontrol.ValidateIpRange(ipRange)
 	if err != nil {
@@ -93,6 +101,9 @@ func (bl *BlackList) Ban(ipRange string) error {
 
 // Unban an IP or IP range
 func (bl *BlackList) UnBan(ipRange string) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth/accesscontrol/blacklist", "BlackList.UnBan: ipRange=%.120q", ipRange)
+	}
 	//Check if the IP range is correct
 	err := accesscontrol.ValidateIpRange(ipRange)
 	if err != nil {

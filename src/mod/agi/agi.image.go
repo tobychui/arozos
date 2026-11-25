@@ -38,6 +38,7 @@ import (
 */
 
 func (g *Gateway) ImageLibRegister() {
+	logger.Debug("agi", "Gateway.ImageLibRegister")
 	err := g.RegisterLib("imagelib", g.injectImageLibFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -46,6 +47,7 @@ func (g *Gateway) ImageLibRegister() {
 }
 
 func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectImageLibFunctions")
 	vm := payload.VM
 	u := payload.User
 	//scriptFsh := payload.ScriptFsh
@@ -684,6 +686,9 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 // HEIC file keeps its Exif as an item of the container, so its TIFF payload
 // is taken out first; other formats are read as they are.
 func exifSource(r io.Reader, path string) (io.Reader, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "exifSource: path=%.120q", path)
+	}
 	if !metadata.IsHEICImageFile(path) {
 		return r, nil
 	}
@@ -701,6 +706,9 @@ func exifSource(r io.Reader, path string) (io.Reader, error) {
 // read / render / write step fails. WriteFile is used for the output so this
 // works on every filesystem abstraction, including buffered ones (S3, FTP, WebDAV).
 func convertRawToJPEG(srcFsh *filesystem.FileSystemHandler, srcRpath string, destFsh *filesystem.FileSystemHandler, destRpath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "convertRawToJPEG: srcRpath=%.120q destRpath=%.120q", srcRpath, destRpath)
+	}
 	if !metadata.IsRawImageFile(srcRpath) {
 		return errors.New("source is not a supported RAW image: " + filepath.Base(srcRpath))
 	}

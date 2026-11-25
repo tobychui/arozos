@@ -24,6 +24,8 @@ package officeart
 import (
 	"encoding/binary"
 	"errors"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Record types
@@ -98,10 +100,16 @@ type Record struct {
 }
 
 // IsContainer reports a container record
-func (r *Record) IsContainer() bool { return r != nil && r.Ver == 0xF }
+func (r *Record) IsContainer() bool {
+	logger.DebugTrace("office/internal/officeart", "Record.IsContainer")
+	return r != nil && r.Ver == 0xF
+}
 
 // Child returns the first direct child of that type
 func (r *Record) Child(typ uint16) *Record {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/officeart", "Record.Child: typ=%d", typ)
+	}
 	if r == nil {
 		return nil
 	}
@@ -115,6 +123,9 @@ func (r *Record) Child(typ uint16) *Record {
 
 // All returns the direct children of that type
 func (r *Record) All(typ uint16) []*Record {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/officeart", "Record.All: typ=%d", typ)
+	}
 	if r == nil {
 		return nil
 	}
@@ -129,6 +140,9 @@ func (r *Record) All(typ uint16) []*Record {
 
 // Find collects every record of that type in the subtree, depth first
 func (r *Record) Find(typ uint16) []*Record {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/officeart", "Record.Find: typ=%d", typ)
+	}
 	var out []*Record
 	var walk func(*Record)
 	walk = func(n *Record) {
@@ -147,6 +161,9 @@ func (r *Record) Find(typ uint16) []*Record {
 
 // ReadHeader decodes the record header at off
 func ReadHeader(b []byte, off int) (ver uint8, inst uint16, typ uint16, length int, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/officeart", "ReadHeader: len(b)=%d off=%d", len(b), off)
+	}
 	// off > len-HeaderSize, not off+HeaderSize > len: an offset read from
 	// the file can sit near the int limit of a 32-bit target
 	if off < 0 || off > len(b)-HeaderSize {
@@ -164,10 +181,16 @@ func ReadHeader(b []byte, off int) (ver uint8, inst uint16, typ uint16, length i
 // past it. A record claiming more bytes than there are is cut short, as
 // Office itself tolerates.
 func ParseOne(b []byte, off int) (*Record, int, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/officeart", "ParseOne: len(b)=%d off=%d", len(b), off)
+	}
 	return parseOne(b, off, 0)
 }
 
 func parseOne(b []byte, off, depth int) (*Record, int, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/officeart", "parseOne: len(b)=%d off=%d depth=%d", len(b), off, depth)
+	}
 	ver, inst, typ, length, err := ReadHeader(b, off)
 	if err != nil {
 		return nil, len(b), err
@@ -194,6 +217,9 @@ func parseOne(b []byte, off, depth int) (*Record, int, error) {
 
 // Parse reads consecutive records from the start of b
 func Parse(b []byte) []*Record {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/officeart", "Parse: len(b)=%d", len(b))
+	}
 	var out []*Record
 	pos := 0
 	for pos+HeaderSize <= len(b) {

@@ -31,6 +31,7 @@ import (
 	"encoding/binary"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 	"imuslab.com/arozos/mod/office/model"
 )
@@ -50,6 +51,7 @@ const eotCompressed = 0x00000004
 
 // sfntMagic reports the mime type of a bare font file, "" when data is not one
 func sfntMagic(data []byte) string {
+	logger.DebugTrace("office/pptx", "sfntMagic")
 	if len(data) < 4 {
 		return ""
 	}
@@ -72,6 +74,7 @@ func sfntMagic(data []byte) string {
 // decodeEmbeddedFont unwraps a .fntdata part into a font file a browser can
 // load. ok is false when the part is compressed or otherwise unreadable.
 func decodeEmbeddedFont(data []byte) (out []byte, mime string, ok bool) {
+	logger.DebugTrace("office/pptx", "decodeEmbeddedFont")
 	if m := sfntMagic(data); m != "" {
 		return data, m, true
 	}
@@ -104,6 +107,9 @@ func decodeEmbeddedFont(data []byte) (out []byte, mime string, ok bool) {
 // families in "used", smallest first so the cap spends its budget on the
 // faces most likely to matter
 func (d *pptxDoc) embeddedFontFaces(used map[string]bool) []*model.EmbeddedFont {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "pptxDoc.embeddedFontFaces: len(used)=%d", len(used))
+	}
 	lst := d.pres.First("embeddedFontLst")
 	if lst == nil {
 		return nil
@@ -202,6 +208,9 @@ var fontAscentRatios = map[string]float64{
 // ascentRatio is fontAscentRatios for a family, 0.8 for one it does not
 // know (a value most text faces sit close to)
 func ascentRatio(family string) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "ascentRatio: family=%.120q", family)
+	}
 	if r, ok := fontAscentRatios[strings.ToLower(strings.TrimSpace(family))]; ok {
 		return r
 	}

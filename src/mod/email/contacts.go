@@ -13,6 +13,8 @@ import (
 	"net/mail"
 	"sort"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Contact is one address book entry.
@@ -30,11 +32,13 @@ type Contact struct {
 const maxContacts = 5000
 
 func contactKey(email string) string {
+	logger.DebugTrace("email", "contactKey")
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
 // Contacts lists the address book, most used first.
 func (m *Manager) Contacts(p Principal) ([]Contact, error) {
+	logger.Debug("email", "Manager.Contacts")
 	contacts, err := listOwned[Contact](m.store, tableContacts, p.Username)
 	if err != nil {
 		return nil, err
@@ -46,6 +50,7 @@ func (m *Manager) Contacts(p Principal) ([]Contact, error) {
 }
 
 func displayName(contact Contact) string {
+	logger.Debug("email", "displayName")
 	if contact.Name != "" {
 		return contact.Name
 	}
@@ -54,6 +59,9 @@ func displayName(contact Contact) string {
 
 // SearchContacts returns completion candidates for a typed prefix.
 func (m *Manager) SearchContacts(p Principal, query string, limit int) ([]Contact, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.SearchContacts: limit=%d", limit)
+	}
 	if limit <= 0 || limit > 50 {
 		limit = 8
 	}
@@ -108,6 +116,9 @@ func (m *Manager) SearchContacts(p Principal, query string, limit int) ([]Contac
 }
 
 func wordPrefix(text string, prefix string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("email", "wordPrefix: prefix=%.120q", prefix)
+	}
 	for _, word := range strings.Fields(text) {
 		if strings.HasPrefix(word, prefix) {
 			return true
@@ -118,6 +129,7 @@ func wordPrefix(text string, prefix string) bool {
 
 // SaveContact creates or edits an entry by hand.
 func (m *Manager) SaveContact(p Principal, contact Contact) (*Contact, error) {
+	logger.Debug("email", "Manager.SaveContact")
 	parsed, err := mail.ParseAddress(strings.TrimSpace(contact.Email))
 	if err != nil {
 		return nil, errors.New("please enter a valid email address")
@@ -152,6 +164,7 @@ func (m *Manager) SaveContact(p Principal, contact Contact) (*Contact, error) {
 
 // DeleteContact removes an entry.
 func (m *Manager) DeleteContact(p Principal, email string) error {
+	logger.Debug("email", "Manager.DeleteContact")
 	key := ownerKey(p.Username, contactKey(email))
 	if !m.store.db.KeyExists(tableContacts, key) {
 		return nil
@@ -161,6 +174,9 @@ func (m *Manager) DeleteContact(p Principal, email string) error {
 
 // collectContacts records the recipients of a sent message.
 func (m *Manager) collectContacts(p Principal, addresses []Address) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.collectContacts: len(addresses)=%d", len(addresses))
+	}
 	if len(addresses) == 0 {
 		return
 	}
@@ -200,6 +216,9 @@ func (m *Manager) collectContacts(p Principal, addresses []Address) {
 
 // ImportContacts adds many entries at once (vCard / CSV import in the UI).
 func (m *Manager) ImportContacts(p Principal, contacts []Contact) (int, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.ImportContacts: len(contacts)=%d", len(contacts))
+	}
 	imported := 0
 	for _, contact := range contacts {
 		if _, err := m.SaveContact(p, contact); err == nil {

@@ -77,6 +77,7 @@ type Manager struct {
 
 // Create a new Share Manager
 func NewShareManager(options Options) *Manager {
+	logger.Debug("share", "NewShareManager")
 	//Return a new manager object
 	manager := &Manager{
 		options: options,
@@ -86,6 +87,9 @@ func NewShareManager(options Options) *Manager {
 }
 
 func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, shareID string) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.HandleOPGServing: r=%s shareID=%.120q", logger.RequestSummary(r), shareID)
+	}
 	shareEntry := s.lookupActiveShare(shareID)
 	if shareEntry == nil || shareEntry.HasPassword() {
 		//This share is not valid, or its name is behind a password
@@ -284,6 +288,9 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 
 // Main function for handle share. Must be called with http.HandleFunc (No auth)
 func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.HandleShareAccess: r=%s", logger.RequestSummary(r))
+	}
 	// Handle async zip status/download endpoints early — these use the job ID as an auth token
 	// and do not require a share entry lookup.
 	{
@@ -931,6 +938,9 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 // handleZipStatus returns the current status of an async zip job as JSON.
 func (s *Manager) handleZipStatus(w http.ResponseWriter, r *http.Request, jobID string) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.handleZipStatus: r=%s jobID=%.120q", logger.RequestSummary(r), jobID)
+	}
 	v, ok := s.zipJobs.Load(jobID)
 	if !ok {
 		w.Header().Set("Content-Type", "application/json")
@@ -956,6 +966,9 @@ func (s *Manager) handleZipStatus(w http.ResponseWriter, r *http.Request, jobID 
 
 // handleZipDownload serves a completed async zip file.
 func (s *Manager) handleZipDownload(w http.ResponseWriter, r *http.Request, jobID string) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.handleZipDownload: r=%s jobID=%.120q", logger.RequestSummary(r), jobID)
+	}
 	v, ok := s.zipJobs.Load(jobID)
 	if !ok {
 		http.NotFound(w, r)
@@ -984,6 +997,9 @@ func (s *Manager) handleZipDownload(w http.ResponseWriter, r *http.Request, jobI
 // by /share/preview: inline, with the file name (RFC 2231 encoded when it is
 // not plain ASCII). It returns "" when no valid header can be built.
 func previewDisposition(filename string) string {
+	if logger.IsDebug() {
+		logger.Debugf("share", "previewDisposition: filename=%.120q", filename)
+	}
 	if filename == "" || filename == "." || filename == "/" {
 		return ""
 	}
@@ -997,6 +1013,9 @@ func previewDisposition(filename string) string {
 // skips the stat: it costs a round trip and its streaming branches cannot answer
 // a conditional request anyway.
 func setShareRevalidation(w http.ResponseWriter, targetFsh *filesystem.FileSystemHandler, realPath string) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "setShareRevalidation: realPath=%.120q", realPath)
+	}
 	var info fs.FileInfo
 	if !targetFsh.RequireBuffer {
 		if st, err := targetFsh.FileSystemAbstraction.Stat(realPath); err == nil {
@@ -1010,6 +1029,9 @@ func setShareRevalidation(w http.ResponseWriter, targetFsh *filesystem.FileSyste
 // with the link opens it on this site, often while signed in, so a file that
 // could be a page (HTML, SVG) is sandboxed (utils.SetUserContentHeaders).
 func setPreviewContentType(w http.ResponseWriter, contentType string, path string) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "setPreviewContentType: path=%.120q", path)
+	}
 	if contentType != "" {
 		w.Header().Set("Content-Type", contentType)
 	}
@@ -1018,6 +1040,9 @@ func setPreviewContentType(w http.ResponseWriter, contentType string, path strin
 
 // servePreview streams a shared file inline for in-browser viewing
 func (s *Manager) servePreview(w http.ResponseWriter, r *http.Request, targetFsh *filesystem.FileSystemHandler, fileRuntimeAbsPath string) {
+	if logger.IsDebug() {
+		logger.Debugf("share", "Manager.servePreview: r=%s fileRuntimeAbsPath=%.120q", logger.RequestSummary(r), fileRuntimeAbsPath)
+	}
 	targetFshAbs := targetFsh.FileSystemAbstraction
 	contentType := mime.TypeByExtension(filepath.Ext(fileRuntimeAbsPath))
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -1077,6 +1102,7 @@ func (s *Manager) servePreview(w http.ResponseWriter, r *http.Request, targetFsh
 // pageSettingsJSON is the share settings the public share pages need, as a
 // JSON object literal for the {{sharesettings}} template slot.
 func pageSettingsJSON(so *shareEntry.ShareOption) string {
+	logger.Debug("share", "pageSettingsJSON")
 	js, _ := json.Marshal(map[string]interface{}{
 		"allowDownload": so.AllowDownload,
 		"showFileList":  so.ShowFileList,

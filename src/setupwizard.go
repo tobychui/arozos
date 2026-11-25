@@ -32,6 +32,7 @@ import (
 
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/permission"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/setupwizard"
@@ -47,6 +48,7 @@ const (
 )
 
 func SetupWizardInit() {
+	logger.Debug("Core", "SetupWizardInit")
 	if err := sysdb.NewTable(setupWizardTable); err != nil {
 		systemWideLogger.PrintAndLog("Setup", "Could not create the setup wizard table", err)
 		return
@@ -114,12 +116,14 @@ type setupStateInfo struct {
 
 // setupWizardActive reports whether any group still boots into the wizard
 func setupWizardActive() bool {
+	logger.DebugTrace("Core", "setupWizardActive")
 	return len(groupsBootingInto(permission.SetupWizardModule)) > 0
 }
 
 // setupInterfaces lists the interface modules a user can boot into, the
 // desktop first and the wizard itself left out
 func setupInterfaces() []setupInterfaceInfo {
+	logger.Debug("Core", "setupInterfaces")
 	result := []setupInterfaceInfo{}
 	for _, mod := range moduleHandler.LoadedModule {
 		if !strings.EqualFold(mod.Group, interfaceModGroup) || mod.Name == permission.SetupWizardModule {
@@ -134,6 +138,9 @@ func setupInterfaces() []setupInterfaceInfo {
 }
 
 func handleSetupState(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleSetupState: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -191,6 +198,7 @@ func handleSetupState(w http.ResponseWriter, r *http.Request) {
 
 // platformName is the host OS as the wizard words it
 func platformName() string {
+	logger.Debug("Core", "platformName")
 	if setupwizard.Supported {
 		return "linux"
 	}
@@ -200,6 +208,7 @@ func platformName() string {
 // setupDiskSupport tells whether disks can be mounted and formatted here,
 // and if not, why
 func setupDiskSupport() (bool, string) {
+	logger.Debug("Core", "setupDiskSupport")
 	switch {
 	case !setupwizard.Supported:
 		return false, "platform"
@@ -218,6 +227,9 @@ func setupDiskSupport() (bool, string) {
 // handleSetupProgress saves (POST progress=<json>) or clears (POST clear=true)
 // what the wizard needs to resume. It never holds passwords.
 func handleSetupProgress(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleSetupProgress: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "This request must be a POST")
 		return
@@ -250,6 +262,7 @@ func handleSetupProgress(w http.ResponseWriter, r *http.Request) {
 // setupUsedDrives lists the local drives of every pool, plus the folder
 // ArozOS runs from, so the disks behind them are never offered for format
 func setupUsedDrives() []setupwizard.UsedDrive {
+	logger.Debug("Core", "setupUsedDrives")
 	used := []setupwizard.UsedDrive{}
 	absolute := func(path string) string {
 		if path == "" {
@@ -286,6 +299,9 @@ func setupUsedDrives() []setupwizard.UsedDrive {
 }
 
 func handleSetupDisks(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleSetupDisks: r=%s", logger.RequestSummary(r))
+	}
 	disks, err := setupwizard.ListDisks(setupUsedDrives())
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -298,6 +314,9 @@ func handleSetupDisks(w http.ResponseWriter, r *http.Request) {
 // setupConfirmPassword checks the signed in admin's password, which every
 // destructive disk action asks for again
 func setupConfirmPassword(w http.ResponseWriter, r *http.Request) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "setupConfirmPassword: r=%s", logger.RequestSummary(r))
+	}
 	username, err := authAgent.GetUserName(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -318,6 +337,9 @@ func setupConfirmPassword(w http.ResponseWriter, r *http.Request) bool {
 // handleSetupDiskFormat formats a partition, or a disk without partitions,
 // that nothing uses. POST device, fstype, label, password
 func handleSetupDiskFormat(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleSetupDiskFormat: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "This request must be a POST")
 		return
@@ -357,6 +379,9 @@ func handleSetupDiskFormat(w http.ResponseWriter, r *http.Request) {
 // start; one the host already mounts is used as a plain folder.
 // POST device, id, name, hierarchy (public or user)
 func handleSetupDiskAdd(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleSetupDiskAdd: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "This request must be a POST")
 		return
@@ -462,6 +487,9 @@ func handleSetupDiskAdd(w http.ResponseWriter, r *http.Request) {
 // chosen interface, then disables the wizard. Skipping uses it too, with the
 // desktop. POST interface=<module name>
 func handleSetupFinish(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleSetupFinish: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "This request must be a POST")
 		return
@@ -480,6 +508,9 @@ func handleSetupFinish(w http.ResponseWriter, r *http.Request) {
 }
 
 func finishSetupWizard(target string) error {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "finishSetupWizard: target=%.120q", target)
+	}
 	valid := false
 	for _, iface := range setupInterfaces() {
 		if iface.Name == target {

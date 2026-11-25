@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/officeart"
 	"imuslab.com/arozos/mod/office/internal/opc"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
@@ -49,9 +50,15 @@ type partRels struct {
 	byKey map[string]string
 }
 
-func newPartRels() *partRels { return &partRels{byKey: map[string]string{}} }
+func newPartRels() *partRels {
+	logger.DebugTrace("office/ppt", "newPartRels")
+	return &partRels{byKey: map[string]string{}}
+}
 
 func (pr *partRels) add(typ, target string, external bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "partRels.add: typ=%.120q target=%.120q external=%t", typ, target, external)
+	}
 	k := typ + "|" + target
 	if id, ok := pr.byKey[k]; ok {
 		return id
@@ -68,11 +75,13 @@ type writer struct {
 }
 
 func newWriter(p *pres) *writer {
+	logger.DebugTrace("office/ppt", "newWriter")
 	return &writer{p: p, pkg: opc.New(), media: map[[32]byte]string{}}
 }
 
 // usable turns a picture into one a .pptx reader shows
 func usable(b *officeart.Blip) ([]byte, string, bool) {
+	logger.DebugTrace("office/ppt", "usable")
 	if b == nil || len(b.Data) == 0 {
 		return nil, "", false
 	}
@@ -90,6 +99,9 @@ func usable(b *officeart.Blip) ([]byte, string, bool) {
 }
 
 func (w *writer) mediaRel(data []byte, ext string, part *partRels) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "writer.mediaRel: ext=%.120q", ext)
+	}
 	h := sha256.Sum256(data)
 	name, ok := w.media[h]
 	if !ok {
@@ -102,6 +114,7 @@ func (w *writer) mediaRel(data []byte, ext string, part *partRels) string {
 
 // background finds a drawing's background shape
 func background(drawing *officeart.Record) *officeart.Shape {
+	logger.DebugTrace("office/ppt", "background")
 	if drawing == nil {
 		return nil
 	}
@@ -118,6 +131,7 @@ func background(drawing *officeart.Record) *officeart.Shape {
 }
 
 func patriarch(drawing *officeart.Record) *officeart.Shape {
+	logger.DebugTrace("office/ppt", "patriarch")
 	if drawing == nil {
 		return nil
 	}
@@ -129,6 +143,7 @@ func patriarch(drawing *officeart.Record) *officeart.Shape {
 }
 
 func (w *writer) ctx(s, master *slideRec, part *partRels) *slideCtx {
+	logger.DebugTrace("office/ppt", "writer.ctx")
 	c := &slideCtx{w: w, p: w.p, s: s, master: master, part: part, nextID: 1, number: s.number}
 	c.scheme = s.scheme
 	if c.scheme == [8]uint32{} && master != nil {
@@ -142,6 +157,7 @@ func (w *writer) ctx(s, master *slideRec, part *partRels) *slideCtx {
 
 // bgXML writes a p:bg from a background shape
 func (c *slideCtx) bgXML(sh *officeart.Shape) string {
+	logger.DebugTrace("office/ppt", "slideCtx.bgXML")
 	if sh == nil {
 		return ""
 	}
@@ -153,6 +169,9 @@ func (c *slideCtx) bgXML(sh *officeart.Shape) string {
 }
 
 func spTree(inner string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "spTree: inner=%.120q", inner)
+	}
 	return `<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm>` +
 		`<a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>` + inner + `</p:spTree>`
 }
@@ -161,6 +180,9 @@ const clrMap = `<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accen
 
 // themeXML writes a theme carrying a PowerPoint colour scheme
 func themeXML(name string, scheme [8]uint32, font string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "themeXML: name=%.120q font=%.120q", name, font)
+	}
 	if font == "" {
 		font = "Arial"
 	}
@@ -182,6 +204,7 @@ func themeXML(name string, scheme [8]uint32, font string) string {
 
 // notesText gathers a notes page's body text
 func (w *writer) notesText(n *slideRec) []*textBlock {
+	logger.DebugTrace("office/ppt", "writer.notesText")
 	if n == nil || n.rec == nil {
 		return nil
 	}
@@ -203,6 +226,7 @@ func (w *writer) notesText(n *slideRec) []*textBlock {
 }
 
 func (w *writer) write() ([]byte, error) {
+	logger.DebugTrace("office/ppt", "writer.write")
 	p := w.p
 	var root opc.Rels
 	root.Add(opc.RelOfficeDocument, "ppt/presentation.xml", false)
@@ -344,6 +368,9 @@ func (w *writer) write() ([]byte, error) {
 }
 
 func utf16Encode(s string) []uint16 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/ppt", "utf16Encode: s=%.120q", s)
+	}
 	out := make([]uint16, 0, len(s))
 	for _, r := range s {
 		if r >= 0x10000 {

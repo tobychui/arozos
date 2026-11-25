@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/security/csrf"
 	"imuslab.com/arozos/mod/utils"
@@ -25,6 +26,7 @@ var (
 
 // Initiation function
 func security_init() {
+	logger.Debug("Core", "security_init")
 	//Create a default permission router accessable by everyone
 	router := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "",

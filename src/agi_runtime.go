@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -21,6 +22,7 @@ import (
 */
 
 func AGIRuntimeManagerInit() {
+	logger.Debug("Core", "AGIRuntimeManagerInit")
 	// Register the settings tab in the "Advance" (Developer Options) group.
 	// RequireAdmin: false so regular users can view their own running scripts.
 	registerSetting(settingModule{

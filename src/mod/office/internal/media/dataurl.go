@@ -4,11 +4,14 @@ import (
 	"encoding/base64"
 	"net/url"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // dataURL decodes a data:image/...;base64,... URL. Returns bytes, file
 // extension (png/jpeg/gif) and ok.
 func DecodeDataURL(durl string) ([]byte, string, bool) {
+	logger.Debug("office/internal/media", "DecodeDataURL")
 	if !strings.HasPrefix(durl, "data:image/") {
 		return nil, "", false
 	}
@@ -44,6 +47,9 @@ formats Word and PowerPoint embed as they are qualify - the editors turn
 anything else (SVG charts, WebP, BMP) into PNG before saving.
 */
 func ImageSrcBytes(src string, readVpath func(string) ([]byte, error)) ([]byte, string, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/media", "ImageSrcBytes: src=%.120q", src)
+	}
 	if data, ext, ok := DecodeDataURL(src); ok {
 		return data, ext, true
 	}
@@ -68,6 +74,7 @@ func ImageSrcBytes(src string, readVpath func(string) ([]byte, error)) ([]byte, 
 // SniffImageExt names png / jpeg / gif content by its signature ("" for
 // anything else)
 func SniffImageExt(data []byte) string {
+	logger.Debug("office/internal/media", "SniffImageExt")
 	switch {
 	case len(data) >= 8 && string(data[:8]) == "\x89PNG\r\n\x1a\n":
 		return "png"
@@ -81,6 +88,9 @@ func SniffImageExt(data []byte) string {
 
 // EncodeDataURL builds a data URL from raw image bytes
 func EncodeDataURL(data []byte, ext string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/media", "EncodeDataURL: ext=%.120q", ext)
+	}
 	mime := "image/png"
 	switch strings.ToLower(ext) {
 	case "jpg", "jpeg":
@@ -118,6 +128,9 @@ var ExtToMime = func() map[string]string {
 
 // ParseAnyDataURL decodes any base64 data URL (images, video, audio, ...)
 func ParseAnyDataURL(s string) ([]byte, string, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/media", "ParseAnyDataURL: s=%.120q", s)
+	}
 	if !strings.HasPrefix(s, "data:") {
 		return nil, "", false
 	}
@@ -142,6 +155,9 @@ func ParseAnyDataURL(s string) ([]byte, string, bool) {
 }
 
 func DataURLOf(data []byte, ext string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/media", "DataURLOf: ext=%.120q", ext)
+	}
 	mime, ok := ExtToMime[strings.ToLower(ext)]
 	if !ok {
 		mime = "application/octet-stream"
@@ -152,6 +168,9 @@ func DataURLOf(data []byte, ext string) string {
 // LinkVpath extracts the virtual path from an in-app media link such
 // as "../media?file=user:/Photo/cat.png" (any number of leading ../ or ./)
 func LinkVpath(s string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/media", "LinkVpath: s=%.120q", s)
+	}
 	t := s
 	for strings.HasPrefix(t, "../") || strings.HasPrefix(t, "./") {
 		t = strings.TrimPrefix(strings.TrimPrefix(t, "../"), "./")

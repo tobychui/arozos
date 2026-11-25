@@ -16,6 +16,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // gitignoreName is the file rules are appended to, at the working tree root.
@@ -29,6 +31,9 @@ const ignoreHeader = "# Added by GitApp"
 // skipping any rule that is already there. The patterns actually written are
 // returned so the caller can report precisely what changed.
 func (m *Manager) AddIgnoreRules(realpath string, patterns []string) ([]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.AddIgnoreRules: realpath=%.120q len(patterns)=%d", realpath, len(patterns))
+	}
 	root, err := m.RepoRoot(realpath)
 	if err != nil {
 		return nil, err
@@ -77,6 +82,9 @@ are added as needed so appending to a file with or without a trailing newline
 both give a well formed result.
 */
 func appendIgnoreRules(existing string, added []string) string {
+	if logger.IsDebug() {
+		logger.Debugf("git", "appendIgnoreRules: existing=%.120q len(added)=%d", existing, len(added))
+	}
 	builder := strings.Builder{}
 	builder.WriteString(existing)
 
@@ -110,6 +118,7 @@ func appendIgnoreRules(existing string, added []string) string {
 // blank lines are skipped so a rule that only appears inside a comment is not
 // mistaken for an active one.
 func existingIgnoreRules(content string) map[string]struct{} {
+	logger.Debug("git", "existingIgnoreRules")
 	rules := map[string]struct{}{}
 
 	for _, line := range strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n") {
@@ -126,6 +135,9 @@ func existingIgnoreRules(content string) map[string]struct{} {
 // rejects anything that cannot be a gitignore rule. Duplicates within one call
 // are collapsed so a single request never writes the same line twice.
 func normaliseIgnorePatterns(patterns []string) ([]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "normaliseIgnorePatterns: len(patterns)=%d", len(patterns))
+	}
 	results := []string{}
 	seen := map[string]struct{}{}
 

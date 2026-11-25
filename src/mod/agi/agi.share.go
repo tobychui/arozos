@@ -12,6 +12,7 @@ import (
 )
 
 func (g *Gateway) ShareLibRegister() {
+	logger.Debug("agi", "Gateway.ShareLibRegister")
 	err := g.RegisterLib("share", g.injectShareFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -20,6 +21,7 @@ func (g *Gateway) ShareLibRegister() {
 }
 
 func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectShareFunctions")
 	vm := payload.VM
 	u := payload.User
 	//scriptFsh := payload.ScriptFsh

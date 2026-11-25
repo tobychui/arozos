@@ -64,6 +64,7 @@ type SchedulerCallbacks struct {
 // Must be called after the Scheduler is initialized, passing callback functions
 // so that the agi package does not import the scheduler package directly.
 func (g *Gateway) RegisterSchedulerLib(callbacks *SchedulerCallbacks) {
+	logger.Debug("agi", "Gateway.RegisterSchedulerLib")
 	err := g.RegisterLib("scheduler", func(payload *static.AgiLibInjectionPayload) {
 		g.injectSchedulerLibFunctions(payload, callbacks)
 	})
@@ -74,6 +75,7 @@ func (g *Gateway) RegisterSchedulerLib(callbacks *SchedulerCallbacks) {
 }
 
 func (g *Gateway) injectSchedulerLibFunctions(payload *static.AgiLibInjectionPayload, cb *SchedulerCallbacks) {
+	logger.Debug("agi", "Gateway.injectSchedulerLibFunctions")
 	vm := payload.VM
 	u := payload.User
 

@@ -16,6 +16,8 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var (
@@ -59,6 +61,9 @@ var authErrorFragments = []string{
 // IsAuthError reports whether err represents a credential problem rather than a
 // genuine transport or repository failure.
 func IsAuthError(err error) bool {
+	if logger.IsDebug() {
+		logger.Debugf("git", "IsAuthError: err=%v", err)
+	}
 	if err == nil {
 		return false
 	}
@@ -82,6 +87,9 @@ func IsAuthError(err error) bool {
 // simply check errors.Is(err, ErrAuthRequired). The original message is kept as
 // the wrapped text because it usually names the failing host.
 func classifyError(err error) error {
+	if logger.IsDebug() {
+		logger.Debugf("git", "classifyError: err=%v", err)
+	}
 	if err == nil {
 		return nil
 	}
@@ -97,8 +105,19 @@ type authError struct {
 	inner error
 }
 
-func (e *authError) Error() string { return e.inner.Error() }
+func (e *authError) Error() string {
+	logger.DebugTrace("git", "authError.Error")
+	return e.inner.Error()
+}
 
-func (e *authError) Unwrap() error { return e.inner }
+func (e *authError) Unwrap() error {
+	logger.DebugTrace("git", "authError.Unwrap")
+	return e.inner
+}
 
-func (e *authError) Is(target error) bool { return target == ErrAuthRequired }
+func (e *authError) Is(target error) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("git", "authError.Is: target=%v", target)
+	}
+	return target == ErrAuthRequired
+}

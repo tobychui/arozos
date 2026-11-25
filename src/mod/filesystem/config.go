@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // FileSystem configuration. Append more lines if required.
@@ -26,6 +27,7 @@ type FileSystemOption struct {
 
 // Parse a list of StorageConfig from the given json content
 func loadConfigFromJSON(jsonContent []byte) ([]FileSystemOption, error) {
+	logger.Debug("filesystem", "loadConfigFromJSON")
 	storageInConfig := []FileSystemOption{}
 	//Try to parse the JSON content
 	err := json.Unmarshal(jsonContent, &storageInConfig)
@@ -34,6 +36,7 @@ func loadConfigFromJSON(jsonContent []byte) ([]FileSystemOption, error) {
 
 // Validate if the given options are correct
 func ValidateOption(options *FileSystemOption) error {
+	logger.Debug("filesystem", "ValidateOption")
 	//Check if path exists
 	if options.Name == "" {
 		return errors.New("File System Handler name cannot be empty")

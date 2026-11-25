@@ -11,6 +11,7 @@ import (
 	"imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/fileservers"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
 )
 
@@ -35,6 +36,7 @@ type Manager struct {
 
 // Create a new web directory server
 func NewDirectoryServer(option *Option) *Manager {
+	logger.Debug("fileservers/servers/dirserv", "NewDirectoryServer")
 	//Create a table to store which user enabled dirlisting on their own root
 	option.Sysdb.NewTable("dirserv")
 
@@ -50,16 +52,21 @@ func NewDirectoryServer(option *Option) *Manager {
 }
 
 func (m *Manager) DirServerEnabled() bool {
+	logger.DebugTrace("fileservers/servers/dirserv", "Manager.DirServerEnabled")
 	return m.enabled
 }
 
 func (m *Manager) Toggle(enabled bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/dirserv", "Manager.Toggle: enabled=%t", enabled)
+	}
 	m.enabled = enabled
 	m.option.Sysdb.Write("dirserv", "enabled", m.enabled)
 	return nil
 }
 
 func (m *Manager) ListEndpoints(userinfo *user.User) []*fileservers.Endpoint {
+	logger.Debug("fileservers/servers/dirserv", "Manager.ListEndpoints")
 	results := []*fileservers.Endpoint{}
 	results = append(results, &fileservers.Endpoint{
 		ProtocolName: "//",
@@ -74,6 +81,9 @@ func (m *Manager) ListEndpoints(userinfo *user.User) []*fileservers.Endpoint {
 */
 
 func (m *Manager) ServerWebFileRequest(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/dirserv", "Manager.ServerWebFileRequest: r=%s", logger.RequestSummary(r))
+	}
 	if !m.enabled {
 		//Dirlisting is not enabled.
 		http.NotFound(w, r)

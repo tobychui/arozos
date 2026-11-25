@@ -74,6 +74,7 @@ type Manager struct {
 // NewManager opens (or creates) the mail data folder and starts the
 // background janitor.
 func NewManager(options Options) (*Manager, error) {
+	logger.Debug("email", "NewManager")
 	if strings.TrimSpace(options.DataDir) == "" {
 		return nil, errors.New("mail data directory is required")
 	}
@@ -129,6 +130,7 @@ func NewManager(options Options) (*Manager, error) {
 
 // Close stops background work and releases connections and the database.
 func (m *Manager) Close() {
+	logger.Debug("email", "Manager.Close")
 	m.stopOnce.Do(func() {
 		close(m.stop)
 	})
@@ -138,6 +140,7 @@ func (m *Manager) Close() {
 }
 
 func (m *Manager) closeDB() {
+	logger.Debug("email", "Manager.closeDB")
 	if m.ownedDB != nil {
 		m.ownedDB.Close()
 		m.ownedDB = nil
@@ -145,6 +148,7 @@ func (m *Manager) closeDB() {
 }
 
 func (m *Manager) backgroundLoop() {
+	logger.Debug("email", "Manager.backgroundLoop")
 	defer m.wg.Done()
 	janitor := time.NewTicker(time.Minute)
 	outboxTicker := time.NewTicker(5 * time.Second)
@@ -166,6 +170,7 @@ func (m *Manager) backgroundLoop() {
 
 // AdminConfig returns the administrator configuration with secrets hidden.
 func (m *Manager) AdminConfig() AdminConfigView {
+	logger.Debug("email", "Manager.AdminConfig")
 	config := m.store.getAdminConfig()
 	return AdminConfigView{
 		Google:            config.Google.view(),
@@ -194,6 +199,7 @@ type AdminConfigInput struct {
 // SetAdminConfig stores a new administrator configuration. Only admins may
 // call it; the AGI layer enforces that and passes the principal along.
 func (m *Manager) SetAdminConfig(p Principal, input AdminConfigInput) error {
+	logger.Debug("email", "Manager.SetAdminConfig")
 	if !p.Admin {
 		return errors.New("only administrators can change mail settings")
 	}
@@ -239,11 +245,13 @@ func (m *Manager) SetAdminConfig(p Principal, input AdminConfigInput) error {
 
 // Settings returns a user's preferences.
 func (m *Manager) Settings(p Principal) UserSettings {
+	logger.DebugTrace("email", "Manager.Settings")
 	return m.store.getSettings(p.Username)
 }
 
 // SaveSettings replaces a user's preferences.
 func (m *Manager) SaveSettings(p Principal, settings UserSettings) (UserSettings, error) {
+	logger.Debug("email", "Manager.SaveSettings")
 	settings.normalise()
 	if err := m.store.saveSettings(p.Username, settings); err != nil {
 		return settings, err
@@ -253,6 +261,9 @@ func (m *Manager) SaveSettings(p Principal, settings UserSettings) (UserSettings
 
 // TrustSender adds an address or domain to the remote-content allow list.
 func (m *Manager) TrustSender(p Principal, sender string) error {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.TrustSender: sender=%.120q", sender)
+	}
 	sender = strings.ToLower(strings.TrimSpace(sender))
 	if sender == "" {
 		return errors.New("sender is empty")
@@ -269,6 +280,7 @@ func (m *Manager) TrustSender(p Principal, sender string) error {
 
 // allowPrivate decides whether p may reach LAN / loopback servers.
 func (m *Manager) allowPrivate(p Principal) bool {
+	logger.Debug("email", "Manager.allowPrivate")
 	if p.Admin {
 		return true
 	}
@@ -277,6 +289,7 @@ func (m *Manager) allowPrivate(p Principal) bool {
 
 // allowInsecure decides whether p may use unencrypted connections.
 func (m *Manager) allowInsecure(p Principal) bool {
+	logger.Debug("email", "Manager.allowInsecure")
 	if p.Admin {
 		return true
 	}
@@ -285,15 +298,20 @@ func (m *Manager) allowInsecure(p Principal) bool {
 
 // maxAttachmentBytes is the configured outgoing attachment budget.
 func (m *Manager) maxAttachmentBytes() int64 {
+	logger.DebugTrace("email", "Manager.maxAttachmentBytes")
 	return int64(m.store.getAdminConfig().MaxAttachmentMB) * 1024 * 1024
 }
 
 func poolKey(owner string, accountID string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("email", "poolKey: owner=%.120q accountID=%.120q", owner, accountID)
+	}
 	return owner + "/" + accountID
 }
 
 // withIMAP runs fn on a pooled, authenticated connection of an account.
 func (m *Manager) withIMAP(ctx context.Context, p Principal, account *Account, fn func(c *imapclient.Client) error) error {
+	logger.Debug("email", "Manager.withIMAP")
 	key := poolKey(p.Username, account.ID)
 	conn, err := m.pool.acquire(ctx, key, func() (*imapclient.Client, error) {
 		return m.dialIMAP(ctx, p, account)
@@ -312,6 +330,9 @@ func (m *Manager) withIMAP(ctx context.Context, p Principal, account *Account, f
 // Protocol-level "NO"/"BAD" answers and our own lookup errors leave it
 // usable; network failures and closed connections do not.
 func connectionBroken(client *imapclient.Client, err error) bool {
+	if logger.IsDebug() {
+		logger.Debugf("email", "connectionBroken: err=%v", err)
+	}
 	if isClosed(client) {
 		return true
 	}
@@ -334,6 +355,9 @@ func connectionBroken(client *imapclient.Client, err error) bool {
 // noteAuthError records (or clears) the authentication problem shown on an
 // account in the sidebar.
 func (m *Manager) noteAuthError(p Principal, account *Account, err error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.noteAuthError: err=%v", err)
+	}
 	if !IsAuthError(err) {
 		return
 	}
@@ -348,6 +372,7 @@ func (m *Manager) noteAuthError(p Principal, account *Account, err error) {
 }
 
 func (m *Manager) clearAuthError(p Principal, account *Account) {
+	logger.Debug("email", "Manager.clearAuthError")
 	if account.AuthError == "" {
 		return
 	}
@@ -363,11 +388,15 @@ func (m *Manager) clearAuthError(p Principal, account *Account) {
 }
 
 func (m *Manager) now() time.Time {
+	logger.DebugTrace("email", "Manager.now")
 	return time.Now()
 }
 
 // randomID returns n random bytes as hex.
 func randomID(n int) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "randomID: n=%d", n)
+	}
 	buf := make([]byte, n)
 	if _, err := rand.Read(buf); err != nil {
 		return hex.EncodeToString([]byte(time.Now().Format("150405.000000")))

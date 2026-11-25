@@ -5,12 +5,15 @@ package docker
 import (
 	"os"
 	"path/filepath"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // daemonConfigPath returns the daemon.json location for non-Linux hosts. Docker
 // Desktop (macOS / Windows) keeps the daemon config under the user's ~/.docker
 // directory rather than a system path.
 func daemonConfigPath() string {
+	logger.Debug("docker", "daemonConfigPath")
 	home, err := os.UserHomeDir()
 	if err != nil {
 		// Fall back to a relative path; the editability probe will simply

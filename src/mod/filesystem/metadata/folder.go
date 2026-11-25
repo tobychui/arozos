@@ -24,6 +24,9 @@ import (
 */
 
 func generateThumbnailForFolder(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "generateThumbnailForFolder: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
+	}
 	if fsh.RequireBuffer {
 		return "", nil
 	}
@@ -133,6 +136,9 @@ func generateThumbnailForFolder(fsh *filesystem.FileSystemHandler, cacheFolder s
 // generateLayeredThumbnailFolder generate 2 thumbnails inside that folder
 // for folder thumbnail render
 func generateLayeredThumbnailFolder(fsh *filesystem.FileSystemHandler, file string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "generateLayeredThumbnailFolder: file=%.120q", file)
+	}
 	if fsh.RequireBuffer {
 		//Too much work for buffer mode, skip generating
 		return false

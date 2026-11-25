@@ -12,6 +12,9 @@ import (
 
 // Get current samba service status
 func (s *ShareManager) SmbdStates(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.SmbdStates: r=%s", logger.RequestSummary(r))
+	}
 	set, err := utils.PostPara(r, "set")
 	if err != nil {
 		//return the current smbd states
@@ -51,6 +54,9 @@ func (s *ShareManager) SmbdStates(w http.ResponseWriter, r *http.Request) {
 
 // List all the samba shares
 func (s *ShareManager) ListSambaShares(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.ListSambaShares: r=%s", logger.RequestSummary(r))
+	}
 	shares, err := s.ReadSambaShares()
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -66,6 +72,9 @@ func (s *ShareManager) ListSambaShares(w http.ResponseWriter, r *http.Request) {
 
 // Add a samba share
 func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.AddSambaShare: r=%s", logger.RequestSummary(r))
+	}
 	shareName, err := utils.PostPara(r, "name")
 	if err != nil {
 		utils.SendErrorResponse(w, "share name not given")
@@ -188,6 +197,9 @@ func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
 
 // Delete a user samba share, that share must only contains the current user / owner
 func (s *ShareManager) DelUserSambaShare(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.DelUserSambaShare: r=%s", logger.RequestSummary(r))
+	}
 	//Get the user info
 	userInfo, err := s.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -240,6 +252,9 @@ func (s *ShareManager) DelUserSambaShare(w http.ResponseWriter, r *http.Request)
 // Remove a samba share by name, can remove any share by name, should be for admin only
 // call to DelUserSambaShare for non-admin uses
 func (s *ShareManager) DelSambaShare(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.DelSambaShare: r=%s", logger.RequestSummary(r))
+	}
 	shareName, err := utils.PostPara(r, "name")
 	if err != nil {
 		utils.SendErrorResponse(w, "share name not given")
@@ -277,6 +292,9 @@ func (s *ShareManager) DelSambaShare(w http.ResponseWriter, r *http.Request) {
 
 // Add a new samba user
 func (s *ShareManager) NewSambaUser(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.NewSambaUser: r=%s", logger.RequestSummary(r))
+	}
 	username, err := utils.PostPara(r, "username")
 	if err != nil {
 		utils.SendErrorResponse(w, "username not given")
@@ -300,6 +318,9 @@ func (s *ShareManager) NewSambaUser(w http.ResponseWriter, r *http.Request) {
 
 // Remove a samba user, check for admin before calling
 func (s *ShareManager) DelSambaUser(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.DelSambaUser: r=%s", logger.RequestSummary(r))
+	}
 	username, err := utils.PostPara(r, "username")
 	if err != nil {
 		utils.SendErrorResponse(w, "username not given")
@@ -318,6 +339,9 @@ func (s *ShareManager) DelSambaUser(w http.ResponseWriter, r *http.Request) {
 
 // List all samba users info
 func (s *ShareManager) ListSambaUsers(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.ListSambaUsers: r=%s", logger.RequestSummary(r))
+	}
 	type SimplifiedUserInfo struct {
 		UnixUsername string
 		Domain       string
@@ -345,6 +369,9 @@ func (s *ShareManager) ListSambaUsers(w http.ResponseWriter, r *http.Request) {
 
 // Activate a user account from arozos into samba user
 func (s *ShareManager) ActivateUserAccount(w http.ResponseWriter, r *http.Request, password string) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.ActivateUserAccount: r=%s", logger.RequestSummary(r))
+	}
 	userInfo, _ := s.UserHandler.GetUserInfoFromRequest(w, r)
 
 	//Register this user to samba if not exists
@@ -382,6 +409,9 @@ func (s *ShareManager) ActivateUserAccount(w http.ResponseWriter, r *http.Reques
 
 // Get if the user share has been enabled
 func (s *ShareManager) HandleUserSmbStatusList(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.HandleUserSmbStatusList: r=%s", logger.RequestSummary(r))
+	}
 	type UserStatus struct {
 		SmbdEnabled         bool
 		UserSmbShareEnabled bool
@@ -420,6 +450,9 @@ func (s *ShareManager) HandleUserSmbStatusList(w http.ResponseWriter, r *http.Re
 
 // Deactivate the user account by removing user access to all shares
 func (s *ShareManager) DeactiveUserAccount(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.DeactiveUserAccount: r=%s", logger.RequestSummary(r))
+	}
 	userInfo, err := s.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -459,6 +492,9 @@ func (s *ShareManager) DeactiveUserAccount(w http.ResponseWriter, r *http.Reques
 
 // Handle update to accessible users
 func (s *ShareManager) HandleAccessUserUpdate(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.HandleAccessUserUpdate: r=%s", logger.RequestSummary(r))
+	}
 	shareName, err := utils.PostPara(r, "name")
 	if err != nil {
 		utils.SendErrorResponse(w, "share name not given")
@@ -516,6 +552,9 @@ func (s *ShareManager) HandleAccessUserUpdate(w http.ResponseWriter, r *http.Req
 
 // Handle changing path of share
 func (s *ShareManager) HandleSharePathChange(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/samba", "ShareManager.HandleSharePathChange: r=%s", logger.RequestSummary(r))
+	}
 	shareName, err := utils.PostPara(r, "name")
 	if err != nil {
 		utils.SendErrorResponse(w, "share name not given")

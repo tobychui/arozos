@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"imuslab.com/arozos/mod/info/logger"
 	permission "imuslab.com/arozos/mod/permission"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
@@ -15,6 +16,9 @@ import (
 //   - action: one of "reassign" | "removeonly" | "deleteusers"
 //   - targetgroup: (required when action=="reassign") the group users are moved to
 func handleGroupDeleteWithUserHandling(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleGroupDeleteWithUserHandling: r=%s", logger.RequestSummary(r))
+	}
 	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
 		utils.SendErrorResponse(w, "groupname not defined")
@@ -165,6 +169,9 @@ type groupUserPreview struct {
 }
 
 func handleGroupListUsers(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "handleGroupListUsers: r=%s", logger.RequestSummary(r))
+	}
 	groupname, err := utils.GetPara(r, "groupname")
 	if err != nil {
 		utils.SendErrorResponse(w, "groupname not defined")
@@ -197,6 +204,7 @@ func handleGroupListUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func permissionNewHandler() {
+	logger.Debug("Core", "permissionNewHandler")
 	ph, err := permission.NewPermissionHandler(sysdb)
 	if err != nil {
 		systemWideLogger.PrintAndLog("Permission", "Permission Handler creation failed.", err)
@@ -208,6 +216,7 @@ func permissionNewHandler() {
 }
 
 func permissionInit() {
+	logger.Debug("Core", "permissionInit")
 	//Register the permission handler, require authentication except listgroup
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "System Setting",

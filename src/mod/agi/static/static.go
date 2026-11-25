@@ -9,6 +9,7 @@ import (
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -37,6 +38,7 @@ type AgiLibInjectionPayload struct {
 // RunCleanup registers a teardown closure if the payload supports it.
 // Safe to call on payloads with a nil RegisterCleanup.
 func (p *AgiLibInjectionPayload) RunCleanup(cleanup func()) {
+	logger.Debug("agi/static", "AgiLibInjectionPayload.RunCleanup")
 	if p == nil || p.RegisterCleanup == nil || cleanup == nil {
 		return
 	}
@@ -46,6 +48,9 @@ func (p *AgiLibInjectionPayload) RunCleanup(cleanup func()) {
 // Get the full vpath if the passing value is a relative path
 // Return the original vpath if any error occured
 func RelativeVpathRewrite(fsh *filesystem.FileSystemHandler, vpath string, vm *otto.Otto, u *user.User) string {
+	if logger.IsDebug() {
+		logger.Debugf("agi/static", "RelativeVpathRewrite: vpath=%.120q", vpath)
+	}
 	//Check if the vpath contain a UUID
 	if strings.Contains(vpath, ":/") || (len(vpath) > 0 && vpath[len(vpath)-1:] == ":") {
 		//This vpath contain root uuid.
@@ -80,6 +85,9 @@ func RelativeVpathRewrite(fsh *filesystem.FileSystemHandler, vpath string, vm *o
 
 // Define path translation function
 func VirtualPathToRealPath(vpath string, u *user.User) (*filesystem.FileSystemHandler, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi/static", "VirtualPathToRealPath: vpath=%.120q", vpath)
+	}
 	fsh, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 	if err != nil {
 		return nil, "", err
@@ -92,6 +100,9 @@ func VirtualPathToRealPath(vpath string, u *user.User) (*filesystem.FileSystemHa
 }
 
 func RealpathToVirtualpath(fsh *filesystem.FileSystemHandler, path string, u *user.User) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("agi/static", "RealpathToVirtualpath: path=%.120q", path)
+	}
 	return fsh.FileSystemAbstraction.RealPathToVirtualPath(path, u.Username)
 }
 
@@ -100,10 +111,16 @@ func RealpathToVirtualpath(fsh *filesystem.FileSystemHandler, path string, u *us
 // (e.g. Office/ registers Docs, Sheets and Slides). modulesInFolder returns the
 // names of the modules registered from a source folder and may be nil.
 func CheckUserAccessToScript(thisuser *user.User, scriptFile string, scriptScope string, modulesInFolder func(folder string) []string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("agi/static", "CheckUserAccessToScript: scriptFile=%.120q scriptScope=%.120q", scriptFile, scriptScope)
+	}
 	return canAccessScriptFolder(thisuser.GetModuleAccessPermission, scriptFile, scriptScope, modulesInFolder)
 }
 
 func canAccessScriptFolder(hasModuleAccess func(moduleName string) bool, scriptFile string, scriptScope string, modulesInFolder func(folder string) []string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("agi/static", "canAccessScriptFolder: scriptFile=%.120q scriptScope=%.120q", scriptFile, scriptScope)
+	}
 	folderName := GetScriptRoot(scriptFile, scriptScope)
 	if folderName == "" {
 		//The script is not inside the scope (path escape)
@@ -131,6 +148,9 @@ func canAccessScriptFolder(hasModuleAccess func(moduleName string) bool, scriptF
 // This is the key modules are registered under (ModuleInfo.SourceFolder).
 // Return an empty string if the script is not inside the scope.
 func ScriptSourceFolder(scriptFile string, scriptScope string) string {
+	if logger.IsDebug() {
+		logger.Debugf("agi/static", "ScriptSourceFolder: scriptFile=%.120q scriptScope=%.120q", scriptFile, scriptScope)
+	}
 	folderName := GetScriptRoot(scriptFile, scriptScope)
 	if folderName == "" {
 		return ""
@@ -140,11 +160,17 @@ func ScriptSourceFolder(scriptFile string, scriptScope string) string {
 
 // validate the given path is a script from webroot
 func IsValidAGIScript(scriptPath string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("agi/static", "IsValidAGIScript: scriptPath=%.120q", scriptPath)
+	}
 	return utils.FileExists(filepath.Join("./web", scriptPath)) && (filepath.Ext(scriptPath) == ".js" || filepath.Ext(scriptPath) == ".agi")
 }
 
 // Return the script root of the current executing script
 func GetScriptRoot(scriptFile string, scriptScope string) string {
+	if logger.IsDebug() {
+		logger.Debugf("agi/static", "GetScriptRoot: scriptFile=%.120q scriptScope=%.120q", scriptFile, scriptScope)
+	}
 	//Get the script root from the script path
 	webRootAbs, _ := filepath.Abs(scriptScope)
 	webRootAbs = filepath.ToSlash(filepath.Clean(webRootAbs) + "/")
@@ -157,6 +183,9 @@ func GetScriptRoot(scriptFile string, scriptScope string) string {
 
 // For handling special url decode in the request
 func SpecialURIDecode(inputPath string) string {
+	if logger.IsDebug() {
+		logger.Debugf("agi/static", "SpecialURIDecode: inputPath=%.120q", inputPath)
+	}
 	inputPath = strings.ReplaceAll(inputPath, "+", "{{plus_sign}}")
 	inputPath, _ = url.QueryUnescape(inputPath)
 	inputPath = strings.ReplaceAll(inputPath, "{{plus_sign}}", "+")
@@ -165,6 +194,9 @@ func SpecialURIDecode(inputPath string) string {
 
 // Check if the target path is escaping the rootpath, accept relative and absolute path
 func CheckRootEscape(rootPath string, targetPath string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi/static", "CheckRootEscape: targetPath=%.120q", targetPath)
+	}
 	rootAbs, err := filepath.Abs(rootPath)
 	if err != nil {
 		return true, err

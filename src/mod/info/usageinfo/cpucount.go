@@ -4,12 +4,15 @@ import (
 	"encoding/binary"
 	"runtime"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // GetCPUCounts returns the number of physical cores and logical threads of the
 // host. cores is 0 when the platform does not expose it (see physicalCores);
 // threads always comes from the Go runtime.
 func GetCPUCounts() (cores int, threads int) {
+	logger.DebugTrace("info/usageinfo", "GetCPUCounts")
 	return physicalCores(), runtime.NumCPU()
 }
 
@@ -17,6 +20,9 @@ func GetCPUCounts() (cores int, threads int) {
 // /proc/cpuinfo dump. Boards that print neither field (many ARM SoCs) list one
 // "processor" block per core, so the processor count is used instead.
 func parsePhysicalCores(cpuinfo string) int {
+	if logger.IsDebug() {
+		logger.Debugf("info/usageinfo", "parsePhysicalCores: cpuinfo=%.120q", cpuinfo)
+	}
 	seen := map[string]bool{}
 	processors := 0
 	physicalID, coreID := "", ""
@@ -60,6 +66,9 @@ func parsePhysicalCores(cpuinfo string) int {
 // entrySize bytes long and keeps its little endian Relationship field at
 // relOffset (right after the pointer sized ProcessorMask).
 func countCoreEntries(buf []byte, entrySize int, relOffset int) int {
+	if logger.IsDebug() {
+		logger.Debugf("info/usageinfo", "countCoreEntries: len(buf)=%d entrySize=%d relOffset=%d", len(buf), entrySize, relOffset)
+	}
 	if entrySize <= 0 || relOffset < 0 || relOffset+4 > entrySize {
 		return 0
 	}

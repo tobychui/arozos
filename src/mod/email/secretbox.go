@@ -19,6 +19,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const keyFileName = "secret.key"
@@ -30,6 +32,9 @@ type secretBox struct {
 
 // loadSecretBox reads the key from dir, generating one on first run.
 func loadSecretBox(dir string) (*secretBox, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "loadSecretBox: dir=%.120q", dir)
+	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
@@ -59,6 +64,7 @@ func loadSecretBox(dir string) (*secretBox, error) {
 }
 
 func newSecretBox(key []byte) (*secretBox, error) {
+	logger.Debug("email", "newSecretBox")
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -73,6 +79,7 @@ func newSecretBox(key []byte) (*secretBox, error) {
 // Seal encrypts plaintext and returns base64(nonce || ciphertext). An empty
 // plaintext seals to an empty string so "no secret" stays recognisable.
 func (s *secretBox) Seal(plaintext string) (string, error) {
+	logger.Debug("email", "secretBox.Seal")
 	if plaintext == "" {
 		return "", nil
 	}
@@ -86,6 +93,9 @@ func (s *secretBox) Seal(plaintext string) (string, error) {
 
 // Open reverses Seal.
 func (s *secretBox) Open(encoded string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "secretBox.Open: encoded=%.120q", encoded)
+	}
 	if encoded == "" {
 		return "", nil
 	}

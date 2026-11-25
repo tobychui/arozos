@@ -13,11 +13,13 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
 // SystemDF returns the human-readable `docker system df` output.
 func (d *DockerManager) SystemDF() (string, error) {
+	logger.Debug("docker", "DockerManager.SystemDF")
 	out, err := runDocker("system", "df")
 	return string(out), err
 }
@@ -25,6 +27,9 @@ func (d *DockerManager) SystemDF() (string, error) {
 // SystemPrune reclaims unused docker data. When volumes is true, unused volumes
 // are pruned too (additionally destructive).
 func (d *DockerManager) SystemPrune(volumes bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.SystemPrune: volumes=%t", volumes)
+	}
 	args := []string{"system", "prune", "-f"}
 	if volumes {
 		args = append(args, "--volumes")
@@ -37,6 +42,9 @@ func (d *DockerManager) SystemPrune(volumes bool) (string, error) {
 
 // HandleDiskUsage serves `docker system df` output as JSON {output}.
 func (d *DockerManager) HandleDiskUsage(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleDiskUsage: r=%s", logger.RequestSummary(r))
+	}
 	out, err := d.SystemDF()
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -49,6 +57,9 @@ func (d *DockerManager) HandleDiskUsage(w http.ResponseWriter, r *http.Request) 
 // HandlePrune runs `docker system prune` (POST: volumes bool) and returns the
 // reclamation output as JSON {output}.
 func (d *DockerManager) HandlePrune(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandlePrune: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return

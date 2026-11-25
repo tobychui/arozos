@@ -27,6 +27,7 @@ type JobStopper struct {
 
 // Stop asks the VM to unwind at the next statement.
 func (s *JobStopper) Stop() {
+	logger.Debug("agi", "JobStopper.Stop")
 	if s == nil || s.interrupt == nil {
 		return
 	}
@@ -42,6 +43,9 @@ var errJobStopped = errors.New("job stopped")
 // injected. It returns any script error. onStart receives a stopper as soon
 // as the VM exists, so the caller can interrupt a long running job.
 func (g *Gateway) ExecuteJobScript(scriptContent string, scriptName string, thisuser *user.User, w http.ResponseWriter, r *http.Request, inject func(*otto.Otto), onStart func(*JobStopper)) (err error) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.ExecuteJobScript: scriptName=%.120q r=%s", scriptName, logger.RequestSummary(r))
+	}
 	vm := otto.New()
 	vm.Interrupt = make(chan func(), 1)
 	execID := g.injectStandardLibs(vm, scriptName, "")

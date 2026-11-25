@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/units"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 )
@@ -60,6 +61,7 @@ var pptxChartKinds = []struct{ node, kind string }{
 // Returns nil when the chart is of a kind the editor cannot draw or has
 // no cached values to draw.
 func (sc *slideCtx) parseChartSpec(tree *xmltree.Node) *chartSpec {
+	logger.DebugTrace("office/pptx", "slideCtx.parseChartSpec")
 	chart := tree.First("chart")
 	if chart == nil {
 		return nil
@@ -129,6 +131,7 @@ func (sc *slideCtx) parseChartSpec(tree *xmltree.Node) *chartSpec {
 // cachedPoints reads the <c:pt> cache under a chart reference, in index
 // order, filling gaps so a sparse cache does not shift the series
 func cachedPoints(holder *xmltree.Node) []string {
+	logger.DebugTrace("office/pptx", "cachedPoints")
 	if holder == nil {
 		return nil
 	}
@@ -180,10 +183,12 @@ func cachedPoints(holder *xmltree.Node) []string {
 }
 
 func cachedStrings(holder *xmltree.Node) []string {
+	logger.DebugTrace("office/pptx", "cachedStrings")
 	return cachedPoints(holder)
 }
 
 func cachedNumbers(holder *xmltree.Node) []float64 {
+	logger.DebugTrace("office/pptx", "cachedNumbers")
 	raw := cachedPoints(holder)
 	if len(raw) == 0 {
 		return nil
@@ -197,6 +202,7 @@ func cachedNumbers(holder *xmltree.Node) []float64 {
 
 // chartSpecJSON serializes a spec for Props.Spec
 func chartSpecJSON(spec *chartSpec) json.RawMessage {
+	logger.DebugTrace("office/pptx", "chartSpecJSON")
 	if spec == nil {
 		return nil
 	}

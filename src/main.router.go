@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/locale"
 	"imuslab.com/arozos/mod/network/gzipmiddleware"
 	"imuslab.com/arozos/mod/permission"
@@ -21,10 +22,14 @@ import (
 )
 
 func mrouter(h http.Handler) http.Handler {
+	logger.DebugTrace("Core", "mrouter")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		/*
 			You can also check the path for url using r.URL.Path
 		*/
+		if logger.IsDebug() {
+			logger.Debugf("Router", "%s from %s", logger.RequestSummary(r), r.RemoteAddr)
+		}
 
 		//Container apps come first: an app hostname, /app/<slug>/, or a root
 		//request made by an app page (which must never be answered from the
@@ -235,6 +240,7 @@ func mrouter(h http.Handler) http.Handler {
 // fileExistsInWebOrVendor reports whether a URL path resolves to a file in
 // either the standard ./web directory or the vendorResRoot/web/ overlay.
 func fileExistsInWebOrVendor(urlPath string) bool {
+	logger.Debug("Core", "fileExistsInWebOrVendor")
 	if fs.FileExists("web" + urlPath) {
 		return true
 	}
@@ -242,6 +248,9 @@ func fileExistsInWebOrVendor(urlPath string) bool {
 }
 
 func routerStaticContentServer(h http.Handler, w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "routerStaticContentServer: r=%s", logger.RequestSummary(r))
+	}
 	if *enable_gzip {
 		gzipmiddleware.Compress(h).ServeHTTP(w, r)
 	} else {
@@ -254,6 +263,9 @@ func routerStaticContentServer(h http.Handler, w http.ResponseWriter, r *http.Re
 // back to the startup interface once it is finished, other apps are not found.
 // Images stay reachable, so the module manager can still show the app's icon.
 func serveDisabledModuleFolder(w http.ResponseWriter, r *http.Request) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "serveDisabledModuleFolder: r=%s", logger.RequestSummary(r))
+	}
 	if moduleHandler == nil {
 		return false
 	}

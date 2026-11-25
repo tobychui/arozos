@@ -39,6 +39,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -142,6 +143,7 @@ type cachedSource struct {
 
 // NewLibrary opens the font library and indexes the installed fonts
 func NewLibrary(opts Options) (*Library, error) {
+	logger.Debug("locale/fonts", "NewLibrary")
 	if opts.Root == "" || opts.CacheDir == "" {
 		return nil, errors.New("the font library needs a root and a cache folder")
 	}
@@ -168,6 +170,7 @@ func NewLibrary(opts Options) (*Library, error) {
 
 // loadDefaults reads the factory language defaults shipped with the fonts
 func (l *Library) loadDefaults() {
+	logger.DebugTrace("locale/fonts", "Library.loadDefaults")
 	raw, err := os.ReadFile(filepath.Join(l.opts.Root, defaultsFile))
 	if err != nil {
 		return
@@ -191,6 +194,7 @@ func (l *Library) loadDefaults() {
 
 // Rescan rebuilds the index from the font folder
 func (l *Library) Rescan() error {
+	logger.DebugTrace("locale/fonts", "Library.Rescan")
 	families := map[string]*Family{}
 	faces := map[string]*Face{}
 
@@ -253,6 +257,9 @@ func (l *Library) Rescan() error {
 }
 
 func sortFaces(faces []*Face) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "sortFaces: len(faces)=%d", len(faces))
+	}
 	sort.Slice(faces, func(i, j int) bool {
 		a, b := faces[i].Info, faces[j].Info
 		if a.Italic != b.Italic {
@@ -267,6 +274,9 @@ func sortFaces(faces []*Face) {
 
 // readFace reads and describes one font file below Root
 func (l *Library) readFace(id string) (*Face, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.readFace: id=%.120q", id)
+	}
 	full := filepath.Join(l.opts.Root, filepath.FromSlash(id))
 	st, err := os.Stat(full)
 	if err != nil || st.Size() > MaxFontSize {
@@ -325,6 +335,9 @@ func (l *Library) readFace(id string) (*Face, error) {
 // unicodeRange formats sorted codepoints as a CSS unicode-range, joining
 // runs separated by fewer than maxGap codepoints the font does not have
 func unicodeRange(cps []uint32, maxGap uint32) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "unicodeRange: len(cps)=%d maxGap=%d", len(cps), maxGap)
+	}
 	if len(cps) == 0 {
 		return ""
 	}
@@ -350,6 +363,9 @@ func unicodeRange(cps []uint32, maxGap uint32) string {
 }
 
 func (l *Library) family(name string) *Family {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.family: name=%.120q", name)
+	}
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	return l.families[strings.ToLower(name)]
@@ -362,6 +378,9 @@ func (l *Library) family(name string) *Family {
 // language and, with shared (text every language shows, such as the names
 // of the languages), what the "ui" slices hold.
 func (l *Library) SetLanguageText(texts map[string]string, shared string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.SetLanguageText: len(texts)=%d shared=%.120q", len(texts), shared)
+	}
 	chars := map[string][]uint32{}
 	for lang, text := range texts {
 		chars[strings.ToLower(lang)] = textCodepoints(text)
@@ -378,6 +397,7 @@ func (l *Library) SetLanguageText(texts map[string]string, shared string) {
 
 // textCodepoints returns the distinct printable codepoints of a text, sorted
 func textCodepoints(text string) []uint32 {
+	logger.DebugTrace("locale/fonts", "textCodepoints")
 	seen := map[uint32]bool{}
 	for _, r := range text {
 		if r > 0x20 && r <= maxCodepoint {
@@ -395,6 +415,9 @@ func textCodepoints(text string) []uint32 {
 // Fallback returns the device fonts a language falls back to after a
 // library font, for locale files that name none of their own
 func (l *Library) Fallback(lang string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.Fallback: lang=%.120q", lang)
+	}
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	if stack := l.fallback[strings.ToLower(lang)]; stack != "" {
@@ -404,12 +427,18 @@ func (l *Library) Fallback(lang string) string {
 }
 
 func hasCodepoint(sorted []uint32, cp uint32) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "hasCodepoint: len(sorted)=%d cp=%d", len(sorted), cp)
+	}
 	i := sort.Search(len(sorted), func(i int) bool { return sorted[i] >= cp })
 	return i < len(sorted) && sorted[i] == cp
 }
 
 // coverage is the share of a language's characters a family can draw
 func (l *Library) coverage(fam *Family, lang string) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.coverage: lang=%.120q", lang)
+	}
 	l.mu.RLock()
 	chars := l.langChars[lang]
 	l.mu.RUnlock()
@@ -431,6 +460,9 @@ func (l *Library) coverage(fam *Family, lang string) float64 {
 // Supports reports whether a family draws (nearly) every character of a
 // language's interface strings
 func (l *Library) Supports(family, lang string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.Supports: family=%.120q lang=%.120q", family, lang)
+	}
 	fam := l.family(family)
 	return fam != nil && l.coverage(fam, strings.ToLower(lang)) >= 0.9
 }
@@ -438,10 +470,14 @@ func (l *Library) Supports(family, lang string) bool {
 /* ── Choices ── */
 
 func validLang(lang string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "validLang: lang=%.120q", lang)
+	}
 	return langPattern.MatchString(lang)
 }
 
 func (l *Library) dbRead(key string) (string, bool) {
+	logger.DebugTrace("locale/fonts", "Library.dbRead")
 	if l.opts.DB == nil || !l.opts.DB.KeyExists(dbTable, key) {
 		return "", false
 	}
@@ -453,6 +489,9 @@ func (l *Library) dbRead(key string) (string, bool) {
 }
 
 func (l *Library) dbWrite(key, value string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.dbWrite: value=%.120q", value)
+	}
 	if l.opts.DB == nil {
 		return errors.New("no database")
 	}
@@ -464,6 +503,9 @@ func (l *Library) dbWrite(key, value string) error {
 
 // normaliseChoice checks a stored choice: "", SystemFont or an installed family
 func (l *Library) normaliseChoice(value string) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.normaliseChoice: value=%.120q", value)
+	}
 	if value == "" || value == SystemFont {
 		return value, nil
 	}
@@ -476,6 +518,9 @@ func (l *Library) normaliseChoice(value string) (string, error) {
 
 // Factory returns the family defaults.json picks for a language, if any
 func (l *Library) Factory(lang string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.Factory: lang=%.120q", lang)
+	}
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	return l.factory[strings.ToLower(lang)]
@@ -484,6 +529,9 @@ func (l *Library) Factory(lang string) string {
 // AdminDefault returns what an administrator stored for a language: a
 // family, SystemFont, or "" when the factory default applies
 func (l *Library) AdminDefault(lang string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.AdminDefault: lang=%.120q", lang)
+	}
 	v, _ := l.dbRead("default/" + strings.ToLower(lang))
 	return v
 }
@@ -491,6 +539,9 @@ func (l *Library) AdminDefault(lang string) string {
 // Default returns the system wide choice for a language: what an
 // administrator set, else the factory default. "" means device fonts.
 func (l *Library) Default(lang string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.Default: lang=%.120q", lang)
+	}
 	lang = strings.ToLower(lang)
 	if v, ok := l.dbRead("default/" + lang); ok {
 		return v
@@ -501,6 +552,9 @@ func (l *Library) Default(lang string) string {
 // SetDefault stores the system wide choice for a language. "" returns the
 // language to its factory default.
 func (l *Library) SetDefault(lang, value string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.SetDefault: lang=%.120q value=%.120q", lang, value)
+	}
 	lang = strings.ToLower(lang)
 	if !validLang(lang) {
 		return errors.New("invalid language code")
@@ -515,12 +569,18 @@ func (l *Library) SetDefault(lang, value string) error {
 // Choice returns a user's own choice for a language, "" when they follow
 // the default
 func (l *Library) Choice(username, lang string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.Choice: username=%.120q lang=%.120q", username, lang)
+	}
 	v, _ := l.dbRead("user/" + username + "/" + strings.ToLower(lang))
 	return v
 }
 
 // SetChoice stores a user's own choice for a language ("" follows the default)
 func (l *Library) SetChoice(username, lang, value string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.SetChoice: username=%.120q lang=%.120q value=%.120q", username, lang, value)
+	}
 	lang = strings.ToLower(lang)
 	if username == "" || !validLang(lang) {
 		return errors.New("invalid user or language code")
@@ -535,6 +595,9 @@ func (l *Library) SetChoice(username, lang, value string) error {
 // Effective returns the installed family a user's pages use for a
 // language, "" for the device's own fonts
 func (l *Library) Effective(username, lang string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.Effective: username=%.120q lang=%.120q", username, lang)
+	}
 	v := ""
 	if username != "" {
 		v = l.Choice(username, lang)
@@ -556,12 +619,18 @@ func (l *Library) Effective(username, lang string) string {
 // PreviewName is the family name a font gets in the preview style sheet,
 // so previews never mix with the fonts the page itself uses
 func PreviewName(family string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "PreviewName: family=%.120q", family)
+	}
 	return previewPrefix + family
 }
 
 // StyleSheet returns the @font-face rules for the families a user's pages
 // use in any of the given languages
 func (l *Library) StyleSheet(username string, langs []string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.StyleSheet: username=%.120q len(langs)=%d", username, len(langs))
+	}
 	assigned := map[string][]string{}
 	for _, lang := range langs {
 		lang = strings.ToLower(lang)
@@ -575,6 +644,9 @@ func (l *Library) StyleSheet(username string, langs []string) string {
 // PreviewStyleSheet returns @font-face rules for every installed family
 // under its PreviewName, with "ui" slices for the viewer's language
 func (l *Library) PreviewStyleSheet(lang string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.PreviewStyleSheet: lang=%.120q", lang)
+	}
 	assigned := map[string][]string{}
 	lang = strings.ToLower(lang)
 	l.mu.RLock()
@@ -589,6 +661,9 @@ func (l *Library) PreviewStyleSheet(lang string) string {
 }
 
 func (l *Library) styleSheet(assigned map[string][]string, alias func(string) string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.styleSheet: len(assigned)=%d", len(assigned))
+	}
 	names := make([]string, 0, len(assigned))
 	for name := range assigned {
 		names = append(names, name)
@@ -627,6 +702,9 @@ func (l *Library) styleSheet(assigned map[string][]string, alias func(string) st
 }
 
 func writeFace(b *strings.Builder, family string, face *Face, slice, ranges string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "writeFace: family=%.120q slice=%.120q ranges=%.120q", family, slice, ranges)
+	}
 	weight := fmt.Sprint(face.Info.WeightMin)
 	if face.Info.WeightMax != face.Info.WeightMin {
 		weight = fmt.Sprintf("%d %d", face.Info.WeightMin, face.Info.WeightMax)
@@ -645,16 +723,25 @@ func writeFace(b *strings.Builder, family string, face *Face, slice, ranges stri
 
 // cssString quotes a family name for CSS
 func cssString(s string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "cssString: s=%.120q", s)
+	}
 	s = strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", " ", "\r", " ", "<", "\\3C ").Replace(s)
 	return `"` + s + `"`
 }
 
 // QuoteFamily quotes a family name for a CSS font-family list
 func QuoteFamily(family string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "QuoteFamily: family=%.120q", family)
+	}
 	return cssString(family)
 }
 
 func uiName(langs []string, cps []uint32) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "uiName: len(langs)=%d len(cps)=%d", len(langs), len(cps))
+	}
 	h := sha1.New()
 	for _, cp := range cps {
 		fmt.Fprintf(h, "%x,", cp)
@@ -667,6 +754,9 @@ func uiName(langs []string, cps []uint32) string {
 // a family: while the face a browser prefers is still loading, Chrome also
 // fetches every other face covering the same characters.
 func (l *Library) coldRanges(face *Face, c coldSlice, langs []string, ui []uint32) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.coldRanges: len(langs)=%d len(ui)=%d", len(langs), len(ui))
+	}
 	if len(ui) == 0 {
 		return c.ranges
 	}
@@ -715,6 +805,9 @@ func (l *Library) coldRanges(face *Face, c coldSlice, langs []string, ui []uint3
 
 // uiCodepoints is the part of a face the "ui" slice of these languages holds
 func (l *Library) uiCodepoints(face *Face, langs []string) []uint32 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.uiCodepoints: len(langs)=%d", len(langs))
+	}
 	cacheKey := face.Key + "|" + strings.Join(langs, "_")
 	l.uiMu.Lock()
 	cached, ok := l.uiCache[cacheKey]
@@ -758,6 +851,9 @@ func (l *Library) uiCodepoints(face *Face, langs []string) []uint32 {
 // slicePlan resolves a slice name: the codepoints it holds, or nil with
 // whole=true for a face served whole
 func (l *Library) slicePlan(face *Face, name string) (cps []uint32, whole bool, err error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.slicePlan: name=%.120q", name)
+	}
 	if !slicePattern.MatchString(name) {
 		return nil, false, ErrNotFound
 	}
@@ -791,6 +887,9 @@ func (l *Library) slicePlan(face *Face, name string) (cps []uint32, whole bool, 
 
 // SlicePath returns the WOFF2 file of a slice, generating it on first use
 func (l *Library) SlicePath(key, name string) (string, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.SlicePath: name=%.120q", name)
+	}
 	l.mu.RLock()
 	face := l.faces[key]
 	l.mu.RUnlock()
@@ -852,6 +951,7 @@ func (l *Library) SlicePath(key, name string) (string, error) {
 }
 
 func (l *Library) encodeWhole(face *Face) ([]byte, error) {
+	logger.DebugTrace("locale/fonts", "Library.encodeWhole")
 	data, err := os.ReadFile(face.path)
 	if err != nil {
 		return nil, err
@@ -873,6 +973,9 @@ func (l *Library) encodeWhole(face *Face) ([]byte, error) {
 }
 
 func (l *Library) encodeSlice(face *Face, cps []uint32) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.encodeSlice: len(cps)=%d", len(cps))
+	}
 	src, err := l.source(face)
 	if err != nil {
 		return nil, err
@@ -889,6 +992,7 @@ func (l *Library) encodeSlice(face *Face, cps []uint32) ([]byte, error) {
 
 // source returns a face parsed for slicing; the last two stay in memory
 func (l *Library) source(face *Face) (*source, error) {
+	logger.DebugTrace("locale/fonts", "Library.source")
 	l.srcMu.Lock()
 	defer l.srcMu.Unlock()
 	for _, c := range l.sources {
@@ -920,6 +1024,9 @@ func (l *Library) source(face *Face) (*source, error) {
 // Warm generates the "ui" slices of the default fonts in the background,
 // so the first page of a fresh start does not wait for them
 func (l *Library) Warm(langs []string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.Warm: len(langs)=%d", len(langs))
+	}
 	assigned := map[string][]string{}
 	for _, lang := range langs {
 		lang = strings.ToLower(lang)
@@ -945,6 +1052,9 @@ func (l *Library) Warm(langs []string) {
 
 // ServeSlice answers a request for a slice file
 func (l *Library) ServeSlice(w http.ResponseWriter, r *http.Request, key, name string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "Library.ServeSlice: r=%s name=%.120q", logger.RequestSummary(r), name)
+	}
 	file, err := l.SlicePath(key, name)
 	if err != nil {
 		http.NotFound(w, r)

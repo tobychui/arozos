@@ -12,10 +12,14 @@ import (
 	"github.com/oliamb/cutter"
 	"golang.org/x/image/webp"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Generate thumbnail for image. Require real filepath
 func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "generateThumbnailForImage: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
+	}
 	if fsh.RequireBuffer {
 		return "", nil
 	}
@@ -110,6 +114,7 @@ func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder st
 }
 
 func handleWebpDecoding(fileContent []byte) (image.Image, error) {
+	logger.Debug("filesystem/metadata", "handleWebpDecoding")
 	img, err := webp.Decode(bytes.NewReader(fileContent))
 	return img, err
 }

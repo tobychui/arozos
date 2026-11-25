@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 )
 
@@ -21,6 +22,9 @@ var listTagRe = regexp.MustCompile(`(?i)<(/?)(ul|ol|li)(\s[^>]*)?>`)
 // flattenListMarkers rewrites <ul>/<ol>/<li> into text lines with visible
 // bullet / number prefixes so lists survive flattening (e.g. pptx export)
 func flattenListMarkers(s string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "flattenListMarkers: s=%.120q", s)
+	}
 	type listCtx struct {
 		ordered bool
 		counter int
@@ -65,6 +69,9 @@ func flattenListMarkers(s string) string {
 var multiNlRe = regexp.MustCompile(`\n{2,}`)
 
 func maxInt(a, b int) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "maxInt: a=%d b=%d", a, b)
+	}
 	if a > b {
 		return a
 	}
@@ -74,6 +81,9 @@ func maxInt(a, b int) int {
 // htmlToLines flattens the limited contenteditable HTML stored in text
 // objects into plain-text lines (one per paragraph)
 func HtmlToLines(h string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("office/pptx", "HtmlToLines: h=%.120q", h)
+	}
 	if h == "" {
 		return []string{""}
 	}
@@ -103,6 +113,9 @@ func HtmlToLines(h string) []string {
 
 // linesToHTML converts plain-text lines back to the storage HTML format
 func linesToHTML(lines []string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "linesToHTML: len(lines)=%d", len(lines))
+	}
 	esc := make([]string, len(lines))
 	for i, l := range lines {
 		esc[i] = xmltree.Escape(l)

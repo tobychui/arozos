@@ -33,6 +33,7 @@ import (
 )
 
 func (g *Gateway) NotificationLibRegister() {
+	logger.Debug("agi", "Gateway.NotificationLibRegister")
 	err := g.RegisterLib("notification", g.injectNotificationLibFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -43,6 +44,9 @@ func (g *Gateway) NotificationLibRegister() {
 // buildAndSendNotification constructs a NotificationPayload from the given
 // fields and routes it through the configured notification sender.
 func (g *Gateway) buildAndSendNotification(sender string, receivers []string, title string, message string, priority string) error {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.buildAndSendNotification: sender=%.120q len(receivers)=%d title=%.120q priority=%.120q", sender, len(receivers), title, priority)
+	}
 	if g.Option.NotificationSender == nil {
 		return errors.New("notification system is not available")
 	}
@@ -63,6 +67,7 @@ func (g *Gateway) buildAndSendNotification(sender string, receivers []string, ti
 }
 
 func (g *Gateway) injectNotificationLibFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectNotificationLibFunctions")
 	vm := payload.VM
 	u := payload.User
 
@@ -152,6 +157,9 @@ func (g *Gateway) injectNotificationLibFunctions(payload *static.AgiLibInjection
 // userExistsForNotification checks whether the given username exists in the
 // system, guarding the admin-only sendToUser call.
 func (g *Gateway) userExistsForNotification(u *user.User, username string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.userExistsForNotification: username=%.120q", username)
+	}
 	if g.Option.UserHandler == nil {
 		return false
 	}

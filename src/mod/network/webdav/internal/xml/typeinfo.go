@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // typeInfo holds details for the xml representation of a type.
@@ -49,6 +51,7 @@ var nameType = reflect.TypeOf(Name{})
 // getTypeInfo returns the typeInfo structure with details necessary
 // for marshalling and unmarshalling typ.
 func getTypeInfo(typ reflect.Type) (*typeInfo, error) {
+	logger.DebugTrace("network/webdav/internal/xml", "getTypeInfo")
 	tinfoLock.RLock()
 	tinfo, ok := tinfoMap[typ]
 	tinfoLock.RUnlock()
@@ -112,6 +115,7 @@ func getTypeInfo(typ reflect.Type) (*typeInfo, error) {
 
 // structFieldInfo builds and returns a fieldInfo for f.
 func structFieldInfo(typ reflect.Type, f *reflect.StructField) (*fieldInfo, error) {
+	logger.DebugTrace("network/webdav/internal/xml", "structFieldInfo")
 	finfo := &fieldInfo{idx: f.Index}
 
 	// Split the tag from the xml namespace if necessary.
@@ -236,6 +240,7 @@ func structFieldInfo(typ reflect.Type, f *reflect.StructField) (*fieldInfo, erro
 // in case it exists and has a valid xml field tag, otherwise
 // it returns nil.
 func lookupXMLName(typ reflect.Type) (xmlname *fieldInfo) {
+	logger.DebugTrace("network/webdav/internal/xml", "lookupXMLName")
 	for typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
 	}
@@ -259,6 +264,9 @@ func lookupXMLName(typ reflect.Type) (xmlname *fieldInfo) {
 }
 
 func min(a, b int) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "min: a=%d b=%d", a, b)
+	}
 	if a <= b {
 		return a
 	}
@@ -273,6 +281,7 @@ func min(a, b int) int {
 // itself a prefix of another path, or when two paths match exactly.
 // It is okay for field paths to share a common, shorter prefix.
 func addFieldInfo(typ reflect.Type, tinfo *typeInfo, newf *fieldInfo) error {
+	logger.DebugTrace("network/webdav/internal/xml", "addFieldInfo")
 	var conflicts []int
 Loop:
 	// First, figure all conflicts. Most working code will have none.
@@ -348,6 +357,7 @@ type TagPathError struct {
 }
 
 func (e *TagPathError) Error() string {
+	logger.DebugTrace("network/webdav/internal/xml", "TagPathError.Error")
 	return fmt.Sprintf("%s field %q with tag %q conflicts with field %q with tag %q", e.Struct, e.Field1, e.Tag1, e.Field2, e.Tag2)
 }
 
@@ -355,6 +365,7 @@ func (e *TagPathError) Error() string {
 // It's equivalent to v.FieldByIndex(finfo.idx), but initializes
 // and dereferences pointers as necessary.
 func (finfo *fieldInfo) value(v reflect.Value) reflect.Value {
+	logger.DebugTrace("network/webdav/internal/xml", "fieldInfo.value")
 	for i, x := range finfo.idx {
 		if i > 0 {
 			t := v.Type()

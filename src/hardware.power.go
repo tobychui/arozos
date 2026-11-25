@@ -6,10 +6,12 @@ import (
 	"os/exec"
 	"runtime"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
 func HardwarePowerInit() {
+	logger.Debug("Core", "HardwarePowerInit")
 	if *allow_power_management {
 		//Only register these paths when hardware management is enabled
 		http.HandleFunc("/system/power/shutdown", hardware_power_poweroff)
@@ -30,6 +32,9 @@ func HardwarePowerInit() {
 }
 
 func hardware_power_checkIfHardware(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "hardware_power_checkIfHardware: r=%s", logger.RequestSummary(r))
+	}
 	if *allow_power_management {
 		utils.SendJSONResponse(w, "true")
 	} else {
@@ -38,6 +43,9 @@ func hardware_power_checkIfHardware(w http.ResponseWriter, r *http.Request) {
 }
 
 func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "hardware_power_poweroff: r=%s", logger.RequestSummary(r))
+	}
 	//validate password using authreq.html
 	if !AuthValidateSecureRequest(w, r, true) {
 		return
@@ -80,6 +88,9 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 }
 
 func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "hardware_power_restart: r=%s", logger.RequestSummary(r))
+	}
 	//Validate password using authreq.html
 	if !AuthValidateSecureRequest(w, r, true) {
 		return

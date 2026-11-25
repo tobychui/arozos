@@ -44,6 +44,7 @@ type nicExtraInfo struct {
 
 // nicType classifies the interface as ethernet / wifi / loopback / vpn / virtual / unknown.
 func nicType(iface net.Interface) string {
+	logger.Debug("network", "nicType")
 	name := strings.ToLower(iface.Name)
 	if iface.Flags&net.FlagLoopback != 0 {
 		return "loopback"
@@ -77,6 +78,9 @@ func nicType(iface net.Interface) string {
 }
 
 func GetNICInfo(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("network", "GetNICInfo: r=%s", logger.RequestSummary(r))
+	}
 	interfaces, err := net.Interfaces()
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -188,6 +192,7 @@ func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 
 // Get the IP address of the NIC that can conncet to the internet
 func GetOutboundIP() (net.IP, error) {
+	logger.Debug("network", "GetOutboundIP")
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
 		return nil, err
@@ -201,6 +206,7 @@ func GetOutboundIP() (net.IP, error) {
 
 // Get External IP address, will require 3rd party services
 func GetExternalIPAddr() (string, error) {
+	logger.Debug("network", "GetExternalIPAddr")
 	u, err := upnp.Discover()
 	if err != nil {
 		return "", err
@@ -214,6 +220,7 @@ func GetExternalIPAddr() (string, error) {
 }
 
 func GetExternalIPAddrVia3rdPartyServices() (string, error) {
+	logger.Debug("network", "GetExternalIPAddrVia3rdPartyServices")
 	//Fallback to using Amazon AWS IP resolve service
 	resp, err := http.Get("http://checkip.amazonaws.com/")
 	if err != nil {
@@ -230,6 +237,7 @@ func GetExternalIPAddrVia3rdPartyServices() (string, error) {
 }
 
 func IsPublicIP(IP net.IP) bool {
+	logger.Debug("network", "IsPublicIP")
 	if IP.IsLoopback() || IP.IsLinkLocalMulticast() || IP.IsLinkLocalUnicast() {
 		return false
 	}
@@ -249,6 +257,9 @@ func IsPublicIP(IP net.IP) bool {
 }
 
 func IsIPv6Addr(ip string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network", "IsIPv6Addr: ip=%.120q", ip)
+	}
 	if net.ParseIP(ip) == nil {
 		return false, errors.New("Address parsing failed")
 	}
@@ -264,10 +275,16 @@ func IsIPv6Addr(ip string) (bool, error) {
 }
 
 func GetPing(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network", "GetPing: r=%s", logger.RequestSummary(r))
+	}
 	utils.SendJSONResponse(w, "pong")
 }
 
 func GetIpFromRequest(r *http.Request) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network", "GetIpFromRequest: r=%s", logger.RequestSummary(r))
+	}
 	ip := r.Header.Get("X-REAL-IP")
 	netIP := net.ParseIP(ip)
 	if netIP != nil {

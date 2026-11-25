@@ -5,6 +5,7 @@ import (
 	//"log"
 
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -17,6 +18,9 @@ import (
 
 // Return the user quota information, returning used / total
 func (u *User) HaveSpaceFor(fsh *fs.FileSystemHandler, vpath string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("user", "User.HaveSpaceFor: vpath=%.120q", vpath)
+	}
 	realpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
 	if err != nil {
 		return false
@@ -29,6 +33,9 @@ func (u *User) HaveSpaceFor(fsh *fs.FileSystemHandler, vpath string) bool {
 }
 
 func (u *User) SetOwnerOfFile(fsh *fs.FileSystemHandler, vpath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("user", "User.SetOwnerOfFile: vpath=%.120q", vpath)
+	}
 	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
 	if err != nil {
 		return err
@@ -43,6 +50,9 @@ func (u *User) SetOwnerOfFile(fsh *fs.FileSystemHandler, vpath string) error {
 }
 
 func (u *User) RemoveOwnershipFromFile(fsh *fs.FileSystemHandler, vpath string) error {
+	if logger.IsDebug() {
+		logger.Debugf("user", "User.RemoveOwnershipFromFile: vpath=%.120q", vpath)
+	}
 	realpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
 	if err != nil {
 		return err
@@ -57,6 +67,9 @@ func (u *User) RemoveOwnershipFromFile(fsh *fs.FileSystemHandler, vpath string) 
 }
 
 func (u *User) IsOwnerOfFile(fsh *fs.FileSystemHandler, vpath string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("user", "User.IsOwnerOfFile: vpath=%.120q", vpath)
+	}
 	owner := u.GetFileOwner(fsh, vpath)
 	if owner == u.Username {
 		//This file is owned by this user
@@ -67,6 +80,9 @@ func (u *User) IsOwnerOfFile(fsh *fs.FileSystemHandler, vpath string) bool {
 }
 
 func (u *User) GetFileOwner(fsh *fs.FileSystemHandler, vpath string) string {
+	if logger.IsDebug() {
+		logger.Debugf("user", "User.GetFileOwner: vpath=%.120q", vpath)
+	}
 	if fsh.UUID == "user" {
 		//This file is inside user's root. It must be this user's file
 		return u.Username

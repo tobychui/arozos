@@ -3,6 +3,8 @@ package pdfrender
 import (
 	"errors"
 	"strconv"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -54,10 +56,16 @@ var errSyntax = errors.New("pdf syntax error")
 const maxNesting = 128
 
 func isWhite(c byte) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "isWhite: c=%d", c)
+	}
 	return c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == '\f' || c == 0
 }
 
 func isDelim(c byte) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "isDelim: c=%d", c)
+	}
 	switch c {
 	case '(', ')', '<', '>', '[', ']', '{', '}', '/', '%':
 		return true
@@ -100,6 +108,7 @@ type lexer struct {
 }
 
 func (l *lexer) skipWhite() {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "lexer.skipWhite")
 	for l.pos < len(l.buf) {
 		c := l.buf[l.pos]
 		if isWhite(c) {
@@ -115,6 +124,7 @@ func (l *lexer) skipWhite() {
 }
 
 func (l *lexer) next() token {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "lexer.next")
 	l.skipWhite()
 	if l.pos >= len(l.buf) {
 		l.truncated = true
@@ -170,6 +180,9 @@ func (l *lexer) next() token {
 }
 
 func unhex(c byte) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "unhex: c=%d", c)
+	}
 	switch {
 	case c >= '0' && c <= '9':
 		return int(c - '0')
@@ -182,6 +195,7 @@ func unhex(c byte) int {
 }
 
 func (l *lexer) name() token {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "lexer.name")
 	l.pos++ //the slash
 	out := make([]byte, 0, 16)
 	for l.pos < len(l.buf) {
@@ -204,6 +218,7 @@ func (l *lexer) name() token {
 }
 
 func (l *lexer) number() token {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "lexer.number")
 	start := l.pos
 	l.pos++
 	for l.pos < len(l.buf) {
@@ -223,6 +238,9 @@ func (l *lexer) number() token {
 // parseNumberToken accepts the malformed numbers real files contain, like
 // "--5", "4.-3" or a lone "-"
 func parseNumberToken(b []byte) token {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "parseNumberToken: len(b)=%d", len(b))
+	}
 	isInt := true
 	clean := make([]byte, 0, len(b))
 	seenDigit, seenDot := false, false
@@ -263,6 +281,7 @@ done:
 }
 
 func (l *lexer) literalString() token {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "lexer.literalString")
 	l.pos++ //the parenthesis
 	out := make([]byte, 0, 32)
 	depth := 1
@@ -328,6 +347,7 @@ func (l *lexer) literalString() token {
 }
 
 func (l *lexer) hexString() token {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "lexer.hexString")
 	l.pos++ //the angle bracket
 	out := make([]byte, 0, 32)
 	hi := -1
@@ -362,10 +382,14 @@ type parser struct {
 }
 
 func newParser(b []byte) *parser {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "newParser: len(b)=%d", len(b))
+	}
 	return &parser{lex: &lexer{buf: b}}
 }
 
 func (p *parser) nextToken() token {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "parser.nextToken")
 	if len(p.peek) > 0 {
 		t := p.peek[0]
 		p.peek = p.peek[1:]
@@ -375,6 +399,9 @@ func (p *parser) nextToken() token {
 }
 
 func (p *parser) peekToken(n int) token {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "parser.peekToken: n=%d", n)
+	}
 	for len(p.peek) <= n {
 		p.peek = append(p.peek, p.lex.next())
 	}
@@ -383,6 +410,9 @@ func (p *parser) peekToken(n int) token {
 
 // parseObject reads one object. Keywords come back as keyword values.
 func (p *parser) parseObject(depth int) (Object, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "parser.parseObject: depth=%d", depth)
+	}
 	if depth > maxNesting {
 		return nil, errSyntax
 	}
@@ -485,6 +515,7 @@ func (p *parser) parseObject(depth int) (Object, error) {
 */
 
 func toFloat(o Object) (float64, bool) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "toFloat")
 	switch v := o.(type) {
 	case int:
 		return float64(v), true
@@ -495,6 +526,7 @@ func toFloat(o Object) (float64, bool) {
 }
 
 func toInt(o Object) (int, bool) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "toInt")
 	switch v := o.(type) {
 	case int:
 		return v, true

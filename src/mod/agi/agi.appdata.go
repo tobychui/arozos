@@ -27,6 +27,7 @@ import (
 var webRoot string = "./web" //The web folder root
 
 func (g *Gateway) AppdataLibRegister() {
+	logger.Debug("agi", "Gateway.AppdataLibRegister")
 	err := g.RegisterLib("appdata", g.injectAppdataLibFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -35,6 +36,7 @@ func (g *Gateway) AppdataLibRegister() {
 }
 
 func (g *Gateway) injectAppdataLibFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectAppdataLibFunctions")
 	vm := payload.VM
 	u := payload.User
 

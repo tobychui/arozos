@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/htmlutil"
 	"imuslab.com/arozos/mod/office/internal/units"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
@@ -42,6 +43,7 @@ type xlsxStyleTable struct {
 }
 
 func newStyleTable() *xlsxStyleTable {
+	logger.DebugTrace("office/xlsx", "newStyleTable")
 	t := &xlsxStyleTable{
 		fontIdx: map[string]int{},
 		fillIdx: map[string]int{},
@@ -60,6 +62,9 @@ func newStyleTable() *xlsxStyleTable {
 }
 
 func (t *xlsxStyleTable) font(xml string) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "xlsxStyleTable.font: xml=%.120q", xml)
+	}
 	if i, ok := t.fontIdx[xml]; ok {
 		return i
 	}
@@ -69,6 +74,9 @@ func (t *xlsxStyleTable) font(xml string) int {
 }
 
 func (t *xlsxStyleTable) fill(xml string) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "xlsxStyleTable.fill: xml=%.120q", xml)
+	}
 	if i, ok := t.fillIdx[xml]; ok {
 		return i
 	}
@@ -78,6 +86,9 @@ func (t *xlsxStyleTable) fill(xml string) int {
 }
 
 func (t *xlsxStyleTable) numFmt(code string) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "xlsxStyleTable.numFmt: code=%.120q", code)
+	}
 	if code == "" {
 		return 0
 	}
@@ -97,6 +108,7 @@ func (t *xlsxStyleTable) numFmt(code string) int {
 // numFmtCode maps the webapp fmt/dec to an Excel format code ("" = general;
 // "@id" = builtin id)
 func numFmtCode(s *model.CellStyle) string {
+	logger.DebugTrace("office/xlsx", "numFmtCode")
 	if s == nil || s.Fmt == "" || s.Fmt == "general" {
 		return ""
 	}
@@ -125,6 +137,7 @@ func numFmtCode(s *model.CellStyle) string {
 
 // xfFor returns (creating if needed) the cellXfs index for a style
 func (t *xlsxStyleTable) xfFor(s *model.CellStyle) int {
+	logger.DebugTrace("office/xlsx", "xlsxStyleTable.xfFor")
 	if s == nil {
 		return 0
 	}
@@ -222,6 +235,7 @@ func (t *xlsxStyleTable) xfFor(s *model.CellStyle) int {
 }
 
 func (t *xlsxStyleTable) render() string {
+	logger.DebugTrace("office/xlsx", "xlsxStyleTable.render")
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n")
 	sb.WriteString(`<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`)
@@ -251,6 +265,7 @@ func (t *xlsxStyleTable) render() string {
 
 // Build serializes a Workbook into a complete .xlsx file
 func Build(wb *model.Workbook) ([]byte, error) {
+	logger.Debug("office/xlsx", "Build")
 	if wb == nil || len(wb.Sheets) == 0 {
 		return nil, errors.New("workbook has no sheets")
 	}
@@ -502,6 +517,9 @@ type xlsxCellOut struct {
 }
 
 func buildWorksheetXML(ws *model.WorkSheet, styles *xlsxStyleTable, hasDrawing bool, legacyRid string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "buildWorksheetXML: hasDrawing=%t legacyRid=%.120q", hasDrawing, legacyRid)
+	}
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n")
 	sb.WriteString(`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"` +
@@ -637,6 +655,9 @@ func buildWorksheetXML(ws *model.WorkSheet, styles *xlsxStyleTable, hasDrawing b
 }
 
 func buildCellXML(col, row int, cell *model.WorkCell, styles *xlsxStyleTable) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "buildCellXML: col=%d row=%d", col, row)
+	}
 	v := cell.V
 	xf := styles.xfFor(cell.S)
 	sAttr := ""
@@ -677,6 +698,9 @@ func buildCellXML(col, row int, cell *model.WorkCell, styles *xlsxStyleTable) st
 }
 
 func inlineStrCell(ref, sAttr, text string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "inlineStrCell: ref=%.120q sAttr=%.120q", ref, sAttr)
+	}
 	return fmt.Sprintf(`<c r="%s"%s t="inlineStr"><is><t xml:space="preserve">%s</t></is></c>`,
 		ref, sAttr, xmltree.Escape(text))
 }

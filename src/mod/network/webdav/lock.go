@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var (
@@ -113,6 +115,7 @@ type LockDetails struct {
 
 // NewMemLS returns a new in-memory LockSystem.
 func NewMemLS() LockSystem {
+	logger.DebugTrace("network/webdav", "NewMemLS")
 	return &memLS{
 		byName:  make(map[string]*memLSNode),
 		byToken: make(map[string]*memLSNode),
@@ -131,11 +134,13 @@ type memLS struct {
 }
 
 func (m *memLS) nextToken() string {
+	logger.Debug("network/webdav", "memLS.nextToken")
 	m.gen++
 	return strconv.FormatUint(m.gen, 10)
 }
 
 func (m *memLS) collectExpiredNodes(now time.Time) {
+	logger.Debug("network/webdav", "memLS.collectExpiredNodes")
 	for len(m.byExpiry) > 0 {
 		if now.Before(m.byExpiry[0].expiry) {
 			break
@@ -145,6 +150,9 @@ func (m *memLS) collectExpiredNodes(now time.Time) {
 }
 
 func (m *memLS) Confirm(now time.Time, name0, name1 string, conditions ...Condition) (func(), error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "memLS.Confirm: name0=%.120q name1=%.120q len(conditions)=%d", name0, name1, len(conditions))
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.collectExpiredNodes(now)
@@ -190,6 +198,9 @@ func (m *memLS) Confirm(now time.Time, name0, name1 string, conditions ...Condit
 //
 // n may be a parent of the named resource, if n is an infinite depth lock.
 func (m *memLS) lookup(name string, conditions ...Condition) (n *memLSNode) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "memLS.lookup: name=%.120q len(conditions)=%d", name, len(conditions))
+	}
 	// TODO: support Condition.Not and Condition.ETag.
 	for _, c := range conditions {
 		n = m.byToken[c.Token]
@@ -210,6 +221,7 @@ func (m *memLS) lookup(name string, conditions ...Condition) (n *memLSNode) {
 }
 
 func (m *memLS) hold(n *memLSNode) {
+	logger.Debug("network/webdav", "memLS.hold")
 	if n.held {
 		panic("webdav: memLS inconsistent held state")
 	}
@@ -220,6 +232,7 @@ func (m *memLS) hold(n *memLSNode) {
 }
 
 func (m *memLS) unhold(n *memLSNode) {
+	logger.Debug("network/webdav", "memLS.unhold")
 	if !n.held {
 		panic("webdav: memLS inconsistent held state")
 	}
@@ -230,6 +243,7 @@ func (m *memLS) unhold(n *memLSNode) {
 }
 
 func (m *memLS) Create(now time.Time, details LockDetails) (string, error) {
+	logger.Debug("network/webdav", "memLS.Create")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.collectExpiredNodes(now)
@@ -250,6 +264,7 @@ func (m *memLS) Create(now time.Time, details LockDetails) (string, error) {
 }
 
 func (m *memLS) Refresh(now time.Time, token string, duration time.Duration) (LockDetails, error) {
+	logger.Debug("network/webdav", "memLS.Refresh")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.collectExpiredNodes(now)
@@ -273,6 +288,7 @@ func (m *memLS) Refresh(now time.Time, token string, duration time.Duration) (Lo
 }
 
 func (m *memLS) Unlock(now time.Time, token string) error {
+	logger.DebugTrace("network/webdav", "memLS.Unlock")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.collectExpiredNodes(now)
@@ -289,6 +305,9 @@ func (m *memLS) Unlock(now time.Time, token string) error {
 }
 
 func (m *memLS) canCreate(name string, zeroDepth bool) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav", "memLS.canCreate: name=%.120q zeroDepth=%t", name, zeroDepth)
+	}
 	return walkToRoot(name, func(name0 string, first bool) bool {
 		n := m.byName[name0]
 		if n == nil {
@@ -313,6 +332,9 @@ func (m *memLS) canCreate(name string, zeroDepth bool) bool {
 }
 
 func (m *memLS) create(name string) (ret *memLSNode) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "memLS.create: name=%.120q", name)
+	}
 	walkToRoot(name, func(name0 string, first bool) bool {
 		n := m.byName[name0]
 		if n == nil {
@@ -334,6 +356,7 @@ func (m *memLS) create(name string) (ret *memLSNode) {
 }
 
 func (m *memLS) remove(n *memLSNode) {
+	logger.Debug("network/webdav", "memLS.remove")
 	delete(m.byToken, n.token)
 	n.token = ""
 	walkToRoot(n.details.Root, func(name0 string, first bool) bool {
@@ -350,6 +373,9 @@ func (m *memLS) remove(n *memLSNode) {
 }
 
 func walkToRoot(name string, f func(name0 string, first bool) bool) bool {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "walkToRoot: name=%.120q", name)
+	}
 	for first := true; ; first = false {
 		if !f(name, first) {
 			return false
@@ -386,26 +412,35 @@ type memLSNode struct {
 type byExpiry []*memLSNode
 
 func (b *byExpiry) Len() int {
+	logger.DebugTrace("network/webdav", "byExpiry.Len")
 	return len(*b)
 }
 
 func (b *byExpiry) Less(i, j int) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav", "byExpiry.Less: i=%d j=%d", i, j)
+	}
 	return (*b)[i].expiry.Before((*b)[j].expiry)
 }
 
 func (b *byExpiry) Swap(i, j int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav", "byExpiry.Swap: i=%d j=%d", i, j)
+	}
 	(*b)[i], (*b)[j] = (*b)[j], (*b)[i]
 	(*b)[i].byExpiryIndex = i
 	(*b)[j].byExpiryIndex = j
 }
 
 func (b *byExpiry) Push(x interface{}) {
+	logger.Debug("network/webdav", "byExpiry.Push")
 	n := x.(*memLSNode)
 	n.byExpiryIndex = len(*b)
 	*b = append(*b, n)
 }
 
 func (b *byExpiry) Pop() interface{} {
+	logger.Debug("network/webdav", "byExpiry.Pop")
 	i := len(*b) - 1
 	n := (*b)[i]
 	(*b)[i] = nil
@@ -419,6 +454,9 @@ const infiniteTimeout = -1
 // parseTimeout parses the Timeout HTTP header, as per section 10.7. If s is
 // empty, an infiniteTimeout is returned.
 func parseTimeout(s string) (time.Duration, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/webdav", "parseTimeout: s=%.120q", s)
+	}
 	if s == "" {
 		return infiniteTimeout, nil
 	}

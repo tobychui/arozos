@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/units"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 )
@@ -44,6 +45,7 @@ type colorCtx struct {
 // schemeClr, sysClr, prstClr, scrgbClr) into "#rrggbb", applying the child
 // transform elements. Returns "" when n is not a colour element.
 func (cc *colorCtx) resolveColor(n *xmltree.Node) string {
+	logger.DebugTrace("office/pptx", "colorCtx.resolveColor")
 	if n == nil {
 		return ""
 	}
@@ -88,6 +90,9 @@ func (cc *colorCtx) resolveColor(n *xmltree.Node) string {
 
 // schemeHex maps a schemeClr val through the colour map into the theme
 func (cc *colorCtx) schemeHex(val string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "colorCtx.schemeHex: val=%.120q", val)
+	}
 	if val == "" {
 		return ""
 	}
@@ -127,6 +132,7 @@ func (cc *colorCtx) schemeHex(val string) string {
 
 // solidColorOf resolves the <a:solidFill> child of parent, if any
 func (cc *colorCtx) solidColorOf(parent *xmltree.Node) string {
+	logger.DebugTrace("office/pptx", "colorCtx.solidColorOf")
 	sf := parent.First("solidFill")
 	if sf == nil {
 		return ""
@@ -142,6 +148,7 @@ func (cc *colorCtx) solidColorOf(parent *xmltree.Node) string {
 // colorAlpha is the opacity a colour element states through its <a:alpha>
 // (and <a:alphaMod> / <a:alphaOff>) children, 1 when it states none
 func colorAlpha(n *xmltree.Node) float64 {
+	logger.DebugTrace("office/pptx", "colorAlpha")
 	if n == nil {
 		return 1
 	}
@@ -165,6 +172,9 @@ func colorAlpha(n *xmltree.Node) float64 {
 // CSS, SVG and the PDF exporter's colour parser all read. A colour that is
 // all but transparent stays a colour: "none" is for a stated noFill.
 func withAlpha(hex string, a float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "withAlpha: hex=%.120q a=%g", hex, a)
+	}
 	if a >= 0.998 || len(hex) != 7 {
 		return hex
 	}
@@ -177,6 +187,7 @@ func withAlpha(hex string, a float64) string {
 // keeping the colour's own transparency (a fill, unlike a line or a run,
 // can carry it)
 func (cc *colorCtx) solidFillOf(parent *xmltree.Node) string {
+	logger.DebugTrace("office/pptx", "colorCtx.solidFillOf")
 	sf := parent.First("solidFill")
 	if sf == nil {
 		return ""
@@ -194,6 +205,7 @@ func (cc *colorCtx) solidFillOf(parent *xmltree.Node) string {
 // pattern fills by their foreground, and <a:noFill/> returns "none". A
 // solid fill's transparency comes back as "#rrggbbaa".
 func (cc *colorCtx) fillColorOf(parent *xmltree.Node) string {
+	logger.DebugTrace("office/pptx", "colorCtx.fillColorOf")
 	if parent == nil {
 		return ""
 	}
@@ -226,6 +238,9 @@ func (cc *colorCtx) fillColorOf(parent *xmltree.Node) string {
 // deliberately not applied here - the caller reads it separately, because
 // the editor model carries opacity on the object, not on the colour.
 func applyColorMods(r, g, b float64, n *xmltree.Node) (float64, float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "applyColorMods: r=%g g=%g b=%g", r, g, b)
+	}
 	for i := range n.Nodes {
 		ch := &n.Nodes[i]
 		v := units.AtofDefault(ch.Attr("val"), 0) / 100000.0
@@ -264,6 +279,9 @@ func applyColorMods(r, g, b float64, n *xmltree.Node) (float64, float64, float64
 // toLinear / fromLinear convert one sRGB channel (0..255) to linear light
 // (0..1) and back
 func toLinear(c float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "toLinear: c=%g", c)
+	}
 	c = clamp01(c / 255)
 	if c <= 0.04045 {
 		return c / 12.92
@@ -272,6 +290,9 @@ func toLinear(c float64) float64 {
 }
 
 func fromLinear(l float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "fromLinear: l=%g", l)
+	}
 	l = clamp01(l)
 	if l <= 0.0031308 {
 		return l * 12.92 * 255
@@ -280,6 +301,9 @@ func fromLinear(l float64) float64 {
 }
 
 func hexToRGB(h string) (float64, float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "hexToRGB: h=%.120q", h)
+	}
 	h = strings.TrimPrefix(strings.TrimSpace(h), "#")
 	if len(h) == 3 {
 		h = string([]byte{h[0], h[0], h[1], h[1], h[2], h[2]})
@@ -295,6 +319,9 @@ func hexToRGB(h string) (float64, float64, float64) {
 }
 
 func rgbToHex(r, g, b float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "rgbToHex: r=%g g=%g b=%g", r, g, b)
+	}
 	cl := func(v float64) int64 {
 		if v < 0 {
 			return 0
@@ -314,6 +341,9 @@ func rgbToHex(r, g, b float64) string {
 }
 
 func clamp01(v float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "clamp01: v=%g", v)
+	}
 	if v < 0 {
 		return 0
 	}
@@ -324,6 +354,9 @@ func clamp01(v float64) float64 {
 }
 
 func rgbToHSL(r, g, b float64) (float64, float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "rgbToHSL: r=%g g=%g b=%g", r, g, b)
+	}
 	r, g, b = r/255, g/255, b/255
 	mx := math.Max(r, math.Max(g, b))
 	mn := math.Min(r, math.Min(g, b))
@@ -354,6 +387,9 @@ func rgbToHSL(r, g, b float64) (float64, float64, float64) {
 }
 
 func hslToRGB(h, s, l float64) (float64, float64, float64) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "hslToRGB: h=%g s=%g l=%g", h, s, l)
+	}
 	if s == 0 {
 		return l * 255, l * 255, l * 255
 	}

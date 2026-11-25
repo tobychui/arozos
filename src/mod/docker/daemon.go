@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -39,6 +40,9 @@ type daemonConfigSaveRequest struct {
 // daemonConfigEditable reports whether the config directory is writable by the
 // arozos process, by creating and removing a probe file.
 func daemonConfigEditable(path string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "daemonConfigEditable: path=%.120q", path)
+	}
 	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, ".arozos-docker-*")
 	if err != nil {
@@ -51,6 +55,7 @@ func daemonConfigEditable(path string) bool {
 
 // GetDaemonConfig reads the current daemon.json (if any) and reports editability.
 func (d *DockerManager) GetDaemonConfig() DaemonConfig {
+	logger.Debug("docker", "DockerManager.GetDaemonConfig")
 	path := daemonConfigPath()
 	cfg := DaemonConfig{Path: path}
 	if data, err := os.ReadFile(path); err == nil {
@@ -65,6 +70,7 @@ func (d *DockerManager) GetDaemonConfig() DaemonConfig {
 // daemon — callers/UI must surface that the change applies on the next daemon
 // restart.
 func (d *DockerManager) SaveDaemonConfig(content string) error {
+	logger.Debug("docker", "DockerManager.SaveDaemonConfig")
 	path := daemonConfigPath()
 	if !daemonConfigEditable(path) {
 		return errors.New("daemon.json is not editable on this host (insufficient permission)")
@@ -82,6 +88,9 @@ func (d *DockerManager) SaveDaemonConfig(content string) error {
 
 // HandleDaemonGet serves the daemon config view as JSON.
 func (d *DockerManager) HandleDaemonGet(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleDaemonGet: r=%s", logger.RequestSummary(r))
+	}
 	js, _ := json.Marshal(d.GetDaemonConfig())
 	utils.SendJSONResponse(w, string(js))
 }
@@ -89,6 +98,9 @@ func (d *DockerManager) HandleDaemonGet(w http.ResponseWriter, r *http.Request) 
 // HandleDaemonSave persists daemon.json (POST JSON: content). Returns a clear
 // "not editable" error when the host does not permit it.
 func (d *DockerManager) HandleDaemonSave(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleDaemonSave: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return

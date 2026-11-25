@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -49,6 +51,9 @@ type Assertion struct {
 
 // Issue creates an assertion for a user known on this node.
 func (i *Manager) Issue(username string, ttl time.Duration) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/identity", "Manager.Issue: username=%.120q", username)
+	}
 	if !validUsername(username) {
 		return "", errors.New("invalid username")
 	}
@@ -81,10 +86,12 @@ func (i *Manager) Issue(username string, ttl time.Duration) (string, error) {
 
 // Verify checks an assertion issued by any current cluster member.
 func (i *Manager) Verify(token string) (*Assertion, error) {
+	logger.DebugTrace("cluster/identity", "Manager.Verify")
 	return i.verifyAt(token, time.Now())
 }
 
 func (i *Manager) verifyAt(token string, now time.Time) (*Assertion, error) {
+	logger.Debug("cluster/identity", "Manager.verifyAt")
 	parts := strings.SplitN(strings.TrimSpace(token), ".", 2)
 	if len(parts) != 2 {
 		return nil, ErrAssertionInvalid
@@ -128,6 +135,9 @@ func (i *Manager) verifyAt(token string, now time.Time) (*Assertion, error) {
 
 // Attach adds a fresh assertion for username to an outgoing request.
 func (i *Manager) Attach(req *http.Request, username string) error {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/identity", "Manager.Attach: req=%s username=%.120q", logger.RequestSummary(req), username)
+	}
 	token, err := i.Issue(username, DefaultAssertionTTL)
 	if err != nil {
 		return err
@@ -138,6 +148,9 @@ func (i *Manager) Attach(req *http.Request, username string) error {
 
 // FromRequest verifies the assertion carried by an incoming node request.
 func (i *Manager) FromRequest(r *http.Request) (*Assertion, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/identity", "Manager.FromRequest: r=%s", logger.RequestSummary(r))
+	}
 	token := r.Header.Get(HeaderUser)
 	if token == "" {
 		return nil, ErrAssertionInvalid

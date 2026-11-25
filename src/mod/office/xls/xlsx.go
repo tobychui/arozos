@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/opc"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 )
@@ -55,12 +56,25 @@ var patternNames = []string{"none", "solid", "mediumGray", "darkGray", "lightGra
 var hAligns = []string{"", "left", "center", "right", "fill", "justify", "centerContinuous", "distributed"}
 var vAligns = []string{"top", "center", "", "justify", "distributed"}
 
-func esc(s string) string { return xmltree.Escape(s) }
+func esc(s string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "esc: s=%.120q", s)
+	}
+	return xmltree.Escape(s)
+}
 
-func argb(c uint32) string { return "FF" + strings.ToUpper(hex6(c)) }
+func argb(c uint32) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "argb: c=%d", c)
+	}
+	return "FF" + strings.ToUpper(hex6(c))
+}
 
 // isDateFormat reports a number format code that shows a date or time
 func isDateFormat(id int, code string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "isDateFormat: id=%d code=%.120q", id, code)
+	}
 	if (id >= 14 && id <= 22) || (id >= 45 && id <= 47) {
 		return true
 	}
@@ -99,6 +113,9 @@ func isDateFormat(id int, code string) bool {
 
 // writeXlsx renders the book and its parsed sheets
 func (b *book) writeXlsx(sheets []*sheet, sheetIndex []int) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.writeXlsx: len(sheets)=%d len(sheetIndex)=%d", len(sheets), len(sheetIndex))
+	}
 	pkg := opc.New()
 	var rootRels opc.Rels
 	rootRels.Add(opc.RelOfficeDocument, "xl/workbook.xml", false)
@@ -169,6 +186,9 @@ func (b *book) writeXlsx(sheets []*sheet, sheetIndex []int) ([]byte, error) {
 
 // sheetName keeps a name SpreadsheetML accepts (no []:*?/\, 31 chars)
 func sheetName(name string, i int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "sheetName: name=%.120q i=%d", name, i)
+	}
 	n := strings.Map(func(r rune) rune {
 		if strings.ContainsRune(`[]:*?/\`, r) {
 			return '_'
@@ -186,6 +206,9 @@ func sheetName(name string, i int) string {
 
 // xmlSafe drops the control characters XML 1.0 cannot hold
 func xmlSafe(s string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "xmlSafe: s=%.120q", s)
+	}
 	return strings.Map(func(r rune) rune {
 		if r < 0x20 && r != '\t' && r != '\n' && r != '\r' {
 			return -1
@@ -200,6 +223,7 @@ func xmlSafe(s string) string {
 // defaultXF is the cell format of a cell that states none: the first
 // cell (not style) XF, number 15 in files Excel writes
 func (b *book) defaultXF() int {
+	logger.DebugTrace("office/xls", "book.defaultXF")
 	if b.defXF < 0 {
 		b.defXF = 0
 		for i, x := range b.xfs {
@@ -215,6 +239,9 @@ func (b *book) defaultXF() int {
 // cellStyle is the cellXfs index a cell's XF becomes: the default cell
 // format is written as entry 0, so a plain cell carries no style at all
 func (b *book) cellStyle(xf int) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.cellStyle: xf=%d", xf)
+	}
 	if xf == b.defaultXF() || xf < 0 || xf >= len(b.xfs) {
 		return 0
 	}
@@ -224,6 +251,7 @@ func (b *book) cellStyle(xf int) int {
 // stylesXML renders styles.xml; dateXF marks the XFs whose number format
 // shows a date (for the 1904 date system shift)
 func (b *book) stylesXML() (string, map[int]bool) {
+	logger.DebugTrace("office/xls", "book.stylesXML")
 	var sb strings.Builder
 	sb.WriteString(`<styleSheet xmlns="` + nsMain + `">`)
 
@@ -453,6 +481,9 @@ func (b *book) stylesXML() (string, map[int]bool) {
 }
 
 func formatValue(v float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "formatValue: v=%g", v)
+	}
 	if math.IsInf(v, 0) || math.IsNaN(v) {
 		return "0"
 	}
@@ -462,6 +493,9 @@ func formatValue(v float64) string {
 // sheetXML renders one worksheet plus its comments part and the VML that
 // Excel needs to show them
 func (b *book) sheetXML(s *sheet, str func(string) int, dateXF map[int]bool) (string, string, string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.sheetXML: len(dateXF)=%d", len(dateXF))
+	}
 	var sb strings.Builder
 	sb.WriteString(`<worksheet xmlns="` + nsMain + `" xmlns:r="` + nsRel + `">`)
 	if s.tabColor != "" {
@@ -605,6 +639,9 @@ func (b *book) sheetXML(s *sheet, str func(string) int, dateXF map[int]bool) (st
 
 // writeCell renders one <c>
 func (b *book) writeCell(sb *strings.Builder, c *cell, str func(string) int, dateXF map[int]bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.writeCell: len(dateXF)=%d", len(dateXF))
+	}
 	ref := cellText(c.row, c.col, true, true)
 	sb.WriteString(`<c r="` + ref + `"`)
 	if st := b.cellStyle(c.xf); st > 0 {
@@ -683,6 +720,9 @@ func (b *book) writeCell(sb *strings.Builder, c *cell, str func(string) int, dat
 // definedNamesXML renders the workbook's names; sheetIndex maps output
 // sheets to BOUNDSHEET indices
 func (b *book) definedNamesXML(sheetIndex []int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xls", "book.definedNamesXML: len(sheetIndex)=%d", len(sheetIndex))
+	}
 	outIdx := map[int]int{}
 	for i, idx := range sheetIndex {
 		outIdx[idx] = i

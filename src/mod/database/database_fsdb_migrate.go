@@ -28,6 +28,9 @@ const (
 
 // legacyFsdbPath is where the old file system backend kept dbfile.
 func legacyFsdbPath(dbfile string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("database", "legacyFsdbPath: dbfile=%.120q", dbfile)
+	}
 	return filepath.Join(legacyFsdbRoot, filepath.Clean(dbfile))
 }
 
@@ -35,6 +38,9 @@ func legacyFsdbPath(dbfile string) string {
 // db, skipping keys the bolt file already holds, and returns how many keys
 // were imported. It does not touch the legacy folder.
 func importLegacyFsdb(db *bbolt.DB, legacyDir string) (int, error) {
+	if logger.IsDebug() {
+		logger.Debugf("database", "importLegacyFsdb: legacyDir=%.120q", legacyDir)
+	}
 	tables, err := os.ReadDir(legacyDir)
 	if err != nil {
 		return 0, err
@@ -81,6 +87,9 @@ func importLegacyFsdb(db *bbolt.DB, legacyDir string) (int, error) {
 // folder so the import runs only once. A failed import leaves the folder in
 // place to be retried on the next start.
 func migrateLegacyFsdb(db *bbolt.DB, dbfile string) error {
+	if logger.IsDebug() {
+		logger.Debugf("database", "migrateLegacyFsdb: dbfile=%.120q", dbfile)
+	}
 	legacyDir := legacyFsdbPath(dbfile)
 	info, err := os.Stat(legacyDir)
 	if err != nil || !info.IsDir() {

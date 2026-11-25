@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -58,12 +60,16 @@ type requestInfo struct {
 }
 
 func infoFrom(ctx context.Context) *requestInfo {
+	logger.Debug("appproxy", "infoFrom")
 	info, _ := ctx.Value(ctxKey{}).(*requestInfo)
 	return info
 }
 
 // requestScheme is the scheme the browser used, honouring a fronting proxy
 func requestScheme(r *http.Request) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "requestScheme: r=%s", logger.RequestSummary(r))
+	}
 	if p := strings.ToLower(strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Proto"), ",")[0])); p == "http" || p == "https" {
 		return p
 	}
@@ -76,6 +82,9 @@ func requestScheme(r *http.Request) string {
 // isNavigation reports whether the browser expects a page (so a redirect to a
 // login page makes sense) rather than data
 func isNavigation(r *http.Request) bool {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "isNavigation: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		return false
 	}
@@ -86,11 +95,17 @@ func isNavigation(r *http.Request) bool {
 }
 
 func isWebSocket(r *http.Request) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("appproxy", "isWebSocket: r=%s", logger.RequestSummary(r))
+	}
 	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
 }
 
 // safeReturnPath keeps a post-login return target on the same host
 func safeReturnPath(p string) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "safeReturnPath: p=%.120q", p)
+	}
 	if !strings.HasPrefix(p, "/") || strings.HasPrefix(p, "//") || strings.ContainsAny(p, "\\\r\n") {
 		return "/"
 	}
@@ -100,6 +115,9 @@ func safeReturnPath(p string) string {
 // HandleRequest serves the request if it belongs to a container app and
 // reports whether it did
 func (m *Manager) HandleRequest(w http.ResponseWriter, r *http.Request) bool {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.HandleRequest: r=%s", logger.RequestSummary(r))
+	}
 	if rt := m.runtimeByHost(r.Host); rt != nil {
 		m.serveSubdomain(w, r, rt)
 		return true
@@ -113,6 +131,9 @@ func (m *Manager) HandleRequest(w http.ResponseWriter, r *http.Request) bool {
 
 // servePath handles /app/<slug>/... on the ArozOS host
 func (m *Manager) servePath(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.servePath: r=%s", logger.RequestSummary(r))
+	}
 	slug, rest, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/app/"), "/")
 	rt := m.runtimeBySlug(slug)
 	if slug == "" || rt == nil {
@@ -175,6 +196,9 @@ func (m *Manager) servePath(w http.ResponseWriter, r *http.Request) {
 
 // handOff sends a user from /app/<slug>/ on the ArozOS host to the app hostname
 func (m *Manager) handOff(w http.ResponseWriter, r *http.Request, ep *Endpoint, id *Identity, rest string) {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.handOff: r=%s rest=%.120q", logger.RequestSummary(r), rest)
+	}
 	returnTo := rest
 	if r.URL.RawQuery != "" {
 		returnTo += "?" + r.URL.RawQuery
@@ -192,6 +216,7 @@ func (m *Manager) handOff(w http.ResponseWriter, r *http.Request, ep *Endpoint, 
 // AppOrigin is the origin a subdomain mode app is served on, following the
 // scheme and port of the ArozOS portal
 func (e *Endpoint) AppOrigin() string {
+	logger.Debug("appproxy", "Endpoint.AppOrigin")
 	portal, err := url.Parse(e.PortalOrigin)
 	if err != nil || portal.Scheme == "" {
 		return "https://" + e.Hostname
@@ -205,6 +230,9 @@ func (e *Endpoint) AppOrigin() string {
 
 // serveSubdomain handles every request on a subdomain mode app host
 func (m *Manager) serveSubdomain(w http.ResponseWriter, r *http.Request, rt *endpointRuntime) {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.serveSubdomain: r=%s", logger.RequestSummary(r))
+	}
 	ep := rt.ep
 	scheme := requestScheme(r)
 
@@ -259,6 +287,9 @@ func (m *Manager) serveSubdomain(w http.ResponseWriter, r *http.Request, rt *end
 
 // denyAnonymous redirects a page load to sign in, and refuses anything else
 func (m *Manager) denyAnonymous(w http.ResponseWriter, r *http.Request, loginURL string) {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.denyAnonymous: r=%s", logger.RequestSummary(r))
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	if isNavigation(r) {
 		http.Redirect(w, r, loginURL, http.StatusFound)
@@ -269,6 +300,9 @@ func (m *Manager) denyAnonymous(w http.ResponseWriter, r *http.Request, loginURL
 
 // leakSource returns the path mode app whose page issued a root request, or nil
 func (m *Manager) leakSource(r *http.Request) *endpointRuntime {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.leakSource: r=%s", logger.RequestSummary(r))
+	}
 	ref := r.Header.Get("Referer")
 	if ref == "" || !strings.Contains(ref, "/app/") || r.Header.Get("Sec-Fetch-Site") == "cross-site" {
 		return nil
@@ -292,6 +326,9 @@ func (m *Manager) leakSource(r *http.Request) *endpointRuntime {
 
 // redirectLeak sends a root request made by a path mode app back under its prefix
 func (m *Manager) redirectLeak(w http.ResponseWriter, r *http.Request) bool {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.redirectLeak: r=%s", logger.RequestSummary(r))
+	}
 	rt := m.leakSource(r)
 	if rt == nil {
 		return false
@@ -316,6 +353,7 @@ func (m *Manager) redirectLeak(w http.ResponseWriter, r *http.Request) bool {
 
 // reservedCookies are the cookie names never forwarded to a container
 func (m *Manager) reservedCookies() map[string]bool {
+	logger.Debug("appproxy", "Manager.reservedCookies")
 	reserved := map[string]bool{SessionCookie: true}
 	for _, c := range m.opts.StripCookies {
 		reserved[c] = true
@@ -325,6 +363,7 @@ func (m *Manager) reservedCookies() map[string]bool {
 
 // newReverseProxy builds the proxy of one endpoint
 func (m *Manager) newReverseProxy(rt *endpointRuntime) *httputil.ReverseProxy {
+	logger.Debug("appproxy", "Manager.newReverseProxy")
 	ep := rt.ep
 	upstream := ep.UpstreamURL()
 	transport := m.transport
@@ -388,6 +427,9 @@ func (m *Manager) newReverseProxy(rt *endpointRuntime) *httputil.ReverseProxy {
 
 // modifyResponse rewrites the upstream response headers and, when enabled, body
 func (m *Manager) modifyResponse(resp *http.Response, reserved map[string]bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "Manager.modifyResponse: len(reserved)=%d", len(reserved))
+	}
 	info := infoFrom(resp.Request.Context())
 	if info == nil {
 		return nil
@@ -496,6 +538,9 @@ func (m *Manager) modifyResponse(resp *http.Response, reserved map[string]bool) 
 
 // rewriteLocation maps a redirect of the app onto its public address
 func rewriteLocation(loc string, info *requestInfo, ep *Endpoint) string {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "rewriteLocation: loc=%.120q", loc)
+	}
 	if info.pathMode {
 		return rewriteURL(loc, info.prefix, []string{info.publicHost, ep.Target})
 	}
@@ -510,10 +555,16 @@ func rewriteLocation(loc string, info *requestInfo, ep *Endpoint) string {
 
 // errorPage renders a small self-contained error page
 func errorPage(w http.ResponseWriter, status int, title string, message string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("appproxy", "errorPage: status=%d title=%.120q", status, title)
+	}
 	errorPageWithLink(w, status, title, message, "", "")
 }
 
 func errorPageWithLink(w http.ResponseWriter, status int, title string, message string, link string, linkText string) {
+	if logger.IsDebug() {
+		logger.Debugf("appproxy", "errorPageWithLink: status=%d title=%.120q link=%.120q linkText=%.120q", status, title, link, linkText)
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)

@@ -29,6 +29,9 @@ type LogicalDiskSpaceInfo struct {
 }
 
 func HandleDiskSpaceList(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskspace", "HandleDiskSpaceList: r=%s", logger.RequestSummary(r))
+	}
 	allDisksVolume := GetAllLogicDiskInfo()
 	jsonString, _ := json.Marshal(allDisksVolume)
 	w.Header().Set("Content-Type", "application/json")
@@ -36,6 +39,7 @@ func HandleDiskSpaceList(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAllLogicDiskInfo() []LogicalDiskSpaceInfo {
+	logger.Debug("disk/diskspace", "GetAllLogicDiskInfo")
 	if runtime.GOOS == "windows" {
 		disks, err := wininfo.LogicalDisks()
 		if err != nil {
@@ -97,6 +101,9 @@ func GetAllLogicDiskInfo() []LogicalDiskSpaceInfo {
 }
 
 func stringToInt64(value string) (int64, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskspace", "stringToInt64: value=%.120q", value)
+	}
 	n, err := strconv.Atoi(value)
 	return int64(n), err
 }
@@ -104,6 +111,9 @@ func stringToInt64(value string) (int64, error) {
 // logicalDiskSpace words the Windows drive letters for the disk space page.
 // A drive without a readable volume (an empty card reader) is "Not Mounted".
 func logicalDiskSpace(disks []wininfo.LogicalDisk) []LogicalDiskSpaceInfo {
+	if logger.IsDebug() {
+		logger.Debugf("disk/diskspace", "logicalDiskSpace: len(disks)=%d", len(disks))
+	}
 	results := []LogicalDiskSpaceInfo{}
 	for _, disk := range disks {
 		if !disk.Ready || disk.Size == 0 {

@@ -2,6 +2,8 @@
 
 package docker
 
+import "imuslab.com/arozos/mod/info/logger"
+
 /*
 	host_other.go
 
@@ -13,10 +15,12 @@ package docker
 
 // hostStorageUsage is not wired up on this platform.
 func hostStorageUsage() (int64, int64, bool) {
+	logger.DebugTrace("docker", "hostStorageUsage")
 	return 0, 0, false
 }
 
 // hostLoadAvg is not wired up on this platform.
 func hostLoadAvg() (float64, float64, float64, bool) {
+	logger.DebugTrace("docker", "hostLoadAvg")
 	return 0, 0, 0, false
 }

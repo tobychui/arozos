@@ -30,6 +30,7 @@ import (
 */
 
 func (g *Gateway) FileLibRegister() {
+	logger.Debug("agi", "Gateway.FileLibRegister")
 	err := g.RegisterLib("filelib", g.injectFileLibFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -38,6 +39,7 @@ func (g *Gateway) FileLibRegister() {
 }
 
 func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload) {
+	logger.Debug("agi", "Gateway.injectFileLibFunctions")
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh

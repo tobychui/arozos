@@ -23,6 +23,8 @@ import (
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -41,6 +43,9 @@ const (
 // Diff returns the diff of one repo-relative path between HEAD and the current
 // working tree — the change the user is about to commit.
 func (m *Manager) Diff(realpath string, file string) (*FileDiff, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.Diff: realpath=%.120q file=%.120q", realpath, file)
+	}
 	cleaned, err := cleanRepoPath(file)
 	if err != nil {
 		return nil, err
@@ -73,6 +78,9 @@ func (m *Manager) Diff(realpath string, file string) (*FileDiff, error) {
 // DiffCommit returns the diff of one path introduced by a commit, comparing it
 // against the commit's first parent. Used by the History tab.
 func (m *Manager) DiffCommit(realpath string, hash string, file string) (*FileDiff, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.DiffCommit: realpath=%.120q file=%.120q", realpath, file)
+	}
 	cleaned, err := cleanRepoPath(file)
 	if err != nil {
 		return nil, err
@@ -104,6 +112,9 @@ func (m *Manager) DiffCommit(realpath string, hash string, file string) (*FileDi
 
 // CommitFiles lists the paths a commit touched, for the History tab file list.
 func (m *Manager) CommitFiles(realpath string, hash string) ([]FileChange, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "Manager.CommitFiles: realpath=%.120q", realpath)
+	}
 	repo, err := m.open(realpath)
 	if err != nil {
 		return nil, err
@@ -162,6 +173,9 @@ func (m *Manager) CommitFiles(realpath string, hash string) ([]FileChange, error
 
 // headBlobContent reads a path out of the HEAD commit tree.
 func headBlobContent(repo *gogit.Repository, file string) ([]byte, bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "headBlobContent: file=%.120q", file)
+	}
 	head, err := repo.Head()
 	if err != nil {
 		if errors.Is(err, plumbing.ErrReferenceNotFound) {
@@ -183,6 +197,9 @@ func headBlobContent(repo *gogit.Repository, file string) ([]byte, bool, error) 
 // treeFileContent reads a path from a commit's tree, reporting whether it was
 // present at all.
 func treeFileContent(commit *object.Commit, file string) ([]byte, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "treeFileContent: file=%.120q", file)
+	}
 	if commit == nil {
 		return []byte{}, false
 	}
@@ -211,6 +228,9 @@ func treeFileContent(commit *object.Commit, file string) ([]byte, bool) {
 
 // worktreeContent reads a path from the working tree.
 func worktreeContent(repoRoot string, file string) ([]byte, bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("git", "worktreeContent: repoRoot=%.120q file=%.120q", repoRoot, file)
+	}
 	fullPath := filepath.Join(repoRoot, filepath.FromSlash(file))
 
 	info, err := os.Stat(fullPath)
@@ -237,6 +257,9 @@ func worktreeContent(repoRoot string, file string) ([]byte, bool, error) {
 
 // buildFileDiff turns two file contents into the rendered diff structure.
 func buildFileDiff(path string, oldContent []byte, newContent []byte, oldExists bool, newExists bool) *FileDiff {
+	if logger.IsDebug() {
+		logger.Debugf("git", "buildFileDiff: path=%.120q oldExists=%t newExists=%t", path, oldExists, newExists)
+	}
 	diff := &FileDiff{
 		Path:      path,
 		IsNew:     !oldExists,
@@ -284,6 +307,9 @@ type diffOp struct {
 
 // diffLines produces the edit script turning oldLines into newLines.
 func diffLines(oldLines []string, newLines []string) []diffOp {
+	if logger.IsDebug() {
+		logger.Debugf("git", "diffLines: len(oldLines)=%d len(newLines)=%d", len(oldLines), len(newLines))
+	}
 	operations := []diffOp{}
 
 	//Trim the common prefix — most edits touch a small part of a file, and this
@@ -317,6 +343,9 @@ func diffLines(oldLines []string, newLines []string) []diffOp {
 // diffMiddle runs the LCS over the changed region, falling back to a plain
 // replace when the region is too large to diff cheaply.
 func diffMiddle(oldLines []string, newLines []string) []diffOp {
+	if logger.IsDebug() {
+		logger.Debugf("git", "diffMiddle: len(oldLines)=%d len(newLines)=%d", len(oldLines), len(newLines))
+	}
 	operations := []diffOp{}
 
 	if len(oldLines) == 0 && len(newLines) == 0 {
@@ -381,6 +410,9 @@ func diffMiddle(oldLines []string, newLines []string) []diffOp {
 // buildHunks groups the edit script into unified-diff hunks, keeping
 // diffContextLines unchanged lines on either side of every change.
 func buildHunks(operations []diffOp) []DiffHunk {
+	if logger.IsDebug() {
+		logger.Debugf("git", "buildHunks: len(operations)=%d", len(operations))
+	}
 	hunks := []DiffHunk{}
 	if len(operations) == 0 {
 		return hunks
@@ -477,6 +509,7 @@ func buildHunks(operations []diffOp) []DiffHunk {
 // final newline produces and normalising CRLF so a Windows checkout of a Unix
 // file does not report every line as changed.
 func splitLines(content string) []string {
+	logger.Debug("git", "splitLines")
 	if content == "" {
 		return []string{}
 	}
@@ -491,6 +524,7 @@ func splitLines(content string) []string {
 
 // isBinaryContent applies git's own NUL-byte heuristic to in-memory content.
 func isBinaryContent(content []byte) bool {
+	logger.Debug("git", "isBinaryContent")
 	limit := len(content)
 	if limit > 8000 {
 		limit = 8000

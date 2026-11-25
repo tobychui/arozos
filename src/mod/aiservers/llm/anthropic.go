@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -66,6 +68,9 @@ type anthropicResponse struct {
 // chatAnthropic performs an Anthropic Messages API call and maps the result
 // back into the unified ChatResponse shape.
 func (c *Client) chatAnthropic(messages []Message, opt ChatOptions) (*ChatResponse, error) {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/llm", "Client.chatAnthropic: len(messages)=%d", len(messages))
+	}
 	//Anthropic takes the system prompt as a top-level field, not a message.
 	system := ""
 	amsgs := []anthropicMessage{}
@@ -192,6 +197,9 @@ type anthropicStreamEvent struct {
 // splits usage across message_start (input tokens) and message_delta (output
 // tokens), so both are accumulated before computing the total.
 func (c *Client) chatAnthropicStream(messages []Message, opt ChatOptions, cb StreamCallback) (*ChatResponse, error) {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/llm", "Client.chatAnthropicStream: len(messages)=%d", len(messages))
+	}
 	system := ""
 	amsgs := []anthropicMessage{}
 	for _, m := range messages {
@@ -323,6 +331,7 @@ func (c *Client) chatAnthropicStream(messages []Message, opt ChatOptions, cb Str
 
 // listModelsAnthropic lists model IDs from the Anthropic /v1/models endpoint.
 func (c *Client) listModelsAnthropic() ([]string, error) {
+	logger.Debug("aiservers/llm", "Client.listModelsAnthropic")
 	base := strings.TrimRight(c.Endpoint, "/")
 	var requestURL string
 	if strings.HasSuffix(base, "/models") {
@@ -371,6 +380,9 @@ func (c *Client) listModelsAnthropic() ([]string, error) {
 // anthropicURL builds the Messages endpoint URL from a base URL, tolerating
 // bases with or without a trailing /v1 or /messages.
 func anthropicURL(endpoint string) string {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/llm", "anthropicURL: endpoint=%.120q", endpoint)
+	}
 	base := strings.TrimRight(endpoint, "/")
 	if strings.HasSuffix(base, "/messages") {
 		return base
@@ -384,6 +396,7 @@ func anthropicURL(endpoint string) string {
 // toAnthropicContent converts unified message content (a plain string or an
 // array of OpenAI-style content parts) into Anthropic content blocks.
 func toAnthropicContent(content interface{}) interface{} {
+	logger.Debug("aiservers/llm", "toAnthropicContent")
 	switch v := content.(type) {
 	case string:
 		return v
@@ -425,6 +438,7 @@ func toAnthropicContent(content interface{}) interface{} {
 // anthropicImageBlock converts an image URL (data URI or remote) into an
 // Anthropic image content block.
 func anthropicImageBlock(url string) anthropicContentBlock {
+	logger.Debug("aiservers/llm", "anthropicImageBlock")
 	if strings.HasPrefix(url, "data:") {
 		meta := url[len("data:"):]
 		if comma := strings.Index(meta, ","); comma >= 0 {

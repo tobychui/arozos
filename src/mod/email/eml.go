@@ -14,11 +14,14 @@ import (
 
 	gomessage "github.com/emersion/go-message"
 	gomail "github.com/emersion/go-message/mail"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const maxEMLSize = 100 * 1024 * 1024
 
 func parseEMLTree(raw []byte) (*mimePart, gomail.Header, error) {
+	logger.Debug("email", "parseEMLTree")
 	if len(raw) == 0 {
 		return nil, gomail.Header{}, errors.New("the file is empty")
 	}
@@ -35,6 +38,9 @@ func parseEMLTree(raw []byte) (*mimePart, gomail.Header, error) {
 
 // ParseEML renders an .eml file for the reading pane.
 func (m *Manager) ParseEML(p Principal, raw []byte, allowRemote bool) (*Message, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.ParseEML: allowRemote=%t", allowRemote)
+	}
 	tree, header, err := parseEMLTree(raw)
 	if err != nil {
 		return nil, err
@@ -72,6 +78,9 @@ func (m *Manager) ParseEML(p Principal, raw []byte, allowRemote bool) (*Message,
 
 // EMLPart extracts one attachment of an .eml file.
 func EMLPart(raw []byte, partID string) (*PartData, error) {
+	if logger.IsDebug() {
+		logger.Debugf("email", "EMLPart: partID=%.120q", partID)
+	}
 	tree, _, err := parseEMLTree(raw)
 	if err != nil {
 		return nil, err

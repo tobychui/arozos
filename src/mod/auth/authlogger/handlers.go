@@ -15,12 +15,19 @@ import (
 type summaryDate []string
 
 func (s summaryDate) Len() int {
+	logger.DebugTrace("auth/authlogger", "summaryDate.Len")
 	return len(s)
 }
 func (s summaryDate) Swap(i, j int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("auth/authlogger", "summaryDate.Swap: i=%d j=%d", i, j)
+	}
 	s[i], s[j] = s[j], s[i]
 }
 func (s summaryDate) Less(i, j int) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("auth/authlogger", "summaryDate.Less: i=%d j=%d", i, j)
+	}
 	layout := "Jan-2006"
 	timei, err := time.Parse(layout, s[i])
 	if err != nil {
@@ -35,6 +42,9 @@ func (s summaryDate) Less(i, j int) bool {
 
 // Handle of listing of the logger index (months)
 func (l *Logger) HandleIndexListing(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/authlogger", "Logger.HandleIndexListing: r=%s", logger.RequestSummary(r))
+	}
 	indexes := l.ListSummary()
 	sort.Sort(summaryDate(indexes))
 	js, err := json.Marshal(indexes)
@@ -48,6 +58,9 @@ func (l *Logger) HandleIndexListing(w http.ResponseWriter, r *http.Request) {
 
 // Handle of the listing of a given index (month)
 func (l *Logger) HandleTableListing(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/authlogger", "Logger.HandleTableListing: r=%s", logger.RequestSummary(r))
+	}
 	//Get the record name request for listing
 	month, err := utils.PostPara(r, "record")
 	if err != nil {

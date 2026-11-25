@@ -16,6 +16,7 @@ import (
 	"os/exec"
 
 	"github.com/gorilla/websocket"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -30,6 +31,7 @@ var dockerWsUpgrader = websocket.Upgrader{
 // as text frames, and kills the process when the client disconnects. It blocks
 // until the command exits or the client goes away.
 func streamCommandToWS(conn *websocket.Conn, cmd *exec.Cmd) {
+	logger.Debug("docker", "streamCommandToWS")
 	pr, pw := io.Pipe()
 	cmd.Stdout = pw
 	cmd.Stderr = pw
@@ -79,6 +81,9 @@ func streamCommandToWS(conn *websocket.Conn, cmd *exec.Cmd) {
 
 // HandleContainerLogs streams the tail of a container's logs over a websocket.
 func (d *DockerManager) HandleContainerLogs(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleContainerLogs: r=%s", logger.RequestSummary(r))
+	}
 	ref, err := utils.GetPara(r, "id")
 	if err != nil {
 		http.Error(w, "missing container id", http.StatusBadRequest)

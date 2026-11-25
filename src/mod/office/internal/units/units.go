@@ -6,6 +6,8 @@ package units
 import (
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // EMU (English Metric Units) per pixel at 96 DPI
@@ -14,19 +16,31 @@ const EmuPerPx = 9525
 /* ---------- shared small helpers ---------- */
 
 func PxToEmu(px float64) int64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/units", "PxToEmu: px=%g", px)
+	}
 	return int64(px * EmuPerPx)
 }
 
 func EmuToPx(emu int64, scale float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/units", "EmuToPx: emu=%d scale=%g", emu, scale)
+	}
 	return float64(emu) / EmuPerPx * scale
 }
 
 func Round4(v float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/units", "Round4: v=%g", v)
+	}
 	return float64(int64(v*10000+CopySign(0.5, v))) / 10000
 }
 
 // ParseNum reads the leading number out of a CSS value ("18.5px" -> 18.5)
 func ParseNum(v string) float64 {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/units", "ParseNum: v=%.120q", v)
+	}
 	v = strings.TrimSpace(v)
 	end := 0
 	for end < len(v) {
@@ -51,14 +65,23 @@ func ParseNum(v string) float64 {
 const EmuPerPt = 12700
 
 func FmtPx(v float64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/units", "FmtPx: v=%g", v)
+	}
 	return strconv.FormatFloat(Round2(v), 'f', -1, 64) + "px"
 }
 
 func Round2(v float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/units", "Round2: v=%g", v)
+	}
 	return float64(int64(v*100+CopySign(0.5, v))) / 100
 }
 
 func CopySign(v, sign float64) float64 {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/units", "CopySign: v=%g sign=%g", v, sign)
+	}
 	if sign < 0 {
 		return -v
 	}
@@ -66,9 +89,17 @@ func CopySign(v, sign float64) float64 {
 }
 
 // PtToPx converts points to CSS pixels at 96 dpi
-func PtToPx(pt float64) float64 { return pt / 0.75 }
+func PtToPx(pt float64) float64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/units", "PtToPx: pt=%g", pt)
+	}
+	return pt / 0.75
+}
 
 func AtofDefault(s string, def float64) float64 {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/units", "AtofDefault: s=%.120q def=%g", s, def)
+	}
 	if s == "" {
 		return def
 	}
@@ -80,6 +111,9 @@ func AtofDefault(s string, def float64) float64 {
 }
 
 func TrimFloat(f float64) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/units", "TrimFloat: f=%g", f)
+	}
 	s := strconv.FormatFloat(f, 'f', 2, 64)
 	s = strings.TrimRight(s, "0")
 	s = strings.TrimRight(s, ".")

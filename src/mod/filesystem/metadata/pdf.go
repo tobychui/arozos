@@ -8,6 +8,7 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/metadata/pdfrender"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // pdfThumbnailTimeout bounds the render of one PDF thumbnail; a page that
@@ -17,6 +18,9 @@ const pdfThumbnailTimeout = 15 * time.Second
 // generateThumbnailForPDF draws the first page of a PDF with the built-in
 // renderer (metadata/pdfrender), so no external tool is needed on the host
 func generateThumbnailForPDF(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "generateThumbnailForPDF: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
+	}
 	if fsh.RequireBuffer {
 		return "", nil
 	}

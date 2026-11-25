@@ -16,6 +16,8 @@ package auth
 import (
 	"crypto/subtle"
 	"errors"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // ForwardAuthResult is the verdict of a ForwardAuthHandler.
@@ -31,6 +33,9 @@ type ForwardAuthHandler func(username string, passwordHash string) ForwardAuthRe
 
 // ValidateUsernameAndPasswordHash checks an already hashed password.
 func (a *AuthAgent) ValidateUsernameAndPasswordHash(username string, passwordHash string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.ValidateUsernameAndPasswordHash: username=%.120q", username)
+	}
 	stored, err := a.GetPasswordHash(username)
 	if err != nil || stored == "" {
 		return false
@@ -40,6 +45,9 @@ func (a *AuthAgent) ValidateUsernameAndPasswordHash(username string, passwordHas
 
 // GetPasswordHash returns the stored password hash of a user.
 func (a *AuthAgent) GetPasswordHash(username string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.GetPasswordHash: username=%.120q", username)
+	}
 	hash := ""
 	if err := a.Database.Read("auth", "passhash/"+username, &hash); err != nil {
 		return "", err
@@ -53,6 +61,9 @@ func (a *AuthAgent) GetPasswordHash(username string) (string, error) {
 // SetPasswordHash stores an already hashed password for a user, creating the
 // password entry when it does not exist yet.
 func (a *AuthAgent) SetPasswordHash(username string, passwordHash string) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.SetPasswordHash: username=%.120q", username)
+	}
 	if username == "" || passwordHash == "" {
 		return errors.New("username and password hash are required")
 	}
@@ -61,6 +72,9 @@ func (a *AuthAgent) SetPasswordHash(username string, passwordHash string) error 
 
 // GetUserGroups returns the permission group names of a user.
 func (a *AuthAgent) GetUserGroups(username string) ([]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.GetUserGroups: username=%.120q", username)
+	}
 	if !a.Database.KeyExists("auth", "group/"+username) {
 		return nil, errors.New("user not found")
 	}
@@ -76,6 +90,9 @@ func (a *AuthAgent) GetUserGroups(username string) ([]string, error) {
 
 // SetUserGroups replaces the permission group names of a user.
 func (a *AuthAgent) SetUserGroups(username string, groups []string) error {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.SetUserGroups: username=%.120q len(groups)=%d", username, len(groups))
+	}
 	if username == "" {
 		return errors.New("username is required")
 	}
@@ -87,6 +104,9 @@ func (a *AuthAgent) SetUserGroups(username string, groups []string) error {
 
 // validateLogin decides a login, consulting the forward auth hook first.
 func (a *AuthAgent) validateLogin(username string, password string) (bool, string) {
+	if logger.IsDebug() {
+		logger.Debugf("auth", "AuthAgent.validateLogin: username=%.120q", username)
+	}
 	if a.ForwardAuth != nil {
 		if res := a.ForwardAuth(username, Hash(password)); res.Decided {
 			return res.Accepted, res.Reason

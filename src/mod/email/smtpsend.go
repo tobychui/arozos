@@ -16,10 +16,13 @@ import (
 
 	"github.com/emersion/go-sasl"
 	"github.com/emersion/go-smtp"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // dialSMTP connects to and authenticates with an account's SMTP server.
 func (m *Manager) dialSMTP(ctx context.Context, p Principal, account *Account) (*smtp.Client, error) {
+	logger.Debug("email", "Manager.dialSMTP")
 	server := account.SMTP
 	if server.Security == SecurityNone && !m.allowInsecure(p) {
 		return nil, ErrInsecureBlocked
@@ -69,6 +72,9 @@ func (m *Manager) dialSMTP(ctx context.Context, p Principal, account *Account) (
 // ehloName picks the name announced in EHLO. Several providers reject a bare
 // word, so anything that is not a dotted host name becomes an address literal.
 func ehloName(hostname string) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "ehloName: hostname=%.120q", hostname)
+	}
 	hostname = strings.TrimSpace(strings.ToLower(hostname))
 	if hostname != "" && strings.Contains(hostname, ".") && !strings.ContainsAny(hostname, " _/") {
 		return hostname
@@ -77,6 +83,7 @@ func ehloName(hostname string) string {
 }
 
 func (m *Manager) authenticateSMTP(ctx context.Context, client *smtp.Client, account *Account) error {
+	logger.Debug("email", "Manager.authenticateSMTP")
 	username := account.SMTP.Username
 	if username == "" {
 		username = account.Email
@@ -134,6 +141,7 @@ func (m *Manager) authenticateSMTP(ctx context.Context, client *smtp.Client, acc
 
 // checkSMTP verifies SMTP settings and credentials.
 func (m *Manager) checkSMTP(ctx context.Context, p Principal, account *Account) error {
+	logger.Debug("email", "Manager.checkSMTP")
 	client, err := m.dialSMTP(ctx, p, account)
 	if err != nil {
 		return err
@@ -145,6 +153,9 @@ func (m *Manager) checkSMTP(ctx context.Context, p Principal, account *Account) 
 
 // sendRaw delivers a rendered message.
 func (m *Manager) sendRaw(ctx context.Context, p Principal, account *Account, from string, recipients []string, raw []byte) error {
+	if logger.IsDebug() {
+		logger.Debugf("email", "Manager.sendRaw: from=%.120q len(recipients)=%d", from, len(recipients))
+	}
 	if len(recipients) == 0 {
 		return errors.New("no recipients")
 	}

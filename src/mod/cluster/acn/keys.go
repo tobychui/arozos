@@ -20,6 +20,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // NodeKey is the Ed25519 identity of this node.
@@ -30,6 +32,7 @@ type NodeKey struct {
 
 // GenerateNodeKey creates a brand new random node key pair.
 func GenerateNodeKey() (*NodeKey, error) {
+	logger.Debug("cluster/acn", "GenerateNodeKey")
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
@@ -40,6 +43,7 @@ func GenerateNodeKey() (*NodeKey, error) {
 // LoadOrCreateNodeKey loads the node key stored at keyfile, creating and
 // persisting a new one when the file does not exist yet.
 func LoadOrCreateNodeKey(keyfile string) (*NodeKey, error) {
+	logger.Debug("cluster/acn", "LoadOrCreateNodeKey")
 	content, err := os.ReadFile(keyfile)
 	if err == nil {
 		return ParseNodeKey(strings.TrimSpace(string(content)))
@@ -63,6 +67,7 @@ func LoadOrCreateNodeKey(keyfile string) (*NodeKey, error) {
 
 // ParseNodeKey rebuilds a key pair from the hex encoded seed produced by Encode.
 func ParseNodeKey(hexSeed string) (*NodeKey, error) {
+	logger.Debug("cluster/acn", "ParseNodeKey")
 	seed, err := hex.DecodeString(strings.TrimSpace(hexSeed))
 	if err != nil {
 		return nil, errors.New("invalid node key encoding: " + err.Error())
@@ -79,22 +84,28 @@ func ParseNodeKey(hexSeed string) (*NodeKey, error) {
 
 // Encode returns the hex encoded seed of the private key for persistence.
 func (k *NodeKey) Encode() string {
+	logger.DebugTrace("cluster/acn", "NodeKey.Encode")
 	return hex.EncodeToString(k.Private.Seed())
 }
 
 // PublicKeyString returns the base64 encoded public key that is published to
 // other cluster members.
 func (k *NodeKey) PublicKeyString() string {
+	logger.DebugTrace("cluster/acn", "NodeKey.PublicKeyString")
 	return EncodePublicKey(k.Public)
 }
 
 // EncodePublicKey converts a public key into its transport encoding.
 func EncodePublicKey(pub ed25519.PublicKey) string {
+	logger.DebugTrace("cluster/acn", "EncodePublicKey")
 	return base64.StdEncoding.EncodeToString(pub)
 }
 
 // DecodePublicKey parses the base64 public key of a peer.
 func DecodePublicKey(encoded string) (ed25519.PublicKey, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/acn", "DecodePublicKey: encoded=%.120q", encoded)
+	}
 	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(encoded))
 	if err != nil {
 		return nil, errors.New("invalid public key encoding: " + err.Error())

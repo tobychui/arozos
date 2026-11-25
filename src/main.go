@@ -29,6 +29,7 @@ import (
 
 // Close handler, close db and clearn up everything before exit
 func SetupCloseHandler() {
+	logger.Debug("Core", "SetupCloseHandler")
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -38,6 +39,7 @@ func SetupCloseHandler() {
 }
 
 func executeShutdownSequence() {
+	logger.Debug("Core", "executeShutdownSequence")
 	//Shutdown cluster agent so peers stop routing to this node
 	systemWideLogger.PrintAndLog("System", "<!> Shutting down cluster agent", nil)
 	ClusterShutdown()
@@ -99,9 +101,15 @@ func executeShutdownSequence() {
 }
 
 func main() {
+	logger.Debug("Core", "main")
 	//Parse startup flags and paramters
 	flag.Parse()
 	logger.SetGlobalJSONOutput(*log_format == "json")
+	logger.SetDebug(*enable_debug_log)
+	logger.SetDebugTrace(*enable_debug_trace)
+	if logger.IsDebug() {
+		logger.PrintAndLog("Logger", fmt.Sprintf("DEBUG level logging is on (trace of frequent functions: %t)", logger.IsDebugTrace()), nil)
+	}
 
 	//Handle version printing
 	if *show_version {

@@ -43,6 +43,7 @@ type Agent struct {
 // NewWebhookNotificationAgent constructs a webhook agent using the given
 // per-user target resolver.
 func NewWebhookNotificationAgent(targetResolver func(string) (Target, error)) *Agent {
+	logger.DebugTrace("notification/agents/webhookn", "NewWebhookNotificationAgent")
 	return &Agent{
 		Client:           &http.Client{Timeout: 10 * time.Second},
 		UsernameToTarget: targetResolver,
@@ -50,18 +51,22 @@ func NewWebhookNotificationAgent(targetResolver func(string) (Target, error)) *A
 }
 
 func (a *Agent) Name() string {
+	logger.DebugTrace("notification/agents/webhookn", "Agent.Name")
 	return "webhook"
 }
 
 func (a *Agent) Desc() string {
+	logger.DebugTrace("notification/agents/webhookn", "Agent.Desc")
 	return "Notify user through a custom HTTP webhook (custom HTML API)"
 }
 
 func (a *Agent) IsConsumer() bool {
+	logger.DebugTrace("notification/agents/webhookn", "Agent.IsConsumer")
 	return true
 }
 
 func (a *Agent) IsProducer() bool {
+	logger.DebugTrace("notification/agents/webhookn", "Agent.IsProducer")
 	return false
 }
 
@@ -72,6 +77,9 @@ const defaultJSONBody = `{"id":"{{id}}","title":"{{title}}","message":"{{message
 // template. Values are JSON-string-escaped so that the default JSON body stays
 // valid even when titles or messages contain quotes or backslashes.
 func RenderTemplate(template string, payload *notification.NotificationPayload) string {
+	if logger.IsDebug() {
+		logger.Debugf("notification/agents/webhookn", "RenderTemplate: template=%.120q", template)
+	}
 	priority := notification.PriorityToString(notification.NormalizePriority(payload.Priority))
 	replacer := strings.NewReplacer(
 		"{{id}}", jsonEscape(payload.ID),
@@ -87,6 +95,9 @@ func RenderTemplate(template string, payload *notification.NotificationPayload) 
 // jsonEscape escapes the minimal set of characters required to keep a value
 // safe inside a JSON string literal without pulling in a full JSON encode.
 func jsonEscape(in string) string {
+	if logger.IsDebug() {
+		logger.Debugf("notification/agents/webhookn", "jsonEscape: in=%.120q", in)
+	}
 	replacer := strings.NewReplacer(
 		"\\", "\\\\",
 		"\"", "\\\"",
@@ -99,6 +110,7 @@ func jsonEscape(in string) string {
 
 // ValidateTarget checks that a webhook target has a usable http/https URL.
 func ValidateTarget(target Target) error {
+	logger.Debug("notification/agents/webhookn", "ValidateTarget")
 	u, err := url.Parse(strings.TrimSpace(target.URL))
 	if err != nil {
 		return errors.New("invalid webhook URL: " + err.Error())
@@ -113,6 +125,7 @@ func ValidateTarget(target Target) error {
 }
 
 func (a *Agent) ConsumerNotification(incomingNotification *notification.NotificationPayload) error {
+	logger.Debug("notification/agents/webhookn", "Agent.ConsumerNotification")
 	if a.UsernameToTarget == nil {
 		return errors.New("Webhook agent has no target resolver")
 	}
@@ -135,6 +148,7 @@ func (a *Agent) ConsumerNotification(incomingNotification *notification.Notifica
 
 // deliver performs a single webhook HTTP request for the given target.
 func (a *Agent) deliver(target Target, payload *notification.NotificationPayload) error {
+	logger.Debug("notification/agents/webhookn", "Agent.deliver")
 	if err := ValidateTarget(target); err != nil {
 		return err
 	}
@@ -196,6 +210,9 @@ func (a *Agent) deliver(target Target, payload *notification.NotificationPayload
 
 // checkStatus treats any 2xx response as success.
 func checkStatus(status int) error {
+	if logger.IsDebug() {
+		logger.Debugf("notification/agents/webhookn", "checkStatus: status=%d", status)
+	}
 	if status >= 200 && status < 300 {
 		return nil
 	}
@@ -203,5 +220,6 @@ func checkStatus(status int) error {
 }
 
 func (a *Agent) ProduceNotification(producerListeningEndpoint *notification.AgentProducerFunction) {
+	logger.DebugTrace("notification/agents/webhookn", "Agent.ProduceNotification")
 	return
 }

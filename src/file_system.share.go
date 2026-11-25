@@ -26,6 +26,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem/abstractions/sharefs"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/metadata"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/share"
 	"imuslab.com/arozos/mod/user"
 )
@@ -36,6 +37,9 @@ import (
 type sharedDriveResolver struct{}
 
 func (sharedDriveResolver) Items(username string) []*sharefs.Item {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "sharedDriveResolver.Items: username=%.120q", username)
+	}
 	if shareManager == nil {
 		return nil
 	}
@@ -45,6 +49,9 @@ func (sharedDriveResolver) Items(username string) []*sharefs.Item {
 // sharedDriveThumbnail renders the thumbnail of a shared file on its owner's
 // drive, where the owner's own thumbnail cache is kept
 func sharedDriveThumbnail(fsh *fs.FileSystemHandler, rpath string) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "sharedDriveThumbnail: rpath=%.120q", rpath)
+	}
 	if thumbRenderHandler == nil || !metadata.ThumbnailSupported(rpath) {
 		return nil, arozfs.ErrNoThumbnail
 	}
@@ -60,6 +67,7 @@ func sharedDriveThumbnail(fsh *fs.FileSystemHandler, rpath string) ([]byte, erro
 }
 
 func newSharedDriveHandler() *fs.FileSystemHandler {
+	logger.Debug("Core", "newSharedDriveHandler")
 	abs := sharefs.New(share.SharedDriveUUID, sharedDriveResolver{}, sharefs.Options{
 		Thumbnail: sharedDriveThumbnail,
 		BufferDir: filepath.Join(*tmp_directory, "sharefs"),
@@ -92,6 +100,9 @@ func newSharedDriveHandler() *fs.FileSystemHandler {
 // sharedDriveAttach adds the drive to the handlers of the base storage pool,
 // unless a configured storage already uses its id
 func sharedDriveAttach(handlers []*fs.FileSystemHandler) []*fs.FileSystemHandler {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "sharedDriveAttach: len(handlers)=%d", len(handlers))
+	}
 	for _, fsh := range handlers {
 		if fsh.UUID == share.SharedDriveUUID {
 			systemWideLogger.PrintAndLog("Storage", "A storage is mounted as "+share.SharedDriveUUID+
@@ -106,6 +117,9 @@ func sharedDriveAttach(handlers []*fs.FileSystemHandler) []*fs.FileSystemHandler
 // user, or "" for anything else (another drive, the drive root, a path that
 // is not shared). The file ownership records only know a user's own home.
 func sharedDriveOwnerOf(userinfo *user.User, fsh *fs.FileSystemHandler, vpath string) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "sharedDriveOwnerOf: vpath=%.120q", vpath)
+	}
 	if !share.IsSharedDrive(fsh) {
 		return ""
 	}
@@ -120,6 +134,9 @@ func sharedDriveOwnerOf(userinfo *user.User, fsh *fs.FileSystemHandler, vpath st
 // taken, or nil: a file shared with the user whose owner does not allow
 // downloading it, or the drive root itself.
 func sharedDriveCopyDenied(userinfo *user.User, vpaths []string) error {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "sharedDriveCopyDenied: len(vpaths)=%d", len(vpaths))
+	}
 	for _, vpath := range vpaths {
 		fsh, _, err := GetFSHandlerSubpathFromVpath(vpath)
 		if err != nil || !share.IsSharedDrive(fsh) {

@@ -17,6 +17,7 @@ import (
 
 	"golang.org/x/image/webp"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -72,6 +73,7 @@ const (
 // JSON object and returns the picture it holds, still encoded (JPEG, PNG,
 // ...). Nested objects are not searched.
 func extractJSONPreview(r io.Reader) ([]byte, error) {
+	logger.Debug("filesystem/metadata", "extractJSONPreview")
 	br := bufio.NewReader(io.LimitReader(r, jsonPreviewScanLimit))
 
 	//Anything that does not start as an object is not looked at further
@@ -129,6 +131,7 @@ func extractJSONPreview(r io.Reader) ([]byte, error) {
 
 // skipJSONValue reads past the next value of dec, however deeply nested.
 func skipJSONValue(dec *json.Decoder) error {
+	logger.Debug("filesystem/metadata", "skipJSONValue")
 	depth := 0
 	for {
 		token, err := dec.Token()
@@ -151,6 +154,7 @@ func skipJSONValue(dec *json.Decoder) error {
 // decodePreviewPayload turns the field's text, bare base64 or a data URL of
 // an image, into the picture's bytes.
 func decodePreviewPayload(payload string) ([]byte, error) {
+	logger.Debug("filesystem/metadata", "decodePreviewPayload")
 	if len(payload) == 0 {
 		return nil, errors.New(JSONPreviewKey + " is empty")
 	}
@@ -196,6 +200,7 @@ func decodePreviewPayload(payload string) ([]byte, error) {
 // decodePreviewImage decodes the picture of a preview field: JPEG, PNG or
 // WebP only, refusing ones whose size would take too much memory to decode.
 func decodePreviewImage(data []byte) (image.Image, error) {
+	logger.Debug("filesystem/metadata", "decodePreviewImage")
 	config, format, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
@@ -231,6 +236,7 @@ func decodePreviewImage(data []byte) (image.Image, error) {
 // the user's own drive, where a file can be put by hand: sending its type as
 // sniffed could serve HTML from this site to whoever opens the thumbnail.
 func SafeThumbnailContentType(data []byte) (string, bool) {
+	logger.Debug("filesystem/metadata", "SafeThumbnailContentType")
 	contentType := http.DetectContentType(data)
 	switch contentType {
 	case "image/jpeg", "image/png", "image/gif", "image/webp":
@@ -240,6 +246,9 @@ func SafeThumbnailContentType(data []byte) (string, bool) {
 }
 
 func generateThumbnailForJSONPreview(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "generateThumbnailForJSONPreview: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
+	}
 	if fsh.RequireBuffer {
 		return "", nil
 	}

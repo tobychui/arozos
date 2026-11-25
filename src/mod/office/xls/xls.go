@@ -25,6 +25,7 @@ package xls
 import (
 	"errors"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/cfb"
 	"imuslab.com/arozos/mod/office/model"
 	"imuslab.com/arozos/mod/office/xlsx"
@@ -32,6 +33,7 @@ import (
 
 // ToXlsx converts an Excel 97-2003 workbook into an .xlsx file
 func ToXlsx(data []byte) ([]byte, error) {
+	logger.Debug("office/xls", "ToXlsx")
 	b, sheets, index, err := read(data)
 	if err != nil {
 		return nil, err
@@ -41,6 +43,7 @@ func ToXlsx(data []byte) ([]byte, error) {
 
 // Parse converts an Excel 97-2003 workbook into the Sheets model
 func Parse(data []byte) (*model.Workbook, error) {
+	logger.Debug("office/xls", "Parse")
 	x, err := ToXlsx(data)
 	if err != nil {
 		return nil, err
@@ -51,6 +54,7 @@ func Parse(data []byte) (*model.Workbook, error) {
 // read decodes the workbook: the globals, then each worksheet in tab
 // order; index holds each sheet's BOUNDSHEET position
 func read(data []byte) (*book, []*sheet, []int, error) {
+	logger.DebugTrace("office/xls", "read")
 	if !cfb.IsCompound(data) {
 		if len(data) >= 4 && data[0] == 0x09 && (data[1] == 0x00 || data[1] == 0x02 || data[1] == 0x04) {
 			return nil, nil, nil, errors.New("Excel 2.x - 4.x worksheets are not supported")

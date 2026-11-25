@@ -9,10 +9,14 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/auth/ldap/ldapreader"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
 func (ldap *ldapHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/ldap", "ldapHandler.ReadConfig: r=%s", logger.RequestSummary(r))
+	}
 	//basic components
 	enabled, err := strconv.ParseBool(ldap.readSingleConfig("enabled"))
 	if err != nil {
@@ -44,6 +48,9 @@ func (ldap *ldapHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ldap *ldapHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/ldap", "ldapHandler.WriteConfig: r=%s", logger.RequestSummary(r))
+	}
 	//receive the parameter
 	enabled, err := utils.PostPara(r, "enabled")
 	if err != nil {
@@ -102,6 +109,9 @@ func (ldap *ldapHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ldap *ldapHandler) TestConnection(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/ldap", "ldapHandler.TestConnection: r=%s", logger.RequestSummary(r))
+	}
 	//marshall it and return the connection status
 	userList, totalLength, err := ldap.getAllUser(10)
 	if err != nil {
@@ -128,6 +138,9 @@ func (ldap *ldapHandler) TestConnection(w http.ResponseWriter, r *http.Request) 
 }
 
 func (ldap *ldapHandler) checkCurrUserAdmin(w http.ResponseWriter, r *http.Request) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/ldap", "ldapHandler.checkCurrUserAdmin: r=%s", logger.RequestSummary(r))
+	}
 	//check current user is admin and new update will remove it or not
 	currentLoggedInUser, err := ldap.userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -157,6 +170,9 @@ func (ldap *ldapHandler) checkCurrUserAdmin(w http.ResponseWriter, r *http.Reque
 }
 
 func (ldap *ldapHandler) SynchronizeUser(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("auth/ldap", "ldapHandler.SynchronizeUser: r=%s", logger.RequestSummary(r))
+	}
 	//check if suer is admin before executing the command
 	//if user is admin then check if user will lost him/her's admin access
 	consistencyCheck, err := ldap.checkCurrUserAdmin(w, r)

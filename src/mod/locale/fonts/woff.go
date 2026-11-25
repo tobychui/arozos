@@ -25,6 +25,8 @@ import (
 	"io"
 
 	"github.com/andybalholm/brotli"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // maxDecodedSize bounds what a compressed font may expand to
@@ -33,6 +35,7 @@ const maxDecodedSize = 256 << 20
 /* ── WOFF 1.0 ── */
 
 func decodeWOFF(data []byte) (*Font, error) {
+	logger.DebugTrace("locale/fonts", "decodeWOFF")
 	if len(data) < 44 {
 		return nil, errTruncated
 	}
@@ -92,6 +95,9 @@ func decodeWOFF(data []byte) (*Font, error) {
 
 // inflate decompresses one zlib stream that must expand to exactly size bytes
 func inflate(stored []byte, size int) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "inflate: len(stored)=%d size=%d", len(stored), size)
+	}
 	r, err := zlib.NewReader(bytes.NewReader(stored))
 	if err != nil {
 		return nil, err
@@ -120,6 +126,9 @@ var woff2KnownTags = []string{
 
 // readBase128 reads a WOFF2 UIntBase128 value
 func readBase128(b []byte, off *int) (uint32, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "readBase128: len(b)=%d", len(b))
+	}
 	var v uint32
 	for i := 0; i < 5; i++ {
 		if *off >= len(b) {
@@ -142,6 +151,9 @@ func readBase128(b []byte, off *int) (uint32, error) {
 }
 
 func appendBase128(out []byte, v uint32) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "appendBase128: len(out)=%d v=%d", len(out), v)
+	}
 	var buf [5]byte
 	n := 0
 	for {
@@ -166,6 +178,7 @@ type woff2Entry struct {
 }
 
 func decodeWOFF2(data []byte) (*Font, error) {
+	logger.DebugTrace("locale/fonts", "decodeWOFF2")
 	if len(data) < 48 {
 		return nil, errTruncated
 	}
@@ -261,6 +274,9 @@ func decodeWOFF2(data []byte) (*Font, error) {
 
 // EncodeWOFF2 packs sfnt tables into a WOFF2 file, every table untransformed
 func EncodeWOFF2(flavor uint32, tables map[string][]byte, quality int) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("locale/fonts", "EncodeWOFF2: flavor=%d len(tables)=%d quality=%d", flavor, len(tables), quality)
+	}
 	if len(tables) == 0 || len(tables) > maxTables {
 		return nil, fmt.Errorf("cannot write a font with %d tables", len(tables))
 	}

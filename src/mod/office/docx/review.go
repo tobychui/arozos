@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"golang.org/x/net/html"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/htmlutil"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 	"imuslab.com/arozos/mod/office/model"
@@ -48,6 +49,7 @@ const (
 /* ---------------- writing ---------------- */
 
 func isReviewWrapper(n *html.Node) bool {
+	logger.DebugTrace("office/docx", "isReviewWrapper")
 	if n.Type != html.ElementNode {
 		return false
 	}
@@ -64,6 +66,7 @@ func isReviewWrapper(n *html.Node) bool {
 
 // a block a review wrapper can be pushed down into
 func reviewPushable(n *html.Node) bool {
+	logger.DebugTrace("office/docx", "reviewPushable")
 	switch n.Data {
 	case "p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote", "pre", "ul", "ol":
 		return true
@@ -73,6 +76,7 @@ func reviewPushable(n *html.Node) bool {
 
 // holdsBlock: the writer's own notion of a block (isBlockElement)
 func holdsBlock(n *html.Node) bool {
+	logger.DebugTrace("office/docx", "holdsBlock")
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if isBlockElement(c) {
 			return true
@@ -82,6 +86,7 @@ func holdsBlock(n *html.Node) bool {
 }
 
 func cloneShallow(n *html.Node) *html.Node {
+	logger.DebugTrace("office/docx", "cloneShallow")
 	attrs := make([]html.Attribute, len(n.Attr))
 	copy(attrs, n.Attr)
 	return &html.Node{Type: n.Type, Data: n.Data, DataAtom: n.DataAtom, Attr: attrs}
@@ -96,6 +101,7 @@ A comment split this way keeps one id, which is what makes its range run
 from the first piece to the last.
 */
 func liftReviewWrappers(n *html.Node) {
+	logger.DebugTrace("office/docx", "liftReviewWrappers")
 	for c := n.FirstChild; c != nil; {
 		next := c.NextSibling
 		if isReviewWrapper(c) && holdsBlock(c) {
@@ -109,6 +115,7 @@ func liftReviewWrappers(n *html.Node) {
 }
 
 func liftOne(w *html.Node) {
+	logger.DebugTrace("office/docx", "liftOne")
 	parent := w.Parent
 	var run *html.Node // the clone collecting consecutive inline children
 	for c := w.FirstChild; c != nil; {
@@ -141,6 +148,7 @@ func liftOne(w *html.Node) {
 
 // countComments records how many pieces each comment anchor has
 func (b *docxBuilder) countComments(n *html.Node) {
+	logger.DebugTrace("office/docx", "docxBuilder.countComments")
 	if n.Type == html.ElementNode && n.Data == "span" && hasClass(n, "doc-cmt") {
 		if cid := htmlutil.Attr(n, "data-cid"); cid != "" {
 			b.cmtTotal[cid]++
@@ -153,6 +161,7 @@ func (b *docxBuilder) countComments(n *html.Node) {
 
 // numberComments gives every anchored comment its Word id
 func (b *docxBuilder) numberComments() {
+	logger.DebugTrace("office/docx", "docxBuilder.numberComments")
 	for _, c := range b.doc.Comments {
 		if c == nil || b.cmtTotal[c.ID] == 0 {
 			continue
@@ -166,6 +175,7 @@ func (b *docxBuilder) numberComments() {
 }
 
 func (b *docxBuilder) inlineChildren(n *html.Node, rs wRunStyle, part *docxPart, rb *runBuf) {
+	logger.DebugTrace("office/docx", "docxBuilder.inlineChildren")
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if isBlockElement(c) {
 			continue
@@ -178,12 +188,16 @@ var wTextOpenRe = regexp.MustCompile(`<w:t(\s[^>]*)?>`)
 
 // asDeleted turns runs into deleted runs (w:t -> w:delText)
 func asDeleted(runs string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "asDeleted: runs=%.120q", runs)
+	}
 	runs = wTextOpenRe.ReplaceAllString(runs, `<w:delText$1>`)
 	return strings.ReplaceAll(runs, "</w:t>", "</w:delText>")
 }
 
 // reviewInline writes an inline review wrapper; false = not one of ours
 func (b *docxBuilder) reviewInline(n *html.Node, rs wRunStyle, part *docxPart, rb *runBuf) bool {
+	logger.DebugTrace("office/docx", "docxBuilder.reviewInline")
 	if !isReviewWrapper(n) {
 		return false
 	}
@@ -246,6 +260,9 @@ func (b *docxBuilder) reviewInline(n *html.Node, rs wRunStyle, part *docxPart, r
 
 // commentDate formats an editor timestamp the way w:date wants it
 func commentDate(ms int64) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "commentDate: ms=%d", ms)
+	}
 	if ms <= 0 {
 		return ""
 	}
@@ -255,12 +272,16 @@ func commentDate(ms int64) string {
 // commentParaID is the w14:paraId of a comment's last paragraph, which is
 // how commentsExtended.xml says the comment is resolved
 func commentParaID(i int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "commentParaID: i=%d", i)
+	}
 	return fmt.Sprintf("%08X", 0x10000000+i)
 }
 
 // commentsXML renders word/comments.xml and, when any comment is resolved,
 // word/commentsExtended.xml ("" when not needed)
 func (b *docxBuilder) commentsXML() (string, string) {
+	logger.DebugTrace("office/docx", "docxBuilder.commentsXML")
 	if len(b.cmtOrder) == 0 {
 		return "", ""
 	}
@@ -323,10 +344,14 @@ type docxReview struct {
 
 // editorCommentID is the data-cid an imported Word comment gets
 func editorCommentID(wordID string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "editorCommentID: wordID=%.120q", wordID)
+	}
 	return "w" + wordID
 }
 
 func (r *docxReview) current() string {
+	logger.DebugTrace("office/docx", "docxReview.current")
 	if len(r.active) == 0 {
 		return ""
 	}
@@ -334,6 +359,9 @@ func (r *docxReview) current() string {
 }
 
 func (r *docxReview) start(wordID string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxReview.start: wordID=%.120q", wordID)
+	}
 	id := editorCommentID(wordID)
 	for _, a := range r.active {
 		if a == id {
@@ -344,6 +372,9 @@ func (r *docxReview) start(wordID string) {
 }
 
 func (r *docxReview) end(wordID string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "docxReview.end: wordID=%.120q", wordID)
+	}
 	id := editorCommentID(wordID)
 	for i, a := range r.active {
 		if a == id {
@@ -356,6 +387,9 @@ func (r *docxReview) end(wordID string) {
 // parseDocxComments reads word/comments.xml (+ commentsExtended.xml for
 // the resolved flag) for the comments the text actually anchors
 func parseDocxComments(files map[string][]byte, used map[string]bool) []*model.DocComment {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/docx", "parseDocxComments: len(files)=%d len(used)=%d", len(files), len(used))
+	}
 	raw, ok := files["word/comments.xml"]
 	if !ok || len(used) == 0 {
 		return nil

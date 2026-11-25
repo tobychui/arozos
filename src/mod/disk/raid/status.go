@@ -3,6 +3,8 @@ package raid
 import (
 	"fmt"
 	"os/exec"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // RAIDStatus represents the status of a RAID array.
@@ -18,6 +20,9 @@ const (
 
 // GetRAIDStatus scans and checks a given RAID array and returns the array status.
 func GetRAIDStatus(arrayName string) (RAIDStatus, error) {
+	if logger.IsDebug() {
+		logger.Debugf("disk/raid", "GetRAIDStatus: arrayName=%.120q", arrayName)
+	}
 	cmd := exec.Command("mdadm", "--detail", arrayName)
 
 	output, err := cmd.CombinedOutput()
@@ -48,6 +53,7 @@ func GetRAIDStatus(arrayName string) (RAIDStatus, error) {
 
 // toString returns the string representation of the RAIDStatus.
 func (status RAIDStatus) toString() string {
+	logger.Debug("disk/raid", "RAIDStatus.toString")
 	switch status {
 	case RAIDStatusNormal:
 		return "Normal"
@@ -66,6 +72,7 @@ func (status RAIDStatus) toString() string {
 
 // Report if the RAID array is healthy
 func (status RAIDStatus) isHealthy() bool {
+	logger.Debug("disk/raid", "RAIDStatus.isHealthy")
 	switch status {
 	case RAIDStatusNormal:
 		return true

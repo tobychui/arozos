@@ -13,6 +13,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -68,6 +70,7 @@ const (
 //
 // Marshal will return an error if asked to marshal a channel, function, or map.
 func Marshal(v interface{}) ([]byte, error) {
+	logger.DebugTrace("network/webdav/internal/xml", "Marshal")
 	var b bytes.Buffer
 	if err := NewEncoder(&b).Encode(v); err != nil {
 		return nil, err
@@ -114,6 +117,9 @@ type MarshalerAttr interface {
 // indented line that starts with prefix and is followed by one or more
 // copies of indent according to the nesting depth.
 func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "MarshalIndent: prefix=%.120q indent=%.120q", prefix, indent)
+	}
 	var b bytes.Buffer
 	enc := NewEncoder(&b)
 	enc.Indent(prefix, indent)
@@ -130,6 +136,7 @@ type Encoder struct {
 
 // NewEncoder returns a new encoder that writes to w.
 func NewEncoder(w io.Writer) *Encoder {
+	logger.DebugTrace("network/webdav/internal/xml", "NewEncoder")
 	e := &Encoder{printer{Writer: bufio.NewWriter(w)}}
 	e.p.encoder = e
 	return e
@@ -139,6 +146,9 @@ func NewEncoder(w io.Writer) *Encoder {
 // begins on a new indented line that starts with prefix and is followed by
 // one or more copies of indent according to the nesting depth.
 func (enc *Encoder) Indent(prefix, indent string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "Encoder.Indent: prefix=%.120q indent=%.120q", prefix, indent)
+	}
 	enc.p.prefix = prefix
 	enc.p.indent = indent
 }
@@ -150,6 +160,7 @@ func (enc *Encoder) Indent(prefix, indent string) {
 //
 // Encode calls Flush before returning.
 func (enc *Encoder) Encode(v interface{}) error {
+	logger.DebugTrace("network/webdav/internal/xml", "Encoder.Encode")
 	err := enc.p.marshalValue(reflect.ValueOf(v), nil, nil)
 	if err != nil {
 		return err
@@ -165,6 +176,7 @@ func (enc *Encoder) Encode(v interface{}) error {
 //
 // EncodeElement calls Flush before returning.
 func (enc *Encoder) EncodeElement(v interface{}, start StartElement) error {
+	logger.DebugTrace("network/webdav/internal/xml", "Encoder.EncodeElement")
 	err := enc.p.marshalValue(reflect.ValueOf(v), nil, &start)
 	if err != nil {
 		return err
@@ -199,6 +211,7 @@ var (
 // elements (including the StartElement itself) will use the declared
 // prefix when encoding names with matching namespace URIs.
 func (enc *Encoder) EncodeToken(t Token) error {
+	logger.DebugTrace("network/webdav/internal/xml", "Encoder.EncodeToken")
 
 	p := &enc.p
 	switch t := t.(type) {
@@ -256,6 +269,7 @@ func (enc *Encoder) EncodeToken(t Token) error {
 // isValidDirective reports whether dir is a valid directive text,
 // meaning angle brackets are matched, ignoring comments and strings.
 func isValidDirective(dir Directive) bool {
+	logger.DebugTrace("network/webdav/internal/xml", "isValidDirective")
 	var (
 		depth     int
 		inquote   uint8
@@ -296,6 +310,7 @@ func isValidDirective(dir Directive) bool {
 // Flush flushes any buffered XML to the underlying writer.
 // See the EncodeToken documentation for details about when it is necessary.
 func (enc *Encoder) Flush() error {
+	logger.DebugTrace("network/webdav/internal/xml", "Encoder.Flush")
 	return enc.p.Flush()
 }
 
@@ -329,6 +344,9 @@ type printerPrefix struct {
 }
 
 func (p *printer) prefixForNS(url string, isAttr bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "printer.prefixForNS: isAttr=%t", isAttr)
+	}
 	// The "http://www.w3.org/XML/1998/namespace" name space is predefined as "xml"
 	// and must be referred to that way.
 	// (The "http://www.w3.org/2000/xmlns/" name space is also predefined as "xmlns",
@@ -347,6 +365,9 @@ func (p *printer) prefixForNS(url string, isAttr bool) string {
 // If ignoreNonEmptyDefault is true, an xmlns="nonempty"
 // attribute will be ignored.
 func (p *printer) defineNS(attr Attr, ignoreNonEmptyDefault bool) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "printer.defineNS: ignoreNonEmptyDefault=%t", ignoreNonEmptyDefault)
+	}
 	var prefix string
 	if attr.Name.Local == "xmlns" {
 		if attr.Name.Space != "" && attr.Name.Space != "xml" && attr.Name.Space != xmlURL {
@@ -401,6 +422,9 @@ func (p *printer) defineNS(attr Attr, ignoreNonEmptyDefault bool) error {
 // prefix, which means that the default name space cannot
 // be used.
 func (p *printer) createNSPrefix(url string, isAttr bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "printer.createNSPrefix: isAttr=%t", isAttr)
+	}
 	if _, ok := p.attrPrefix[url]; ok {
 		// We already have a prefix for the given URL.
 		return
@@ -458,6 +482,7 @@ func (p *printer) createNSPrefix(url string, isAttr bool) {
 // namespace prefixes that have been defined in
 // the current element.
 func (p *printer) writeNamespaces() {
+	logger.DebugTrace("network/webdav/internal/xml", "printer.writeNamespaces")
 	for i := len(p.prefixes) - 1; i >= 0; i-- {
 		prefix := p.prefixes[i]
 		if prefix.mark {
@@ -480,6 +505,9 @@ func (p *printer) writeNamespaces() {
 // pushPrefix pushes a new prefix on the prefix stack
 // without checking to see if it is already defined.
 func (p *printer) pushPrefix(prefix, url string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "printer.pushPrefix: prefix=%.120q", prefix)
+	}
 	p.prefixes = append(p.prefixes, printerPrefix{
 		prefix: prefix,
 		url:    p.nsForPrefix(prefix),
@@ -492,6 +520,9 @@ func (p *printer) pushPrefix(prefix, url string) {
 // empty attribute prefix, which always has an empty
 // name space.
 func (p *printer) nsForPrefix(prefix string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "printer.nsForPrefix: prefix=%.120q", prefix)
+	}
 	if prefix == "" {
 		return p.defaultNS
 	}
@@ -501,6 +532,7 @@ func (p *printer) nsForPrefix(prefix string) string {
 // markPrefix marks the start of an element on the prefix
 // stack.
 func (p *printer) markPrefix() {
+	logger.DebugTrace("network/webdav/internal/xml", "printer.markPrefix")
 	p.prefixes = append(p.prefixes, printerPrefix{
 		mark: true,
 	})
@@ -509,6 +541,7 @@ func (p *printer) markPrefix() {
 // popPrefix pops all defined prefixes for the current
 // element.
 func (p *printer) popPrefix() {
+	logger.DebugTrace("network/webdav/internal/xml", "printer.popPrefix")
 	for len(p.prefixes) > 0 {
 		prefix := p.prefixes[len(p.prefixes)-1]
 		p.prefixes = p.prefixes[:len(p.prefixes)-1]
@@ -523,6 +556,9 @@ func (p *printer) popPrefix() {
 // If url is empty, the attribute is removed.
 // If prefix is empty, the default name space is set.
 func (p *printer) setAttrPrefix(prefix, url string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "printer.setAttrPrefix: prefix=%.120q", prefix)
+	}
 	if prefix == "" {
 		p.defaultNS = url
 		return
@@ -554,6 +590,7 @@ var (
 // marshalValue writes one or more XML elements representing val.
 // If val was obtained from a struct field, finfo must have its details.
 func (p *printer) marshalValue(val reflect.Value, finfo *fieldInfo, startTemplate *StartElement) error {
+	logger.DebugTrace("network/webdav/internal/xml", "printer.marshalValue")
 	if startTemplate != nil && startTemplate.Name.Local == "" {
 		return fmt.Errorf("xml: EncodeElement of StartElement with missing name")
 	}
@@ -720,6 +757,7 @@ func (p *printer) marshalValue(val reflect.Value, finfo *fieldInfo, startTemplat
 // it should not be used.
 // The given value holds the value containing the field.
 func (p *printer) fieldAttr(finfo *fieldInfo, val reflect.Value) (Attr, error) {
+	logger.DebugTrace("network/webdav/internal/xml", "printer.fieldAttr")
 	fv := finfo.value(val)
 	name := Name{Space: finfo.xmlns, Local: finfo.name}
 	if finfo.flags&fOmitEmpty != 0 && isEmptyValue(fv) {
@@ -777,6 +815,7 @@ func (p *printer) fieldAttr(finfo *fieldInfo, val reflect.Value) (Attr, error) {
 // defaultStart returns the default start element to use,
 // given the reflect type, field info, and start template.
 func (p *printer) defaultStart(typ reflect.Type, finfo *fieldInfo, startTemplate *StartElement) StartElement {
+	logger.DebugTrace("network/webdav/internal/xml", "printer.defaultStart")
 	var start StartElement
 	// Precedence for the XML element name is as above,
 	// except that we do not look inside structs for the first field.
@@ -804,6 +843,7 @@ func (p *printer) defaultStart(typ reflect.Type, finfo *fieldInfo, startTemplate
 
 // marshalInterface marshals a Marshaler interface value.
 func (p *printer) marshalInterface(val Marshaler, start StartElement) error {
+	logger.DebugTrace("network/webdav/internal/xml", "printer.marshalInterface")
 	// Push a marker onto the tag stack so that MarshalXML
 	// cannot close the XML tags that it did not open.
 	p.tags = append(p.tags, Name{})
@@ -824,6 +864,7 @@ func (p *printer) marshalInterface(val Marshaler, start StartElement) error {
 
 // marshalTextInterface marshals a TextMarshaler interface value.
 func (p *printer) marshalTextInterface(val encoding.TextMarshaler, start StartElement) error {
+	logger.DebugTrace("network/webdav/internal/xml", "printer.marshalTextInterface")
 	if err := p.writeStart(&start); err != nil {
 		return err
 	}
@@ -837,6 +878,7 @@ func (p *printer) marshalTextInterface(val encoding.TextMarshaler, start StartEl
 
 // writeStart writes the given start element.
 func (p *printer) writeStart(start *StartElement) error {
+	logger.DebugTrace("network/webdav/internal/xml", "printer.writeStart")
 	if start.Name.Local == "" {
 		return fmt.Errorf("xml: start tag with no name")
 	}
@@ -892,6 +934,9 @@ func (p *printer) writeStart(start *StartElement) error {
 // writeName writes the given name. It assumes
 // that p.createNSPrefix(name) has already been called.
 func (p *printer) writeName(name Name, isAttr bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "printer.writeName: isAttr=%t", isAttr)
+	}
 	if prefix := p.prefixForNS(name.Space, isAttr); prefix != "" {
 		p.WriteString(prefix)
 		p.WriteByte(':')
@@ -900,6 +945,7 @@ func (p *printer) writeName(name Name, isAttr bool) {
 }
 
 func (p *printer) writeEnd(name Name) error {
+	logger.DebugTrace("network/webdav/internal/xml", "printer.writeEnd")
 	if name.Local == "" {
 		return fmt.Errorf("xml: end tag with no name")
 	}
@@ -924,6 +970,7 @@ func (p *printer) writeEnd(name Name) error {
 }
 
 func (p *printer) marshalSimple(typ reflect.Type, val reflect.Value) (string, []byte, error) {
+	logger.DebugTrace("network/webdav/internal/xml", "printer.marshalSimple")
 	switch val.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return strconv.FormatInt(val.Int(), 10), nil, nil
@@ -961,6 +1008,7 @@ func (p *printer) marshalSimple(typ reflect.Type, val reflect.Value) (string, []
 var ddBytes = []byte("--")
 
 func (p *printer) marshalStruct(tinfo *typeInfo, val reflect.Value) error {
+	logger.DebugTrace("network/webdav/internal/xml", "printer.marshalStruct")
 	s := parentStack{p: p}
 	for i := range tinfo.fields {
 		finfo := &tinfo.fields[i]
@@ -1097,11 +1145,15 @@ var noField fieldInfo
 
 // return the bufio Writer's cached write error
 func (p *printer) cachedWriteError() error {
+	logger.DebugTrace("network/webdav/internal/xml", "printer.cachedWriteError")
 	_, err := p.Write(nil)
 	return err
 }
 
 func (p *printer) writeIndent(depthDelta int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/webdav/internal/xml", "printer.writeIndent: depthDelta=%d", depthDelta)
+	}
 	if len(p.prefix) == 0 && len(p.indent) == 0 {
 		return
 	}
@@ -1142,6 +1194,7 @@ type parentStack struct {
 // It only writes the start elements if vf holds a non-nil value.
 // If finfo is &noField, it pops all elements.
 func (s *parentStack) setParents(finfo *fieldInfo, vf reflect.Value) error {
+	logger.DebugTrace("network/webdav/internal/xml", "parentStack.setParents")
 	xmlns := s.p.defaultNS
 	if finfo.xmlns != "" {
 		xmlns = finfo.xmlns
@@ -1201,10 +1254,12 @@ type UnsupportedTypeError struct {
 }
 
 func (e *UnsupportedTypeError) Error() string {
+	logger.DebugTrace("network/webdav/internal/xml", "UnsupportedTypeError.Error")
 	return "xml: unsupported type: " + e.Type.String()
 }
 
 func isEmptyValue(v reflect.Value) bool {
+	logger.DebugTrace("network/webdav/internal/xml", "isEmptyValue")
 	switch v.Kind() {
 	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
 		return v.Len() == 0

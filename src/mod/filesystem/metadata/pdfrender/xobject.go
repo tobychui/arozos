@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -14,6 +16,7 @@ import (
 */
 
 func (r *renderer) doXObject(n Name) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.doXObject")
 	xobjs := r.d.dict(r.res["XObject"])
 	if xobjs == nil {
 		return
@@ -38,6 +41,9 @@ func (r *renderer) doXObject(n Name) {
 // runForm draws a form XObject. extra is applied after the form's /Matrix
 // (when ownMatrix is set; pattern cells have their matrix applied already).
 func (r *renderer) runForm(s *Stream, extra matrix, clipBBox bool, ownMatrix bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.runForm: clipBBox=%t ownMatrix=%t", clipBBox, ownMatrix)
+	}
 	if r.depth >= maxFormDepth || r.formsBusy[s] {
 		return
 	}
@@ -95,6 +101,7 @@ func (r *renderer) runForm(s *Stream, extra matrix, clipBBox bool, ownMatrix boo
 
 // imageFootprint is the size an image is drawn at, in device pixels
 func imageFootprint(m matrix) (int, int) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "imageFootprint")
 	w := math.Hypot(m[0], m[1])
 	h := math.Hypot(m[2], m[3])
 	clampI := func(v float64) int {
@@ -110,6 +117,7 @@ func imageFootprint(m matrix) (int, int) {
 }
 
 func (r *renderer) drawImageStream(s *Stream) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.drawImageStream")
 	fw, fh := imageFootprint(r.gs.ctm)
 	key := fmt.Sprintf("%p/%d/%d", s, fw, fh)
 	img, ok := r.shared.images[key]
@@ -135,6 +143,9 @@ type imagePainter struct {
 }
 
 func (p *imagePainter) sample(x, y int) (float32, float32, float32, float32) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "imagePainter.sample: x=%d y=%d", x, y)
+	}
 	ux, uy := p.inv.apply(float64(x)+0.5, float64(y)+0.5)
 	img := p.img
 	fx := ux*float64(img.w) - 0.5
@@ -186,6 +197,9 @@ func (p *imagePainter) sample(x, y int) (float32, float32, float32, float32) {
 }
 
 func (p *imagePainter) at(x, y int) (float32, float32, float32, float32) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/metadata/pdfrender", "imagePainter.at: x=%d y=%d", x, y)
+	}
 	r, g, b, a := p.sample(x, y)
 	if p.img.stencil {
 		if p.tint == nil {
@@ -201,6 +215,7 @@ func (p *imagePainter) at(x, y int) (float32, float32, float32, float32) {
 }
 
 func (r *renderer) drawImage(img *pdfImage) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.drawImage")
 	gs := r.gs
 	inv, ok := gs.ctm.invert()
 	if !ok {
@@ -244,6 +259,7 @@ func (r *renderer) drawImage(img *pdfImage) {
 
 // inlineImage reads BI ... ID <data> EI
 func (r *renderer) inlineImage(p *parser) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.inlineImage")
 	dict := Dict{}
 	for {
 		t := p.nextToken()
@@ -328,6 +344,7 @@ func (r *renderer) inlineImage(p *parser) {
 */
 
 func (r *renderer) drawAnnotations(pg *Page) {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.drawAnnotations")
 	for _, a := range r.d.array(pg.Dict["Annots"]) {
 		if r.stopped {
 			return
@@ -397,6 +414,7 @@ func (r *renderer) drawAnnotations(pg *Page) {
 */
 
 func (r *renderer) softMask(sm Dict) *mask {
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.softMask")
 	d := r.d
 	g := d.stream(sm["G"])
 	if g == nil || r.depth >= maxFormDepth {

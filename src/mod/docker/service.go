@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -39,12 +40,18 @@ var validServiceActions = map[string]bool{
 
 // HandleServiceStatus serves the docker service status as JSON.
 func (d *DockerManager) HandleServiceStatus(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleServiceStatus: r=%s", logger.RequestSummary(r))
+	}
 	js, _ := json.Marshal(dockerServiceStatus())
 	utils.SendJSONResponse(w, string(js))
 }
 
 // HandleServiceAction performs a whitelisted service action (POST: action).
 func (d *DockerManager) HandleServiceAction(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("docker", "DockerManager.HandleServiceAction: r=%s", logger.RequestSummary(r))
+	}
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return

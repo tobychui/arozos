@@ -17,6 +17,8 @@ import (
 	"encoding/binary"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type lvl struct {
@@ -56,6 +58,9 @@ type lists struct {
 
 // readLvl reads one LVL at p, returning it and the offset after it
 func readLvl(b []byte, p int) (*lvl, int) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "readLvl: len(b)=%d p=%d", len(b), p)
+	}
 	le := binary.LittleEndian
 	if p+28 > len(b) {
 		return nil, len(b)
@@ -97,6 +102,9 @@ func readLvl(b []byte, p int) (*lvl, int) {
 // parseLists reads PlfLst and PlfLfo; both slices run to the end of the
 // table stream, since the level data follows each beyond its stated size
 func parseLists(plfLst, plfLfo []byte) *lists {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "parseLists: len(plfLst)=%d len(plfLfo)=%d", len(plfLst), len(plfLfo))
+	}
 	le := binary.LittleEndian
 	ls := &lists{}
 	if len(plfLst) >= 2 {
@@ -157,6 +165,9 @@ func parseLists(plfLst, plfLfo []byte) *lists {
 
 // defIndex finds the definition an override uses
 func (ls *lists) defIndex(lsid int32) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/doc", "lists.defIndex: lsid=%d", lsid)
+	}
 	for i, d := range ls.defs {
 		if d.lsid == lsid {
 			return i
@@ -186,6 +197,7 @@ var nfcNames = map[int]string{
 
 // lvlText turns the raw level text into lvlText ("%1.%2")
 func lvlText(text []uint16) string {
+	logger.DebugTrace("office/doc", "lvlText")
 	var sb strings.Builder
 	for _, u := range text {
 		if u < 9 {

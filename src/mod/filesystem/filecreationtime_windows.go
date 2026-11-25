@@ -7,10 +7,13 @@ import (
 	"os"
 	"syscall"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Windows records the creation time in the file attribute data of every file
 func getFileCreationTime(fileInfo os.FileInfo) (int64, bool) {
+	logger.Debug("filesystem", "getFileCreationTime")
 	attributeData, ok := fileInfo.Sys().(*syscall.Win32FileAttributeData)
 	if !ok || attributeData == nil {
 		return 0, false

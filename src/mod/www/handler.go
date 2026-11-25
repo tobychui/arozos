@@ -5,10 +5,14 @@ import (
 	"errors"
 	"net/http"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
 func (h *Handler) CheckUserHomePageEnabled(username string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("www", "Handler.CheckUserHomePageEnabled: username=%.120q", username)
+	}
 	result := false
 	currentHomePageMode := "false"
 	err := h.Options.Database.Read("www", username+"_enable", &currentHomePageMode)
@@ -23,6 +27,9 @@ func (h *Handler) CheckUserHomePageEnabled(username string) bool {
 }
 
 func (h *Handler) GetUserWebRoot(username string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("www", "Handler.GetUserWebRoot: username=%.120q", username)
+	}
 	webRoot := ""
 	if h.Options.Database.KeyExists("www", username+"_webroot") {
 		err := h.Options.Database.Read("www", username+"_webroot", &webRoot)
@@ -38,6 +45,9 @@ func (h *Handler) GetUserWebRoot(username string) (string, error) {
 }
 
 func (h *Handler) HandleToggleHomepage(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("www", "Handler.HandleToggleHomepage: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := h.Options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -66,6 +76,9 @@ func (h *Handler) HandleToggleHomepage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleSetWebRoot(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("www", "Handler.HandleSetWebRoot: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := h.Options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "User not logged in")

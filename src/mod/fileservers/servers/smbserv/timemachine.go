@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/storage/smbserver/aroz"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -31,6 +32,7 @@ const (
 
 // appleOn reports whether the Apple extensions are on.
 func (m *Manager) appleOn() bool {
+	logger.Debug("fileservers/servers/smbserv", "Manager.appleOn")
 	on := false
 	if m.opt.Sysdb.KeyExists(settingsTable, "apple") {
 		m.opt.Sysdb.Read(settingsTable, "apple", &on)
@@ -40,6 +42,7 @@ func (m *Manager) appleOn() bool {
 
 // timeMachineLimitGB is the most a user's backups may take, 0 for no limit.
 func (m *Manager) timeMachineLimitGB() int64 {
+	logger.Debug("fileservers/servers/smbserv", "Manager.timeMachineLimitGB")
 	var gb int64
 	if m.opt.Sysdb.KeyExists(settingsTable, "tmlimit") {
 		m.opt.Sysdb.Read(settingsTable, "tmlimit", &gb)
@@ -52,6 +55,9 @@ func (m *Manager) timeMachineLimitGB() int64 {
 
 // timeMachineDrive is the drive a user picked for backups, "" for none.
 func (m *Manager) timeMachineDrive(username string) string {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/smbserv", "Manager.timeMachineDrive: username=%.120q", username)
+	}
 	drive := ""
 	key := timeMachineKeyPrefix + username
 	if m.opt.Sysdb.KeyExists(settingsTable, key) {
@@ -62,12 +68,16 @@ func (m *Manager) timeMachineDrive(username string) string {
 
 // anyTimeMachineDrive reports whether any user picked a drive for backups.
 func (m *Manager) anyTimeMachineDrive() bool {
+	logger.Debug("fileservers/servers/smbserv", "Manager.anyTimeMachineDrive")
 	entries, err := m.opt.Sysdb.ListTableWithPrefix(settingsTable, timeMachineKeyPrefix)
 	return err == nil && len(entries) > 0
 }
 
 // timeMachinePick implements aroz.Options.TimeMachine.
 func (m *Manager) timeMachinePick(username string) (string, uint64, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/smbserv", "Manager.timeMachinePick: username=%.120q", username)
+	}
 	if !m.appleOn() {
 		return "", 0, false
 	}
@@ -77,6 +87,9 @@ func (m *Manager) timeMachinePick(username string) (string, uint64, bool) {
 
 // timeMachineDrives lists the drives a user can keep backups on.
 func (m *Manager) timeMachineDrives(username string) []*filesystem.FileSystemHandler {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/smbserv", "Manager.timeMachineDrives: username=%.120q", username)
+	}
 	out := []*filesystem.FileSystemHandler{}
 	account, _, err := m.opt.LookupUser(username)
 	if err != nil {
@@ -103,6 +116,9 @@ type TimeMachineStatus struct {
 // HandleTimeMachine shows or changes the drive the signed in user keeps
 // Time Machine backups on. POST drive picks one, an empty drive none.
 func (m *Manager) HandleTimeMachine(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("fileservers/servers/smbserv", "Manager.HandleTimeMachine: r=%s", logger.RequestSummary(r))
+	}
 	username, err := m.opt.CurrentUser(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -150,6 +166,7 @@ func (m *Manager) HandleTimeMachine(w http.ResponseWriter, r *http.Request) {
 
 // parseTimeMachineLimit reads the size limit field of the settings form.
 func parseTimeMachineLimit(text string) (int64, bool) {
+	logger.Debug("fileservers/servers/smbserv", "parseTimeMachineLimit")
 	gb, err := strconv.ParseInt(strings.TrimSpace(text), 10, 64)
 	if err != nil || gb < 0 || gb > maxTimeMachineLimitGB {
 		return 0, false

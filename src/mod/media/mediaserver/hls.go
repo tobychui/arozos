@@ -28,6 +28,7 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/media/transcoder"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -41,6 +42,9 @@ const HLSSegmentEndpoint = "/media/hls/segment"
 // An unrecognised value falls back to the source resolution, matching the
 // behaviour the MP4 endpoint has always had.
 func transcodeResolutionFromRequest(r *http.Request) transcoder.TranscodeOutputResolution {
+	if logger.IsDebug() {
+		logger.Debugf("media/mediaserver", "transcodeResolutionFromRequest: r=%s", logger.RequestSummary(r))
+	}
 	resolution, err := utils.GetPara(r, "res")
 	if err != nil {
 		return transcoder.TranscodeResolution_original
@@ -53,6 +57,9 @@ func transcodeResolutionFromRequest(r *http.Request) transcoder.TranscodeOutputR
 // running (see transcoder.HLSManager.GetOrCreate); an absent id is not an
 // error, only a less precise answer to "which transcode is this replacing".
 func clientIDFromRequest(r *http.Request) string {
+	if logger.IsDebug() {
+		logger.Debugf("media/mediaserver", "clientIDFromRequest: r=%s", logger.RequestSummary(r))
+	}
 	clientID, err := utils.GetPara(r, "client")
 	if err != nil {
 		return ""
@@ -72,6 +79,9 @@ func clientIDFromRequest(r *http.Request) string {
 
 // startTimeFromRequest reads the optional "start" seek offset in seconds.
 func startTimeFromRequest(r *http.Request) float64 {
+	if logger.IsDebug() {
+		logger.Debugf("media/mediaserver", "startTimeFromRequest: r=%s", logger.RequestSummary(r))
+	}
 	startTimeStr, _ := utils.GetPara(r, "start")
 	if startTimeStr == "" {
 		return 0
@@ -90,6 +100,9 @@ func startTimeFromRequest(r *http.Request) float64 {
 // decodability: an .mp4 holding HEVC or 10-bit H.264 looks directly playable
 // and then fails with a bare decode error.
 func (s *Instance) ServeMediaProbe(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("media/mediaserver", "Instance.ServeMediaProbe: r=%s", logger.RequestSummary(r))
+	}
 	targetFsh, _, realFilepath, err := s.ValidateSourceFile(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -120,6 +133,9 @@ func (s *Instance) ServeMediaProbe(w http.ResponseWriter, r *http.Request) {
 // ServeHLSPlaylist starts (or joins) an HLS transcode of the requested file and
 // returns its playlist once the first segment is ready.
 func (s *Instance) ServeHLSPlaylist(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("media/mediaserver", "Instance.ServeHLSPlaylist: r=%s", logger.RequestSummary(r))
+	}
 	//Errors here are reported with an HTTP status rather than a JSON body: the
 	//caller is a <video> element or an HLS player, and a 200 carrying JSON is
 	//indistinguishable to it from a playlist it cannot parse - which surfaces to
@@ -178,6 +194,9 @@ func (s *Instance) ServeHLSPlaylist(w http.ResponseWriter, r *http.Request) {
 // ServeHLSSegment serves one segment of a running HLS session. Segments are
 // readable only by the user whose session produced them.
 func (s *Instance) ServeHLSSegment(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("media/mediaserver", "Instance.ServeHLSSegment: r=%s", logger.RequestSummary(r))
+	}
 	if s.hlsManager == nil {
 		http.Error(w, "HLS output is not available on this host", http.StatusNotFound)
 		return
@@ -234,6 +253,9 @@ func (s *Instance) ServeHLSSegment(w http.ResponseWriter, r *http.Request) {
 // be made available. Like the endpoints it serves, it answers with an HTTP
 // status rather than a JSON body, since the caller is always a media element.
 func (s *Instance) resolveLocalTranscodeSource(w http.ResponseWriter, r *http.Request) (string, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("media/mediaserver", "Instance.resolveLocalTranscodeSource: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, _ := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	targetFsh, vpath, realFilepath, err := s.ValidateSourceFile(w, r)
 	if err != nil {

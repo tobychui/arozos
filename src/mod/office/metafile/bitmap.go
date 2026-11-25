@@ -16,6 +16,8 @@ import (
 	"image/png"
 
 	"golang.org/x/image/tiff"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // maxBitmapPixels bounds a decoded bitmap (width x height)
@@ -24,6 +26,9 @@ const maxBitmapPixels = 64 << 20
 // DIBToPNG converts a packed DIB (BITMAPINFOHEADER or BITMAPCOREHEADER,
 // palette, pixels) into PNG
 func DIBToPNG(dib []byte) ([]byte, error) {
+	if logger.IsDebug() {
+		logger.Debugf("office/metafile", "DIBToPNG: len(dib)=%d", len(dib))
+	}
 	img, _, err := decodePackedDIB(dib, 0)
 	if err != nil {
 		return nil, err
@@ -33,6 +38,7 @@ func DIBToPNG(dib []byte) ([]byte, error) {
 
 // TIFFToPNG converts a TIFF picture into PNG
 func TIFFToPNG(data []byte) ([]byte, error) {
+	logger.Debug("office/metafile", "TIFFToPNG")
 	cfg, err := tiff.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
@@ -48,6 +54,7 @@ func TIFFToPNG(data []byte) ([]byte, error) {
 }
 
 func encodePNG(img image.Image) ([]byte, error) {
+	logger.DebugTrace("office/metafile", "encodePNG")
 	var buf bytes.Buffer
 	enc := png.Encoder{CompressionLevel: png.BestSpeed}
 	if err := enc.Encode(&buf, img); err != nil {

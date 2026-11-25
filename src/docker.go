@@ -18,12 +18,14 @@ import (
 	"net/http"
 
 	"imuslab.com/arozos/mod/docker"
+	"imuslab.com/arozos/mod/info/logger"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
 
 func DockerServiceInit() {
+	logger.Debug("Core", "DockerServiceInit")
 	//Respect the admin kill-switch first, before probing the host.
 	if !*allow_docker_management {
 		return

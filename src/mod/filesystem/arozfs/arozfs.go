@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type File interface {
@@ -86,6 +88,9 @@ var (
 
 // Generate a File Manager redirection error message
 func NewRedirectionError(targetVpath string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/arozfs", "NewRedirectionError: targetVpath=%.120q", targetVpath)
+	}
 	return errors.New("Redirect:" + targetVpath)
 }
 
@@ -94,6 +99,9 @@ func NewRedirectionError(targetVpath string) error {
 // lives on whatever drives those files are on, and has no path of its own on
 // this host for disk tools, Samba or the cluster to use.
 func IsNetworkDrive(fstype string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/arozfs", "IsNetworkDrive: fstype=%.120q", fstype)
+	}
 	if fstype == "webdav" || fstype == "ftp" || fstype == "smb" || fstype == "sftp" || fstype == "s3" || fstype == "cluster" || fstype == "share" {
 		return true
 	}
@@ -103,6 +111,7 @@ func IsNetworkDrive(fstype string) bool {
 
 // Get a list of supported file system types for mounting via arozos
 func GetSupportedFileSystemTypes() []string {
+	logger.DebugTrace("filesystem/arozfs", "GetSupportedFileSystemTypes")
 	return []string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs", "webdav", "ftp", "smb", "sftp", "s3", "cluster"}
 }
 
@@ -121,6 +130,9 @@ element, so it may read them as the parent folder. utils.ValidateFilename
 refuses the same names, so no file created through ArozOS carries one.
 */
 func SubpathEscapesRoot(subpath string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/arozfs", "SubpathEscapesRoot: subpath=%.120q", subpath)
+	}
 	depth := 0
 	for _, element := range strings.Split(ToSlash(subpath), "/") {
 		switch element {
@@ -148,6 +160,9 @@ leave that folder. A subpath that tries to climb above its root returns
 ErrPathEscapesRoot instead of being clamped to it.
 */
 func CleanSubpath(subpath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/arozfs", "CleanSubpath: subpath=%.120q", subpath)
+	}
 	subpath = ToSlash(strings.TrimSpace(subpath))
 	if SubpathEscapesRoot(subpath) {
 		return "", ErrPathEscapesRoot
@@ -163,6 +178,9 @@ cleaned. Cleaning the whole path first read "user:.." as one ordinary element,
 so "user:../bob/notes.txt" kept its ".." and resolved into bob's home.
 */
 func GenericVirtualPathToRealPathTranslator(uuid string, hierarchy string, subpath string, username string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/arozfs", "GenericVirtualPathToRealPathTranslator: uuid=%.120q hierarchy=%.120q subpath=%.120q username=%.120q", uuid, hierarchy, subpath, username)
+	}
 	subpath = strings.TrimPrefix(ToSlash(strings.TrimSpace(subpath)), "./")
 	subpath = strings.TrimPrefix(subpath, uuid+":")
 	subpath, err := CleanSubpath(subpath)
@@ -185,6 +203,9 @@ func GenericVirtualPathToRealPathTranslator(uuid string, hierarchy string, subpa
 
 // Generic real path to virtual path translator
 func GenericRealPathToVirtualPathTranslator(uuid string, hierarchy string, rpath string, username string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/arozfs", "GenericRealPathToVirtualPathTranslator: uuid=%.120q hierarchy=%.120q rpath=%.120q username=%.120q", uuid, hierarchy, rpath, username)
+	}
 	rpath = ToSlash(filepath.Clean(strings.TrimSpace(rpath)))
 	if strings.HasPrefix(rpath, "./") {
 		rpath = rpath[1:]
@@ -208,6 +229,9 @@ func GenericRealPathToVirtualPathTranslator(uuid string, hierarchy string, rpath
 
 // Generic function for abstraction driver to filter incoming paths
 func GenericPathFilter(filename string) string {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/arozfs", "GenericPathFilter: filename=%.120q", filename)
+	}
 	filename = ToSlash(filepath.Clean(filename))
 	rawpath := strings.TrimSpace(filename)
 	if strings.HasPrefix(rawpath, "./") {
@@ -220,6 +244,9 @@ func GenericPathFilter(filename string) string {
 
 // Filter illegal characters in filename
 func FilterIllegalCharInFilename(filename string, replacement string) string {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/arozfs", "FilterIllegalCharInFilename: filename=%.120q replacement=%.120q", filename, replacement)
+	}
 	re, _ := regexp.Compile(`[\\\[\]$?#<>+%!"'|{}:@]`)
 	return re.ReplaceAllString(filename, replacement)
 }
@@ -229,6 +256,9 @@ func FilterIllegalCharInFilename(filename string, replacement string) string {
 */
 
 func ToSlash(filename string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/arozfs", "ToSlash: filename=%.120q", filename)
+	}
 	return strings.ReplaceAll(filename, "\\", "/")
 }
 
@@ -240,10 +270,16 @@ func ToSlash(filename string) string {
 // normalises differently there than on Linux. Going through path.Clean keeps
 // the result identical on every platform.
 func Clean(filename string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("filesystem/arozfs", "Clean: filename=%.120q", filename)
+	}
 	return path.Clean(ToSlash(filename))
 }
 
 func Base(filename string) string {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/arozfs", "Base: filename=%.120q", filename)
+	}
 	filename = ToSlash(filename)
 	if filename == "" {
 		return "."
@@ -266,6 +302,9 @@ func Base(filename string) string {
 // ResolvePathWithinRoot decodes a relative path, normalizes separators, and
 // ensures the final path remains under rootPath.
 func ResolvePathWithinRoot(rootPath string, relativePath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/arozfs", "ResolvePathWithinRoot: relativePath=%.120q", relativePath)
+	}
 	decodedRelPath, err := url.PathUnescape(relativePath)
 	if err != nil {
 		return "", err

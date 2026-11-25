@@ -20,6 +20,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const joinTokenPrefix = "aroz-join:"
@@ -34,12 +36,16 @@ type joinTokenPayload struct {
 }
 
 func randomHex(n int) string {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "randomHex: n=%d", n)
+	}
 	buf := make([]byte, n)
 	rand.Read(buf)
 	return hex.EncodeToString(buf)
 }
 
 func hashSecret(secret string) string {
+	logger.Debug("cluster/membership", "hashSecret")
 	sum := sha256.Sum256([]byte(secret))
 	return hex.EncodeToString(sum[:])
 }
@@ -47,6 +53,7 @@ func hashSecret(secret string) string {
 // NewJoinToken creates a token valid for ttl and the pasteable string that
 // encodes it for the issuing node at issuerURL.
 func NewJoinToken(cluster ClusterInfo, issuerURL string, ttl time.Duration) (*JoinToken, string, error) {
+	logger.Debug("cluster/membership", "NewJoinToken")
 	if strings.TrimSpace(issuerURL) == "" {
 		return nil, "", errors.New("this node has no advertised URL; generate the join token on a node that other nodes can reach")
 	}
@@ -74,6 +81,9 @@ func NewJoinToken(cluster ClusterInfo, issuerURL string, ttl time.Duration) (*Jo
 
 // DecodeJoinToken parses a pasted token string.
 func DecodeJoinToken(encoded string) (*joinTokenPayload, error) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "DecodeJoinToken: encoded=%.120q", encoded)
+	}
 	encoded = strings.TrimSpace(encoded)
 	if !strings.HasPrefix(encoded, joinTokenPrefix) {
 		return nil, errors.New("not an ArozOS join token")
@@ -97,6 +107,7 @@ func DecodeJoinToken(encoded string) (*joinTokenPayload, error) {
 
 // Valid checks a presented secret against the stored token at time now.
 func (t *JoinToken) Valid(secret string, now time.Time) bool {
+	logger.Debug("cluster/membership", "JoinToken.Valid")
 	if t == nil || now.Unix() > t.Expires {
 		return false
 	}

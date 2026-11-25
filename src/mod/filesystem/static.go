@@ -84,9 +84,11 @@ type EmptyHierarchySpecificConfig struct {
 }
 
 func (e EmptyHierarchySpecificConfig) ResolveVrootPath(string, string) (string, error) {
+	logger.DebugTrace("filesystem", "EmptyHierarchySpecificConfig.ResolveVrootPath")
 	return "", nil
 }
 func (e EmptyHierarchySpecificConfig) ResolveRealPath(string, string) (string, error) {
+	logger.DebugTrace("filesystem", "EmptyHierarchySpecificConfig.ResolveRealPath")
 	return "", nil
 }
 
@@ -96,6 +98,7 @@ var DefaultEmptyHierarchySpecificConfig = EmptyHierarchySpecificConfig{
 
 // Check if the two file system are identical.
 func MatchingFileSystem(fsa *FileSystemHandler, fsb *FileSystemHandler) bool {
+	logger.DebugTrace("filesystem", "MatchingFileSystem")
 	return fsa.Filesystem == fsb.Filesystem
 }
 
@@ -109,6 +112,9 @@ subpath that climbs above its root is now refused with
 arozfs.ErrPathEscapesRoot.
 */
 func GetIDFromVirtualPath(vpath string) (string, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "GetIDFromVirtualPath: vpath=%.120q", vpath)
+	}
 	if !strings.Contains(vpath, ":") {
 		return "", "", errors.New("Path missing Virtual Device ID. Given: " + vpath)
 	}
@@ -127,6 +133,9 @@ func GetIDFromVirtualPath(vpath string) (string, string, error) {
 }
 
 func GetFileDataFromPath(fsh *FileSystemHandler, vpath string, realpath string, sizeRounding int) FileData {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "GetFileDataFromPath: vpath=%.120q realpath=%.120q sizeRounding=%d", vpath, realpath, sizeRounding)
+	}
 	fileSize := fsh.FileSystemAbstraction.GetFileSize(realpath)
 	displaySize := GetFileDisplaySize(fileSize, sizeRounding)
 	modtime, _ := fsh.FileSystemAbstraction.GetModTime(realpath)
@@ -159,6 +168,9 @@ func GetFileDataFromPath(fsh *FileSystemHandler, vpath string, realpath string, 
 }
 
 func CheckMounted(mountpoint string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "CheckMounted: mountpoint=%.120q", mountpoint)
+	}
 	if runtime.GOOS == "windows" {
 		//Windows
 		//Check if the given folder exists
@@ -184,6 +196,9 @@ func CheckMounted(mountpoint string) bool {
 }
 
 func MountDevice(mountpt string, mountdev string, filesystem string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "MountDevice: mountpt=%.120q mountdev=%.120q filesystem=%.120q", mountpt, mountdev, filesystem)
+	}
 	//Check if running under sudo mode and in linux
 	if runtime.GOOS == "linux" {
 		//Try to mount the file system
@@ -227,6 +242,9 @@ func MountDevice(mountpt string, mountdev string, filesystem string) error {
 // ResolveDeviceByUUID tries to find a block device path (e.g. /dev/sdb1) by its
 // partition UUID using blkid. Linux only. Returns an error if the UUID is not found.
 func ResolveDeviceByUUID(partUUID string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "ResolveDeviceByUUID: partUUID=%.120q", partUUID)
+	}
 	if runtime.GOOS != "linux" {
 		return "", errors.New("UUID-based device lookup is only supported on Linux")
 	}
@@ -247,6 +265,9 @@ func ResolveDeviceByUUID(partUUID string) (string, error) {
 }
 
 func GetFileSize(filename string) int64 {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "GetFileSize: filename=%.120q", filename)
+	}
 	fi, err := os.Stat(filename)
 	if err != nil {
 		return 0
@@ -256,6 +277,9 @@ func GetFileSize(filename string) int64 {
 }
 
 func IsInsideHiddenFolder(path string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "IsInsideHiddenFolder: path=%.120q", path)
+	}
 	thisPathInfo := filepath.ToSlash(filepath.Clean(path))
 	pathData := strings.Split(thisPathInfo, "/")
 	for _, thispd := range pathData {
@@ -272,6 +296,9 @@ Wildcard Replacement Glob, design to hanle path with [ or ] inside.
 You can also pass in normal path for globing if you are not sure.
 */
 func WGlob(path string) ([]string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "WGlob: path=%.120q", path)
+	}
 	files, err := filepath.Glob(path)
 	if err != nil {
 		return []string{}, err
@@ -304,6 +331,9 @@ Get Directory Size with native syscall (local drive only)
 faster than GetDirectorySize if system support du
 */
 func GetDirectorySizeNative(filename string) (int64, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "GetDirectorySizeNative: filename=%.120q", filename)
+	}
 	d, err := apt.PackageExists("du")
 	if err != nil || !d {
 		return 0, err
@@ -352,6 +382,9 @@ Get Directory size, require filepath and include Hidden files option(true / fals
 Return total file size and file count
 */
 func GetDirctorySize(filename string, includeHidden bool) (int64, int) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "GetDirctorySize: filename=%.120q includeHidden=%t", filename, includeHidden)
+	}
 	var size int64 = 0
 	var fileCount int = 0
 	err := filepath.Walk(filename, func(thisFilename string, info os.FileInfo, err error) error {
@@ -382,6 +415,9 @@ func GetDirctorySize(filename string, includeHidden bool) (int64, int) {
 }
 
 func GetFileDisplaySize(filesize int64, rounding int) string {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "GetFileDisplaySize: filesize=%d rounding=%d", filesize, rounding)
+	}
 	precisionString := "%." + strconv.Itoa(rounding) + "f"
 	bytes := float64(filesize)
 	kilobytes := float64(bytes / 1024)
@@ -423,6 +459,9 @@ func GetFileDisplaySize(filesize int64, rounding int) string {
 }
 
 func DecodeURI(inputPath string) string {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "DecodeURI: inputPath=%.120q", inputPath)
+	}
 	inputPath = strings.ReplaceAll(inputPath, "+", "{{plus_sign}}")
 	inputPath, _ = url.QueryUnescape(inputPath)
 	inputPath = strings.ReplaceAll(inputPath, "{{plus_sign}}", "+")
@@ -430,6 +469,9 @@ func DecodeURI(inputPath string) string {
 }
 
 func GetMime(filename string) (string, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "GetMime: filename=%.120q", filename)
+	}
 	fileMime, err := mimetype.DetectFile(filename)
 	if err != nil {
 		return mime.TypeByExtension(filepath.Ext(filename)), filepath.Ext(filename), nil
@@ -438,6 +480,9 @@ func GetMime(filename string) (string, string, error) {
 }
 
 func GetModTime(filepath string) (int64, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "GetModTime: filepath=%.120q", filepath)
+	}
 	f, err := os.Open(filepath)
 	if err != nil {
 		return -1, err
@@ -451,6 +496,9 @@ func GetModTime(filepath string) (int64, error) {
 }
 
 func UnderTheSameRoot(srcAbs string, destAbs string) (bool, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "UnderTheSameRoot: srcAbs=%.120q destAbs=%.120q", srcAbs, destAbs)
+	}
 	srcRoot, err := GetPhysicalRootFromPath(srcAbs)
 	if err != nil {
 		return false, err
@@ -471,6 +519,9 @@ func UnderTheSameRoot(srcAbs string, destAbs string) (bool, error) {
 
 // Get the physical root of a given filepath, e.g. C: or /home
 func GetPhysicalRootFromPath(filename string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "GetPhysicalRootFromPath: filename=%.120q", filename)
+	}
 	filename, err := filepath.Abs(filename)
 	if err != nil {
 		return "", err
@@ -489,6 +540,9 @@ func GetPhysicalRootFromPath(filename string) (string, error) {
 }
 
 func GetFileSHA256Sum(filename string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "GetFileSHA256Sum: filename=%.120q", filename)
+	}
 	f, err := os.Open(filename)
 	if err != nil {
 		return "", err
@@ -504,6 +558,9 @@ func GetFileSHA256Sum(filename string) (string, error) {
 }
 
 func GetFileMD5Sum(fsh *FileSystemHandler, rpath string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem", "GetFileMD5Sum: rpath=%.120q", rpath)
+	}
 	file, err := fsh.FileSystemAbstraction.ReadStream(rpath)
 	if err != nil {
 		return "", err

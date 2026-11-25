@@ -5,11 +5,14 @@ package docker
 import (
 	"syscall"
 	"unsafe"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // hostStorageUsage reports used/total bytes of the volume holding the current
 // working directory via GetDiskFreeSpaceExW.
 func hostStorageUsage() (int64, int64, bool) {
+	logger.Debug("docker", "hostStorageUsage")
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")
 	proc := kernel32.NewProc("GetDiskFreeSpaceExW")
 
@@ -33,5 +36,6 @@ func hostStorageUsage() (int64, int64, bool) {
 
 // hostLoadAvg is not available on Windows.
 func hostLoadAvg() (float64, float64, float64, bool) {
+	logger.DebugTrace("docker", "hostLoadAvg")
 	return 0, 0, 0, false
 }

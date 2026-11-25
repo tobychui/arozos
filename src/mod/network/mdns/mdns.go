@@ -34,6 +34,9 @@ type NetworkHost struct {
 
 // Create a new MDNS discoverer, set MacOverride to empty string for using the first NIC discovered
 func NewMDNS(config NetworkHost, MacOverride string) (*MDNSHost, error) {
+	if logger.IsDebug() {
+		logger.Debugf("network/mdns", "NewMDNS: MacOverride=%.120q", MacOverride)
+	}
 	//Get host MAC Address
 	macAddressBoardcast, _ := getMaxMacAddrString(128)
 
@@ -101,6 +104,7 @@ func NewMDNS(config NetworkHost, MacOverride string) (*MDNSHost, error) {
 }
 
 func (m *MDNSHost) Close() {
+	logger.Debug("network/mdns", "MDNSHost.Close")
 	if m != nil {
 		m.MDNS.Shutdown()
 	}
@@ -109,6 +113,9 @@ func (m *MDNSHost) Close() {
 
 // Scan with given timeout and domain filter. Use m.Host.Domain for scanning similar typed devices
 func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/mdns", "MDNSHost.Scan: timeout=%d domainFilter=%.120q", timeout, domainFilter)
+	}
 	// Discover all services on the network (e.g. _workstation._tcp)
 
 	var zcoption zeroconf.ClientOption = nil

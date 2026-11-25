@@ -42,6 +42,7 @@ type HostRecord struct {
 
 // New Discoverer return a nearby Aroz Discover agent
 func NewDiscoverer(MDNS *mdns.MDNSHost, Database *database.Database) Discoverer {
+	logger.Debug("network/neighbour", "NewDiscoverer")
 	//Create a new table for neighbour records
 	Database.NewTable("neighbour")
 
@@ -55,6 +56,7 @@ func NewDiscoverer(MDNS *mdns.MDNSHost, Database *database.Database) Discoverer 
 
 // Return a list of NetworkHost with the same domain
 func (d *Discoverer) GetNearbyHosts() []*mdns.NetworkHost {
+	logger.Debug("network/neighbour", "Discoverer.GetNearbyHosts")
 	nearbyHosts := []*mdns.NetworkHost{}
 	for _, host := range d.NearbyHosts {
 		nearbyHosts = append(nearbyHosts, host)
@@ -65,6 +67,9 @@ func (d *Discoverer) GetNearbyHosts() []*mdns.NetworkHost {
 
 // Start Scanning, interval and scan Duration in seconds
 func (d *Discoverer) StartScanning(interval int, scanDuration int) {
+	if logger.IsDebug() {
+		logger.Debugf("network/neighbour", "Discoverer.StartScanning: interval=%d scanDuration=%d", interval, scanDuration)
+	}
 	logger.PrintAndLog("Neighbour", "ArozOS Neighbour Scanning Started", nil)
 	if d.ScannerRunning() {
 		//Another scanner already running. Terminate it
@@ -99,6 +104,9 @@ func (d *Discoverer) StartScanning(interval int, scanDuration int) {
 }
 
 func (d *Discoverer) UpdateScan(scanDuration int) {
+	if logger.IsDebug() {
+		logger.Debugf("network/neighbour", "Discoverer.UpdateScan: scanDuration=%d", scanDuration)
+	}
 	d.LastScanningTime = time.Now().Unix()
 	results := d.Host.Scan(scanDuration, d.Host.Host.Domain)
 	d.NearbyHosts = results
@@ -123,6 +131,7 @@ func (d *Discoverer) UpdateScan(scanDuration int) {
 }
 
 func (d *Discoverer) GetOfflineHosts() ([]*HostRecord, error) {
+	logger.Debug("network/neighbour", "Discoverer.GetOfflineHosts")
 	results := []*HostRecord{}
 	entries, err := d.Database.ListTable("neighbour")
 	if err != nil {
@@ -160,10 +169,14 @@ func (d *Discoverer) GetOfflineHosts() ([]*HostRecord, error) {
 
 // Try to wake on lan one of the network host
 func (d *Discoverer) SendWakeOnLan(macAddr string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("network/neighbour", "Discoverer.SendWakeOnLan: macAddr=%.120q", macAddr)
+	}
 	return wakeonlan.WakeTarget(macAddr)
 }
 
 func (d *Discoverer) ScannerRunning() bool {
+	logger.Debug("network/neighbour", "Discoverer.ScannerRunning")
 	if d.d != nil {
 		return true
 	} else {
@@ -172,6 +185,7 @@ func (d *Discoverer) ScannerRunning() bool {
 }
 
 func (d *Discoverer) StopScanning() {
+	logger.Debug("network/neighbour", "Discoverer.StopScanning")
 	if d.d != nil {
 		//Another ticker already running. Terminate it
 		d.d <- true

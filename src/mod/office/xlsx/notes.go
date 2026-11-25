@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 	"imuslab.com/arozos/mod/office/model"
 )
@@ -27,6 +28,7 @@ type xlsxNote struct {
 
 // sheetNotes collects the sheet's notes in a deterministic order
 func sheetNotes(ws *model.WorkSheet) []xlsxNote {
+	logger.DebugTrace("office/xlsx", "sheetNotes")
 	var out []xlsxNote
 	for k, cell := range ws.Cells {
 		if cell == nil || strings.TrimSpace(cell.N) == "" {
@@ -48,6 +50,7 @@ func sheetNotes(ws *model.WorkSheet) []xlsxNote {
 }
 
 func buildCommentsXML(notes []xlsxNote) string {
+	logger.DebugTrace("office/xlsx", "buildCommentsXML")
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n")
 	sb.WriteString(`<comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`)
@@ -64,6 +67,7 @@ func buildCommentsXML(notes []xlsxNote) string {
 // buildVmlXML renders the legacy drawing part Excel needs to display the
 // note boxes (hidden, shown on hover, anchored next to their cell)
 func buildVmlXML(notes []xlsxNote) string {
+	logger.DebugTrace("office/xlsx", "buildVmlXML")
 	var sb strings.Builder
 	sb.WriteString(`<xml xmlns:v="urn:schemas-microsoft-com:vml"` +
 		` xmlns:o="urn:schemas-microsoft-com:office:office"` +
@@ -93,6 +97,9 @@ func buildVmlXML(notes []xlsxNote) string {
 // parseSheetComments reads a worksheet's comments part (if any) back into
 // the cells' "n" note field
 func parseSheetComments(files map[string][]byte, sheetPart string, ws *model.WorkSheet) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/xlsx", "parseSheetComments: len(files)=%d sheetPart=%.120q", len(files), sheetPart)
+	}
 	sheetDir := pathDir(sheetPart)
 	relsRaw, ok := files[sheetDir+"/_rels/"+pathBase(sheetPart)+".rels"]
 	if !ok {

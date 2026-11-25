@@ -14,6 +14,7 @@ import (
 	"github.com/nfnt/resize"
 	"github.com/oliamb/cutter"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -24,6 +25,7 @@ import (
 // oraPreview returns the best preview image inside an OpenRaster file: the
 // flattened image when it is there (sharper), else the bundled thumbnail.
 func oraPreview(data []byte) (image.Image, error) {
+	logger.Debug("filesystem/metadata", "oraPreview")
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, err
@@ -55,6 +57,9 @@ func oraPreview(data []byte) (image.Image, error) {
 }
 
 func generateThumbnailForORA(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "generateThumbnailForORA: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
+	}
 	if fsh.RequireBuffer {
 		return "", nil
 	}
@@ -90,6 +95,9 @@ func generateThumbnailForORA(fsh *filesystem.FileSystemHandler, cacheFolder stri
 // centre square and writes it as a JPEG cache file. Transparent areas turn
 // white (JPEG has no alpha).
 func writeCroppedThumbnail(fsh *filesystem.FileSystemHandler, img image.Image, outputFile string) error {
+	if logger.IsDebug() {
+		logger.Debugf("filesystem/metadata", "writeCroppedThumbnail: outputFile=%.120q", outputFile)
+	}
 	b := img.Bounds()
 	img = flattenOnWhite(img)
 	var m image.Image
@@ -118,6 +126,7 @@ func writeCroppedThumbnail(fsh *filesystem.FileSystemHandler, img image.Image, o
 // flattenOnWhite draws img over a white background, for JPEG output (which
 // has no alpha)
 func flattenOnWhite(img image.Image) image.Image {
+	logger.Debug("filesystem/metadata", "flattenOnWhite")
 	b := img.Bounds()
 	flat := image.NewRGBA(b)
 	draw.Draw(flat, b, &image.Uniform{C: color.White}, image.Point{}, draw.Src)

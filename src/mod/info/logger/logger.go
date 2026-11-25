@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -49,6 +50,7 @@ type Logger struct {
 	LogFolder      string   //Folder to store the log  file
 	CurrentLogFile string   //Current writing filename
 	file           *os.File //File, empty if LogToFile is false
+	debugMu        sync.Mutex
 }
 
 type jsonLogEntry struct {
@@ -126,6 +128,39 @@ func (l *Logger) PrintAndLog(title string, message string, originalError error) 
 	} else {
 		log.Println("[" + title + "] " + message)
 	}
+}
+
+// PrintAndLogDebug prints a DEBUG level message to STDOUT and writes it to
+// the log file. Callers normally go through the package-level Debug and
+// Debugf, which drop the message unless debug output is on.
+func (l *Logger) PrintAndLogDebug(title string, message string) {
+	if l == nil {
+		log.Println("[" + title + "] [DEBUG] " + message)
+		return
+	}
+	if l.LogToFile {
+		//Written in order, not from a goroutine per line: debug output is
+		//dense and its order is what makes it useful.
+		l.debugMu.Lock()
+		l.ValidateAndUpdateLogFilepath()
+		if l.file != nil {
+			l.file.WriteString(time.Now().Format("2006-01-02 15:04:05.000000") + "|" + fmt.Sprintf("%-16s", title) + " [DEBUG]" + message + "\n")
+		}
+		l.debugMu.Unlock()
+	}
+	if l.PrintJSON || globalPrintJSON {
+		b, err := json.Marshal(jsonLogEntry{
+			Time:    time.Now().Format("2006-01-02T15:04:05.000000Z07:00"),
+			Level:   "debug",
+			Title:   title,
+			Message: message,
+		})
+		if err == nil {
+			fmt.Println(string(b))
+			return
+		}
+	}
+	log.Println("[" + title + "] [DEBUG] " + message)
 }
 
 func (l *Logger) Log(title string, errorMessage string, originalError error) {

@@ -74,6 +74,7 @@ type wsConn struct {
 }
 
 func newWsConn(c *websocket.Conn) *wsConn {
+	logger.Debug("agi", "newWsConn")
 	wsc := &wsConn{
 		conn:    c,
 		msgChan: make(chan wsMsg, 128),
@@ -82,16 +83,29 @@ func newWsConn(c *websocket.Conn) *wsConn {
 	return wsc
 }
 
-func (w *wsConn) isClosed() bool    { return atomic.LoadInt32(&w.closed) == 1 }
-func (w *wsConn) markClosed()       { atomic.StoreInt32(&w.closed, 1) }
-func (w *wsConn) touchLastOpr()     { atomic.StoreInt64(&w.lastOprTime, time.Now().Unix()) }
-func (w *wsConn) getLastOpr() int64 { return atomic.LoadInt64(&w.lastOprTime) }
+func (w *wsConn) isClosed() bool {
+	logger.DebugTrace("agi", "wsConn.isClosed")
+	return atomic.LoadInt32(&w.closed) == 1
+}
+func (w *wsConn) markClosed() {
+	logger.DebugTrace("agi", "wsConn.markClosed")
+	atomic.StoreInt32(&w.closed, 1)
+}
+func (w *wsConn) touchLastOpr() {
+	logger.DebugTrace("agi", "wsConn.touchLastOpr")
+	atomic.StoreInt64(&w.lastOprTime, time.Now().Unix())
+}
+func (w *wsConn) getLastOpr() int64 {
+	logger.DebugTrace("agi", "wsConn.getLastOpr")
+	return atomic.LoadInt64(&w.lastOprTime)
+}
 
 var connections = sync.Map{}
 
 // checkWebSocketConnectionUpgradeStatus returns whether the current VM has an
 // active WebSocket connection.  Returns (active, connID, *wsConn).
 func checkWebSocketConnectionUpgradeStatus(vm *otto.Otto) (bool, string, *wsConn) {
+	logger.Debug("agi", "checkWebSocketConnectionUpgradeStatus")
 	value, err := vm.Get("_websocket_conn_id")
 	if err != nil || value.IsUndefined() || value.IsNull() {
 		return false, "", nil
@@ -115,6 +129,7 @@ func checkWebSocketConnectionUpgradeStatus(vm *otto.Otto) (bool, string, *wsConn
 // connection from both the sync.Map and the VM.
 // MUST be called from the main (script) goroutine so vm.Set is safe.
 func cleanupWsConn(vm *otto.Otto, connID string, wsc *wsConn) {
+	logger.Debug("agi", "cleanupWsConn")
 	if !wsc.isClosed() {
 		wsc.markClosed()
 		wsc.conn.WriteMessage(
@@ -132,6 +147,7 @@ func cleanupWsConn(vm *otto.Otto, connID string, wsc *wsConn) {
 // Passing data through vm.Set avoids the complexities of otto.Value.Call.
 // MUST be called from the main (script) goroutine.
 func dispatchOnMessage(vm *otto.Otto, msg wsMsg) {
+	logger.Debug("agi", "dispatchOnMessage")
 	vm.Set("_ws_incoming", map[string]interface{}{
 		"data":      msg.Data,
 		"timestamp": msg.Timestamp,
@@ -148,6 +164,9 @@ func dispatchOnMessage(vm *otto.Otto, msg wsMsg) {
 }
 
 func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("agi", "Gateway.injectWebSocketFunctions: r=%s", logger.RequestSummary(r))
+	}
 
 	// ── websocket.upgrade(timeoutSeconds) ────────────────────────────────────
 	vm.Set("_websocket_upgrade", func(call otto.FunctionCall) otto.Value {

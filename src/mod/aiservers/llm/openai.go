@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type openaiStreamOptions struct {
@@ -76,6 +78,9 @@ type openaiChatResponse struct {
 
 // chatOpenAI performs an OpenAI-compatible chat completion call.
 func (c *Client) chatOpenAI(messages []Message, opt ChatOptions) (*ChatResponse, error) {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/llm", "Client.chatOpenAI: len(messages)=%d", len(messages))
+	}
 	reqStruct := openaiChatRequest{
 		Model:       opt.Model,
 		Messages:    messages,
@@ -150,6 +155,9 @@ func (c *Client) chatOpenAI(messages []Message, opt ChatOptions) (*ChatResponse,
 // usage via stream_options.include_usage so the final chunk carries token
 // counts (endpoints that ignore the field simply yield zero usage).
 func (c *Client) chatOpenAIStream(messages []Message, opt ChatOptions, cb StreamCallback) (*ChatResponse, error) {
+	if logger.IsDebug() {
+		logger.Debugf("aiservers/llm", "Client.chatOpenAIStream: len(messages)=%d", len(messages))
+	}
 	reqStruct := openaiChatRequest{
 		Model:         opt.Model,
 		Messages:      messages,
@@ -259,6 +267,7 @@ func (c *Client) chatOpenAIStream(messages []Message, opt ChatOptions, cb Stream
 // openaiErrorMessage extracts the human-readable message from an OpenAI-style
 // error envelope, or returns "" when the body is not such an envelope.
 func openaiErrorMessage(body []byte) string {
+	logger.Debug("aiservers/llm", "openaiErrorMessage")
 	var env struct {
 		Error *struct {
 			Message string `json:"message"`
@@ -272,6 +281,7 @@ func openaiErrorMessage(body []byte) string {
 
 // listModelsOpenAI lists model IDs from an OpenAI-compatible /models endpoint.
 func (c *Client) listModelsOpenAI() ([]string, error) {
+	logger.Debug("aiservers/llm", "Client.listModelsOpenAI")
 	base := strings.TrimRight(c.Endpoint, "/")
 	requestURL := base
 	if !strings.HasSuffix(base, "/models") {

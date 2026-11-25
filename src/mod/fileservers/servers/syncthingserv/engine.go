@@ -1,5 +1,6 @@
 package syncthingserv
 
+import "imuslab.com/arozos/mod/info/logger"
 import "time"
 
 /*
@@ -22,6 +23,7 @@ var qrCode func(text string) ([]byte, error)
 
 // Available reports whether this build carries Syncthing.
 func Available() bool {
+	logger.DebugTrace("fileservers/servers/syncthingserv", "Available")
 	return newEngine != nil
 }
 

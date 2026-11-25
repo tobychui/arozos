@@ -83,6 +83,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/sharedspace"
 	"imuslab.com/arozos/mod/utils"
@@ -119,6 +120,9 @@ var (
 // ssConfInt64 reads an integer admin setting, falling back when unset or
 // out of range.
 func ssConfInt64(key string, fallback int64) int64 {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "ssConfInt64: fallback=%d", fallback)
+	}
 	if sysdb == nil || !sysdb.KeyExists(ssDBTable, key) {
 		return fallback
 	}
@@ -132,6 +136,9 @@ func ssConfInt64(key string, fallback int64) int64 {
 
 // ssConfBool reads a boolean admin setting, falling back when unset.
 func ssConfBool(key string, fallback bool) bool {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "ssConfBool: fallback=%t", fallback)
+	}
 	if sysdb == nil || !sysdb.KeyExists(ssDBTable, key) {
 		return fallback
 	}
@@ -145,6 +152,9 @@ func ssConfBool(key string, fallback bool) bool {
 // ssDescribeSpace renders the space fields shared with clients. When a
 // username is given the caller's own role is included.
 func ssDescribeSpace(space *sharedspace.Space, username string) map[string]interface{} {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "ssDescribeSpace: username=%.120q", username)
+	}
 	desc := map[string]interface{}{
 		"spaceid":    space.ID,
 		"name":       space.Name,
@@ -167,6 +177,7 @@ func ssDescribeSpace(space *sharedspace.Space, username string) map[string]inter
 
 // ssDescribeItem renders a space item for clients.
 func ssDescribeItem(item *sharedspace.Item) map[string]interface{} {
+	logger.DebugTrace("Core", "ssDescribeItem")
 	return map[string]interface{}{
 		"itemid":   item.ID,
 		"type":     item.Type,
@@ -182,6 +193,7 @@ func ssDescribeItem(item *sharedspace.Item) map[string]interface{} {
 // ssDescribeDoc renders a document snapshot for clients. includeContent
 // controls whether the body travels with it.
 func ssDescribeDoc(doc *sharedspace.DocSnapshot, includeContent bool) map[string]interface{} {
+	logger.Debug("Core", "ssDescribeDoc")
 	desc := map[string]interface{}{
 		"docid":     doc.ID,
 		"name":      doc.Name,
@@ -202,6 +214,9 @@ func ssDescribeDoc(doc *sharedspace.DocSnapshot, includeContent bool) map[string
 // ssRequestParam reads a request parameter from POST form or query string
 // depending on the endpoint's method convention.
 func ssRequestParam(r *http.Request, post bool, key string) (string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "ssRequestParam: r=%s post=%t", logger.RequestSummary(r), post)
+	}
 	if post {
 		return utils.PostPara(r, key)
 	}
@@ -212,6 +227,9 @@ func ssRequestParam(r *http.Request, post bool, key string) (string, error) {
 // parameter to a live space the caller may read. On failure the error
 // response is already written and ok is false.
 func ssResolveSpaceRequest(w http.ResponseWriter, r *http.Request, post bool) (username string, space *sharedspace.Space, ok bool) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "ssResolveSpaceRequest: r=%s post=%t", logger.RequestSummary(r), post)
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, "Not logged in")
@@ -234,6 +252,9 @@ func ssResolveSpaceRequest(w http.ResponseWriter, r *http.Request, post bool) (u
 // ssCloseSpace announces the shutdown to live subscribers and deletes the
 // space (used by the user delete endpoint and the admin surface).
 func ssCloseSpace(spaceID string) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "ssCloseSpace: spaceID=%.120q", spaceID)
+	}
 	space, ok := sharedSpaceManager.GetSpace(spaceID)
 	if !ok {
 		return
@@ -246,6 +267,7 @@ func ssCloseSpace(spaceID string) {
 // out to the space's channel as protocol frames. Registered once per space
 // under a fixed key, so repeated registration is idempotent.
 func ssBroadcastSpaceEvent(space *sharedspace.Space) func(*sharedspace.SpaceEvent) {
+	logger.Debug("Core", "ssBroadcastSpaceEvent")
 	channel := space.Channel()
 	return func(event *sharedspace.SpaceEvent) {
 		var frame []byte
@@ -303,6 +325,7 @@ func ssBroadcastSpaceEvent(space *sharedspace.Space) func(*sharedspace.SpaceEven
 // recomputed from this root at load time (see mod/sharedspace/persistence.go),
 // so relocating the tree is safe.
 func ssResolvePersistRoot() string {
+	logger.Debug("Core", "ssResolvePersistRoot")
 	persistRoot := filepath.Join(*root_directory, "sharedspace")
 	legacyRoot := filepath.Join("system", "sharedspace")
 	if utils.FileExists(legacyRoot) && !utils.FileExists(persistRoot) {
@@ -321,6 +344,7 @@ func ssResolvePersistRoot() string {
 // and wires up its HTTP / WebSocket endpoints and the admin surface.
 // Must be initiated before MeetRoomInit and AGIInit (see startup.go).
 func SharedSpaceInit() {
+	logger.Debug("Core", "SharedSpaceInit")
 	sharedSpaceManager = sharedspace.NewManagerWithOptions(sharedspace.ManagerOptions{
 		PersistentRoot:  ssResolvePersistRoot(),
 		Database:        sysdb,
@@ -922,6 +946,9 @@ func SharedSpaceInit() {
 // ssHandleWebSocket upgrades the request and joins the caller to the
 // space's realtime channel.
 func ssHandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "ssHandleWebSocket: r=%s", logger.RequestSummary(r))
+	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		http.Error(w, "Not logged in", http.StatusUnauthorized)

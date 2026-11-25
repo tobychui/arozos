@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/xmltree"
 )
 
@@ -60,12 +61,16 @@ type Package struct {
 
 // New starts an empty package
 func New() *Package {
+	logger.DebugTrace("office/internal/opc", "New")
 	return &Package{overrides: map[string]string{}, defaults: map[string]string{}}
 }
 
 // Add stores a part with an explicit content type ("" leaves it to the
 // extension default, as for media)
 func (p *Package) Add(name, contentType string, data []byte) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/opc", "Package.Add: name=%.120q", name)
+	}
 	name = strings.TrimPrefix(name, "/")
 	p.parts = append(p.parts, part{name, data})
 	if contentType != "" {
@@ -82,12 +87,16 @@ func (p *Package) Add(name, contentType string, data []byte) {
 
 // AddXML stores an XML part, prefixing the XML declaration
 func (p *Package) AddXML(name, contentType, body string) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/opc", "Package.AddXML: name=%.120q", name)
+	}
 	p.Add(name, contentType, []byte(XMLHeader+body))
 }
 
 // Bytes writes the package: [Content_Types].xml first, then the parts in
 // the order they were added
 func (p *Package) Bytes() ([]byte, error) {
+	logger.DebugTrace("office/internal/opc", "Package.Bytes")
 	var ct strings.Builder
 	ct.WriteString(XMLHeader + `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`)
 	p.defaults["rels"] = mediaTypes["rels"]
@@ -151,16 +160,23 @@ type rel struct {
 
 // Add records a relationship and returns its id (rId1, rId2, ...)
 func (r *Rels) Add(typ, target string, external bool) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/opc", "Rels.Add: typ=%.120q target=%.120q external=%t", typ, target, external)
+	}
 	id := "rId" + strconv.Itoa(len(r.list)+1)
 	r.list = append(r.list, rel{id, typ, target, external})
 	return id
 }
 
 // Len is the number of relationships
-func (r *Rels) Len() int { return len(r.list) }
+func (r *Rels) Len() int {
+	logger.DebugTrace("office/internal/opc", "Rels.Len")
+	return len(r.list)
+}
 
 // XML renders the relationship part
 func (r *Rels) XML() string {
+	logger.DebugTrace("office/internal/opc", "Rels.XML")
 	var b strings.Builder
 	b.WriteString(XMLHeader + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`)
 	for _, l := range r.list {
@@ -177,6 +193,9 @@ func (r *Rels) XML() string {
 // RelsPath is the relationship part of a part: word/document.xml ->
 // word/_rels/document.xml.rels
 func RelsPath(partName string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/opc", "RelsPath: partName=%.120q", partName)
+	}
 	dir, file := path.Split(strings.TrimPrefix(partName, "/"))
 	return dir + "_rels/" + file + ".rels"
 }

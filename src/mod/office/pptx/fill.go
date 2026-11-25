@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office/internal/htmlutil"
 	"imuslab.com/arozos/mod/office/internal/media"
 	"imuslab.com/arozos/mod/office/internal/units"
@@ -36,6 +37,9 @@ import (
 // srgbClrXML writes a colour as <a:srgbClr>, with an <a:alpha> child when
 // it is "#rrggbbaa" and less than opaque
 func srgbClrXML(c, fallback string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "srgbClrXML: c=%.120q fallback=%.120q", c, fallback)
+	}
 	hex := htmlutil.HexColor(c, fallback)
 	a := htmlutil.HexAlpha(c)
 	if a >= 0.998 {
@@ -56,6 +60,7 @@ type bgSource struct {
 // slideBackground resolves the slide's background: its own, then its
 // layout's, then its master's - the first one that states a fill wins
 func (sc *slideCtx) slideBackground(tree *xmltree.Node) (string, *model.BgImage, *model.Gradient) {
+	logger.DebugTrace("office/pptx", "slideCtx.slideBackground")
 	for _, src := range []bgSource{
 		{tree, sc.rels, sc.baseDir},
 		{sc.layout, sc.layoutRels, sc.layoutDir},
@@ -83,6 +88,7 @@ func (sc *slideCtx) slideBackground(tree *xmltree.Node) (string, *model.BgImage,
 // fill style list, 1..999 its ordinary fill style list (0 = no fill), and
 // the colour child is what the style's "phClr" means here
 func (sc *slideCtx) backgroundRef(ref *xmltree.Node) (string, *model.BgImage, *model.Gradient, bool) {
+	logger.DebugTrace("office/pptx", "slideCtx.backgroundRef")
 	ph := ""
 	for i := range ref.Nodes {
 		if c := sc.cc.resolveColor(&ref.Nodes[i]); c != "" {
@@ -118,6 +124,9 @@ func (sc *slideCtx) backgroundRef(ref *xmltree.Node) (string, *model.BgImage, *m
 // backgroundFill reads one fill container as a background. ok is false
 // when it states nothing usable, so the next part down gets its turn.
 func (sc *slideCtx) backgroundFill(pr *xmltree.Node, rels map[string]string, dir string, cc colorCtx) (string, *model.BgImage, *model.Gradient, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "slideCtx.backgroundFill: len(rels)=%d dir=%.120q", len(rels), dir)
+	}
 	if pr.First("noFill") != nil {
 		return "#ffffff", nil, nil, true
 	}
@@ -150,6 +159,9 @@ func (sc *slideCtx) backgroundFill(pr *xmltree.Node, rels map[string]string, dir
 // into the slide inset by <a:fillRect> (negative insets reach past the
 // edges), the source first cropped by <a:srcRect>, or tiled
 func (sc *slideCtx) backgroundPicture(bf *xmltree.Node, rels map[string]string, dir string) *model.BgImage {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "slideCtx.backgroundPicture: len(rels)=%d dir=%.120q", len(rels), dir)
+	}
 	blip := bf.First("blip")
 	src, pxW, pxH, ok := sc.doc.blipSource(blip, rels, dir)
 	if !ok {
@@ -210,6 +222,9 @@ func (sc *slideCtx) backgroundPicture(bf *xmltree.Node, rels map[string]string, 
 // given part's relationships, as a data URL the browser can show, plus its
 // size in pixels when the format says (0 otherwise)
 func (d *pptxDoc) blipSource(blip *xmltree.Node, rels map[string]string, dir string) (string, int, int, bool) {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "pptxDoc.blipSource: len(rels)=%d dir=%.120q", len(rels), dir)
+	}
 	if blip == nil || rels == nil {
 		return "", 0, 0, false
 	}
@@ -244,6 +259,7 @@ func (d *pptxDoc) blipSource(blip *xmltree.Node, rels map[string]string, dir str
 // pointing right) or a radial centre (<a:path> with the <a:fillToRect>
 // focus). Path gradients run from the focus (stop 0) outwards.
 func (cc *colorCtx) gradientOf(gf *xmltree.Node) *model.Gradient {
+	logger.DebugTrace("office/pptx", "colorCtx.gradientOf")
 	lst := gf.First("gsLst")
 	if lst == nil {
 		return nil
@@ -290,6 +306,9 @@ func (cc *colorCtx) gradientOf(gf *xmltree.Node) *model.Gradient {
 
 // opaqueHex drops the alpha of a "#rrggbbaa" colour
 func opaqueHex(c string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "opaqueHex: c=%.120q", c)
+	}
 	if len(c) == 9 && c[0] == '#' {
 		return c[:7]
 	}
@@ -301,6 +320,7 @@ func opaqueHex(c string) string {
 // takes the theme style its <p:style><a:fillRef> points at - the style
 // matrix entry, with the reference's colour as its phClr.
 func (sc *slideCtx) shapeFill(node, spPr *xmltree.Node) (string, *model.Gradient) {
+	logger.DebugTrace("office/pptx", "slideCtx.shapeFill")
 	if spPr != nil {
 		if gf := spPr.First("gradFill"); gf != nil && spPr.First("noFill") == nil {
 			if g := sc.cc.gradientOf(gf); g != nil {
@@ -317,6 +337,7 @@ func (sc *slideCtx) shapeFill(node, spPr *xmltree.Node) (string, *model.Gradient
 // styleRefFill resolves <p:style><a:fillRef idx> through the theme's fill
 // style list (idx 1..3, 0 = no fill; 1001+ are background styles)
 func (sc *slideCtx) styleRefFill(node *xmltree.Node) (string, *model.Gradient) {
+	logger.DebugTrace("office/pptx", "slideCtx.styleRefFill")
 	ref := node.Path("style", "fillRef")
 	if ref == nil {
 		return "", nil
@@ -327,6 +348,7 @@ func (sc *slideCtx) styleRefFill(node *xmltree.Node) (string, *model.Gradient) {
 // fillRefFill resolves one <a:fillRef idx> (a shape style's, or a table
 // style part's) through the theme's fill style lists
 func (sc *slideCtx) fillRefFill(ref *xmltree.Node) (string, *model.Gradient) {
+	logger.DebugTrace("office/pptx", "slideCtx.fillRefFill")
 	idx := int(units.AtofDefault(ref.Attr("idx"), 0))
 	if idx == 0 {
 		return "none", nil
@@ -368,6 +390,7 @@ func (sc *slideCtx) fillRefFill(ref *xmltree.Node) (string, *model.Gradient) {
 
 // hasFillChoice reports whether a shape properties block states a fill
 func hasFillChoice(spPr *xmltree.Node) bool {
+	logger.DebugTrace("office/pptx", "hasFillChoice")
 	for _, k := range []string{"noFill", "solidFill", "gradFill", "blipFill", "pattFill", "grpFill"} {
 		if spPr.First(k) != nil {
 			return true
@@ -381,6 +404,9 @@ func hasFillChoice(spPr *xmltree.Node) bool {
 // (insets of the frame, negative ones reaching past it) after <a:srcRect>
 // cropped its source; both fold into the editor's single crop.
 func (sc *slideCtx) pictureFillObject(bf *xmltree.Node, prst string, box xfrmBox, stroke string, strokeW float64, dash bool) *model.Object {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "slideCtx.pictureFillObject: prst=%.120q stroke=%.120q strokeW=%g dash=%t", prst, stroke, strokeW, dash)
+	}
 	blip := bf.First("blip")
 	src, _, _, ok := sc.doc.blipSource(blip, sc.partRels(), sc.partDir())
 	if !ok {
@@ -431,6 +457,7 @@ func (sc *slideCtx) pictureFillObject(bf *xmltree.Node, prst string, box xfrmBox
 // hasVisibleText reports whether a text body has any text that shows
 // (a run with <a:noFill/> does not)
 func hasVisibleText(tx *xmltree.Node) bool {
+	logger.DebugTrace("office/pptx", "hasVisibleText")
 	if tx == nil {
 		return false
 	}
@@ -455,6 +482,7 @@ func hasVisibleText(tx *xmltree.Node) bool {
 // Reports false when the frame is not a diagram or has no drawing, so the
 // caller treats it as the frame it is.
 func (sc *slideCtx) walkDiagram(frame *xmltree.Node, cm coordMap, slide *model.Slide, z *int) bool {
+	logger.DebugTrace("office/pptx", "slideCtx.walkDiagram")
 	gdata := frame.Path("graphic", "graphicData")
 	if gdata == nil || !strings.HasSuffix(gdata.Attr("uri"), "/diagram") {
 		return false
@@ -532,6 +560,7 @@ func (sc *slideCtx) walkDiagram(frame *xmltree.Node, cm coordMap, slide *model.S
 // direction (CSS angle back to DrawingML's, 0 pointing right) or the centre
 // of a radial one as a point-sized fillToRect
 func gradFillXML(g *model.Gradient) string {
+	logger.DebugTrace("office/pptx", "gradFillXML")
 	var sb strings.Builder
 	sb.WriteString(`<a:gradFill rotWithShape="1"><a:gsLst>`)
 	for _, st := range g.Stops {
@@ -553,6 +582,9 @@ func gradFillXML(g *model.Gradient) string {
 // bgPictureXML writes a picture background, stretched to where the slide
 // places it (fillRect insets, negative past the edges)
 func bgPictureXML(im *model.BgImage, rid string, p *model.Presentation) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/pptx", "bgPictureXML: rid=%.120q", rid)
+	}
 	W, H := p.Dims()
 	w, h := float64(W), float64(H)
 	blip := `<a:blip r:embed="` + rid + `">`

@@ -4,10 +4,12 @@ import (
 	"net/http"
 
 	oauth "imuslab.com/arozos/mod/auth/oauth2"
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 )
 
 func OAuthInit() {
+	logger.Debug("Core", "OAuthInit")
 	oAuthHandler := oauth.NewOauthHandler(authAgent, registerHandler, sysdb)
 
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{

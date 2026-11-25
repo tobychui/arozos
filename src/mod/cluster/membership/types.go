@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/cluster/capability"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // NodeState is the computed liveness state of a node.
@@ -64,6 +65,7 @@ type Health struct {
 
 // Degraded reports whether the snapshot indicates an overloaded node.
 func (h Health) Degraded() bool {
+	logger.Debug("cluster/membership", "Health.Degraded")
 	if h.Timestamp == 0 {
 		return false
 	}
@@ -100,6 +102,7 @@ type NodeRecord struct {
 
 // Clone returns a deep enough copy for handing out of the manager.
 func (n *NodeRecord) Clone() *NodeRecord {
+	logger.Debug("cluster/membership", "NodeRecord.Clone")
 	c := *n
 	if n.Capabilities.Features != nil {
 		c.Capabilities.Features = map[string]bool{}
@@ -113,6 +116,9 @@ func (n *NodeRecord) Clone() *NodeRecord {
 // ComputeState derives the liveness state of a record at time now. Local is
 // true for the record describing this very node.
 func (n *NodeRecord) ComputeState(now time.Time, local bool) NodeState {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "NodeRecord.ComputeState: local=%t", local)
+	}
 	switch n.AdminState {
 	case AdminStateMaintenance:
 		return StateMaintenance
@@ -215,12 +221,20 @@ type NodeIDRequest struct {
 }
 
 // NextVersion is the exported form of nextVersion for sibling cluster packages.
-func NextVersion(prev int64) int64 { return nextVersion(prev) }
+func NextVersion(prev int64) int64 {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("cluster/membership", "NextVersion: prev=%d", prev)
+	}
+	return nextVersion(prev)
+}
 
 // nextVersion returns a record version stamp that is strictly greater than
 // prev, so a change made in the same millisecond as the previous one still
 // wins the last-writer-wins merge on every other node.
 func nextVersion(prev int64) int64 {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/membership", "nextVersion: prev=%d", prev)
+	}
 	v := time.Now().UnixMilli()
 	if v <= prev {
 		v = prev + 1

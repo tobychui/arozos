@@ -24,6 +24,8 @@ import (
 	"strings"
 
 	"golang.org/x/net/html"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type sanitizeOptions struct {
@@ -68,6 +70,9 @@ var (
 // sanitizeHTML cleans an HTML document. The result is a complete document
 // (html/head/body) ready to be placed in an iframe's srcdoc.
 func sanitizeHTML(input string, options sanitizeOptions) sanitizeResult {
+	if logger.IsDebug() {
+		logger.Debugf("email", "sanitizeHTML: input=%.120q", input)
+	}
 	result := sanitizeResult{}
 	document, err := html.Parse(strings.NewReader(input))
 	if err != nil {
@@ -121,6 +126,7 @@ func sanitizeHTML(input string, options sanitizeOptions) sanitizeResult {
 }
 
 func sanitizeAttributes(node *html.Node, options sanitizeOptions, result *sanitizeResult) {
+	logger.Debug("email", "sanitizeAttributes")
 	name := strings.ToLower(node.Data)
 	kept := node.Attr[:0]
 	for _, attribute := range node.Attr {
@@ -189,6 +195,7 @@ func sanitizeAttributes(node *html.Node, options sanitizeOptions, result *saniti
 }
 
 func sanitizeStyleElement(node *html.Node, options sanitizeOptions, result *sanitizeResult) {
+	logger.Debug("email", "sanitizeStyleElement")
 	var css strings.Builder
 	for child := node.FirstChild; child != nil; child = child.NextSibling {
 		if child.Type == html.TextNode {
@@ -208,6 +215,9 @@ func sanitizeStyleElement(node *html.Node, options sanitizeOptions, result *sani
 
 // sanitizeCSS neutralises legacy script hooks and controls url() loads.
 func sanitizeCSS(css string, options sanitizeOptions, result *sanitizeResult) string {
+	if logger.IsDebug() {
+		logger.Debugf("email", "sanitizeCSS: css=%.120q", css)
+	}
 	css = cssDangerPattern.ReplaceAllString(css, "blocked-")
 	if cssImportPattern.MatchString(css) {
 		result.hasRemote = true
@@ -238,6 +248,7 @@ func sanitizeCSS(css string, options sanitizeOptions, result *sanitizeResult) st
 
 // safeLinkURL accepts absolute web, mail and phone links and in-page anchors.
 func safeLinkURL(raw string) (string, bool) {
+	logger.Debug("email", "safeLinkURL")
 	value := strings.TrimSpace(raw)
 	if value == "" {
 		return "", false
@@ -261,6 +272,7 @@ func safeLinkURL(raw string) (string, bool) {
 // resolveImageURL decides what an image reference becomes. remote reports a
 // network fetch; ok reports whether the (possibly rewritten) value may stay.
 func resolveImageURL(raw string, options sanitizeOptions) (resolved string, remote bool, ok bool) {
+	logger.Debug("email", "resolveImageURL")
 	value := strings.TrimSpace(raw)
 	lower := strings.ToLower(stripControlChars(value))
 	switch {
@@ -283,6 +295,9 @@ func resolveImageURL(raw string, options sanitizeOptions) (resolved string, remo
 }
 
 func stripControlChars(value string) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("email", "stripControlChars: value=%.120q", value)
+	}
 	return strings.Map(func(r rune) rune {
 		if r <= 0x20 || r == 0x7f {
 			return -1

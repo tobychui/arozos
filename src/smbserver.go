@@ -14,6 +14,7 @@ import (
 	"imuslab.com/arozos/mod/fileservers"
 	"imuslab.com/arozos/mod/fileservers/servers/smbserv"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/storage/smbserver/aroz"
 )
@@ -30,6 +31,9 @@ var SMBManager *smbserv.Manager
 
 // netbiosName turns the host name into a NetBIOS style name.
 func netbiosName(host string) string {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "netbiosName: host=%.120q", host)
+	}
 	var b strings.Builder
 	for _, r := range strings.ToUpper(host) {
 		if b.Len() == 15 {
@@ -48,6 +52,7 @@ func netbiosName(host string) string {
 // SMBServerInit sets up the manager, its endpoints and its list entry. It runs
 // after the Samba wrapper, which it has to share port 445 with.
 func SMBServerInit(router, adminRouter *prout.RouterDef) {
+	logger.Debug("Core", "SMBServerInit")
 	//Windows keeps port 445 for its own file sharing, and only Windows 11 24H2
 	//and newer clients can reach another port, so on a Windows host the
 	//server, its settings and its endpoints are left out altogether
@@ -152,6 +157,9 @@ func SMBServerInit(router, adminRouter *prout.RouterDef) {
 // sambaToggle starts or stops Samba, which cannot run beside a built in server
 // on the same port.
 func sambaToggle(enabled bool) error {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "sambaToggle: enabled=%t", enabled)
+	}
 	if enabled && SMBManager != nil && SMBManager.HoldsDefaultPort() {
 		return errors.New("the built in SMB server holds port 445. Only one of them can run at a time")
 	}
@@ -160,6 +168,7 @@ func sambaToggle(enabled bool) error {
 
 // SMBServerShutdown stops the SMB server if it is running.
 func SMBServerShutdown() {
+	logger.Debug("Core", "SMBServerShutdown")
 	if SMBManager != nil {
 		SMBManager.Close()
 	}
@@ -168,6 +177,9 @@ func SMBServerShutdown() {
 // smbTrash moves a file deleted over SMB into the trash bin, as the File
 // Manager does, so it can be restored from there.
 func smbTrash(fsh *filesystem.FileSystemHandler, subpath, rpath, username string) error {
+	if logger.IsDebug() {
+		logger.Debugf("Core", "smbTrash: subpath=%.120q rpath=%.120q username=%.120q", subpath, rpath, username)
+	}
 	err := system_fs_moveToTrash(fsh, subpath, rpath, username)
 	if errors.Is(err, errTrashQuota) {
 		return aroz.ErrTrashFull

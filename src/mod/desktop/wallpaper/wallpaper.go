@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -30,6 +32,9 @@ type Theme struct {
 // returns one Theme per sub-folder, each listing the wallpaper filenames it
 // holds. Themes are returned in a stable alphabetical order.
 func ListThemes(wallpaperRoot string) ([]Theme, error) {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/wallpaper", "ListThemes: wallpaperRoot=%.120q", wallpaperRoot)
+	}
 	themeFolders, err := os.ReadDir(wallpaperRoot)
 	if err != nil {
 		return nil, err
@@ -71,6 +76,9 @@ func ListThemes(wallpaperRoot string) ([]Theme, error) {
 // IsSupportedWallpaper reports whether a filename carries an extension that can
 // be used as a desktop wallpaper.
 func IsSupportedWallpaper(filename string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("desktop/wallpaper", "IsSupportedWallpaper: filename=%.120q", filename)
+	}
 	fileExtension := strings.ToLower(filepath.Ext(filename))
 	for _, supportedExtension := range SupportedExtensions {
 		if fileExtension == supportedExtension {

@@ -13,6 +13,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"sort"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // maxCmapWork bounds the codepoints a cmap may make us walk, so a subtable
@@ -29,6 +31,9 @@ type Mapping struct {
 
 // cmapRank orders the Unicode subtables, best first; 0 means unusable
 func cmapRank(platform, encoding uint16) int {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "cmapRank: platform=%d encoding=%d", platform, encoding)
+	}
 	switch {
 	case platform == 3 && encoding == 10:
 		return 6
@@ -49,6 +54,9 @@ func cmapRank(platform, encoding uint16) int {
 // ParseCmap returns the codepoint to glyph map of the font's best Unicode
 // subtable. Glyph ids at or beyond numGlyphs are dropped.
 func ParseCmap(table []byte, numGlyphs int) (map[uint32]uint16, error) {
+	if logger.IsDebug() {
+		logger.Debugf("locale/fonts", "ParseCmap: len(table)=%d numGlyphs=%d", len(table), numGlyphs)
+	}
 	count, err := u16(table, 2)
 	if err != nil {
 		return nil, err
@@ -195,6 +203,9 @@ func ParseCmap(table []byte, numGlyphs int) (map[uint32]uint16, error) {
 
 // BuildCmap writes a cmap table holding the given mappings
 func BuildCmap(mappings []Mapping) []byte {
+	if logger.IsDebug() {
+		logger.Debugf("locale/fonts", "BuildCmap: len(mappings)=%d", len(mappings))
+	}
 	sorted := append([]Mapping(nil), mappings...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Codepoint < sorted[j].Codepoint })
 
@@ -231,6 +242,9 @@ func BuildCmap(mappings []Mapping) []byte {
 // buildFormat4 maps runs of consecutive codepoints through a glyph id array.
 // It returns nil when the subtable would not fit format 4's 16 bit length.
 func buildFormat4(bmp []Mapping) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "buildFormat4: len(bmp)=%d", len(bmp))
+	}
 	type segment struct{ start, end, first int } // first: index into bmp
 	var segs []segment
 	for i, m := range bmp {
@@ -286,6 +300,9 @@ func buildFormat4(bmp []Mapping) []byte {
 
 // buildFormat12 groups runs where both codepoints and glyph ids are consecutive
 func buildFormat12(sorted []Mapping) []byte {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("locale/fonts", "buildFormat12: len(sorted)=%d", len(sorted))
+	}
 	type group struct{ start, end, glyph uint32 }
 	var groups []group
 	for _, m := range sorted {

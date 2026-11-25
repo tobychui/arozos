@@ -16,6 +16,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Workbook is the Sheets document body
@@ -100,6 +102,9 @@ type FreezePane struct {
 
 // ParseWorkbookJSON decodes the Sheets body JSON into a Workbook
 func ParseWorkbookJSON(jsonStr string) (*Workbook, error) {
+	if logger.IsDebug() {
+		logger.Debugf("office/model", "ParseWorkbookJSON: jsonStr=%.120q", jsonStr)
+	}
 	wb := Workbook{}
 	if err := json.Unmarshal([]byte(jsonStr), &wb); err != nil {
 		return nil, errors.New("invalid workbook JSON: " + err.Error())
@@ -112,6 +117,7 @@ func ParseWorkbookJSON(jsonStr string) (*Workbook, error) {
 
 // WorkbookToJSON serializes a Workbook back to the Sheets body JSON
 func WorkbookToJSON(wb *Workbook) (string, error) {
+	logger.Debug("office/model", "WorkbookToJSON")
 	if wb == nil {
 		return "", errors.New("nil workbook")
 	}
@@ -127,6 +133,9 @@ func WorkbookToJSON(wb *Workbook) (string, error) {
 var cellKeyRe = regexp.MustCompile(`^([A-Za-z]{1,3})(\d+)$`)
 
 func ColName(i int) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/model", "ColName: i=%d", i)
+	}
 	s := ""
 	i = i + 1
 	for i > 0 {
@@ -138,6 +147,9 @@ func ColName(i int) string {
 }
 
 func ColIndex(name string) int {
+	if logger.IsDebug() {
+		logger.Debugf("office/model", "ColIndex: name=%.120q", name)
+	}
 	n := 0
 	for _, ch := range strings.ToUpper(name) {
 		n = n*26 + int(ch-'A'+1)
@@ -146,10 +158,16 @@ func ColIndex(name string) int {
 }
 
 func CellRef(col, row int) string {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/model", "CellRef: col=%d row=%d", col, row)
+	}
 	return ColName(col) + strconv.Itoa(row+1)
 }
 
 func ParseCellRef(ref string) (col, row int, ok bool) {
+	if logger.IsDebug() {
+		logger.Debugf("office/model", "ParseCellRef: ref=%.120q", ref)
+	}
 	m := cellKeyRe.FindStringSubmatch(strings.TrimSpace(ref))
 	if m == nil {
 		return 0, 0, false
@@ -165,6 +183,9 @@ func ParseCellRef(ref string) (col, row int, ok bool) {
 var xlsxNumRe = regexp.MustCompile(`^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$`)
 
 func LooksNumeric(s string) bool {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/model", "LooksNumeric: s=%.120q", s)
+	}
 	return xlsxNumRe.MatchString(strings.TrimSpace(s))
 }
 
@@ -191,6 +212,9 @@ type CfStyle struct {
 type CfOperand string
 
 func (o *CfOperand) UnmarshalJSON(b []byte) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/model", "CfOperand.UnmarshalJSON: len(b)=%d", len(b))
+	}
 	var s string
 	if err := json.Unmarshal(b, &s); err == nil {
 		*o = CfOperand(s)
@@ -214,6 +238,9 @@ const (
 // TextAsRaw keeps string-typed values as strings in the editor: text that
 // would re-parse as a number/bool gets Excel's leading-quote escape
 func TextAsRaw(s string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/model", "TextAsRaw: s=%.120q", s)
+	}
 	t := strings.TrimSpace(s)
 	if t == "" {
 		return s
@@ -226,6 +253,9 @@ func TextAsRaw(s string) string {
 }
 
 func SanitizeSheetName(name string, idx int, used map[string]bool) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/model", "SanitizeSheetName: name=%.120q idx=%d len(used)=%d", name, idx, len(used))
+	}
 	n := strings.TrimSpace(name)
 	if n == "" {
 		n = fmt.Sprintf("Sheet%d", idx+1)

@@ -21,6 +21,8 @@ package sharedspace
 import (
 	"time"
 	"unicode/utf8"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const (
@@ -77,6 +79,7 @@ type DocSnapshot struct {
 
 // snapshot builds a DocSnapshot. Callers must hold the owning Space's mutex.
 func (d *Doc) snapshot() *DocSnapshot {
+	logger.DebugTrace("sharedspace", "Doc.snapshot")
 	return &DocSnapshot{
 		ID:        d.id,
 		Name:      d.name,
@@ -91,6 +94,9 @@ func (d *Doc) snapshot() *DocSnapshot {
 
 // CreateDoc creates an empty document in the space. Requires post rights.
 func (s *Space) CreateDoc(requester string, name string) (*DocSnapshot, error) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Space.CreateDoc: requester=%.120q name=%.120q", requester, name)
+	}
 	if !s.CanPost(requester) {
 		return nil, ErrPermissionDenied
 	}
@@ -129,6 +135,9 @@ func (s *Space) CreateDoc(requester string, name string) (*DocSnapshot, error) {
 
 // GetDoc returns a snapshot of the document with the given ID.
 func (s *Space) GetDoc(docID string) (*DocSnapshot, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Space.GetDoc: docID=%.120q", docID)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	doc, ok := s.docs[docID]
@@ -141,6 +150,7 @@ func (s *Space) GetDoc(docID string) (*DocSnapshot, bool) {
 // ListDocs returns snapshots of every document in the space, without their
 // content (Content is left empty to keep listings cheap).
 func (s *Space) ListDocs() []*DocSnapshot {
+	logger.Debug("sharedspace", "Space.ListDocs")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	list := make([]*DocSnapshot, 0, len(s.docs))
@@ -154,6 +164,7 @@ func (s *Space) ListDocs() []*DocSnapshot {
 
 // DocCount returns the number of documents in the space.
 func (s *Space) DocCount() int {
+	logger.Debug("sharedspace", "Space.DocCount")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return len(s.docs)
@@ -165,6 +176,9 @@ func (s *Space) DocCount() int {
 // On success the revision increments and a doc-updated event carrying the
 // new snapshot and the splice patch is emitted.
 func (s *Space) UpdateDoc(requester string, docID string, baseRevision int64, content string) (*DocSnapshot, error) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Space.UpdateDoc: requester=%.120q docID=%.120q baseRevision=%d", requester, docID, baseRevision)
+	}
 	if !s.CanPost(requester) {
 		return nil, ErrPermissionDenied
 	}
@@ -210,6 +224,9 @@ func (s *Space) UpdateDoc(requester string, docID string, baseRevision int64, co
 
 // DocHistory returns the recent revision log of a document (newest last).
 func (s *Space) DocHistory(docID string) ([]DocRevision, bool) {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Space.DocHistory: docID=%.120q", docID)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	doc, ok := s.docs[docID]
@@ -224,6 +241,9 @@ func (s *Space) DocHistory(docID string) ([]DocRevision, bool) {
 // DeleteDoc removes a document. Only the document's creator, a space
 // manager, or the system may delete it.
 func (s *Space) DeleteDoc(requester string, docID string) error {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "Space.DeleteDoc: requester=%.120q docID=%.120q", requester, docID)
+	}
 	s.mu.Lock()
 	doc, ok := s.docs[docID]
 	if !ok {
@@ -246,6 +266,9 @@ func (s *Space) DeleteDoc(requester string, docID string) error {
 // computeSplicePatch derives the single splice (common prefix / suffix diff)
 // that turns oldStr into newStr, in rune offsets.
 func computeSplicePatch(oldStr string, newStr string) DocPatch {
+	if logger.IsDebug() {
+		logger.Debugf("sharedspace", "computeSplicePatch: oldStr=%.120q newStr=%.120q", oldStr, newStr)
+	}
 	oldRunes := []rune(oldStr)
 	newRunes := []rune(newStr)
 

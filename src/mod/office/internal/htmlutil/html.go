@@ -14,6 +14,8 @@ import (
 	"strings"
 
 	"golang.org/x/net/html"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var BlockTags = map[string]bool{
@@ -23,6 +25,7 @@ var BlockTags = map[string]bool{
 }
 
 func HasBlockChild(n *html.Node) bool {
+	logger.Debug("office/internal/htmlutil", "HasBlockChild")
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if c.Type == html.ElementNode && BlockTags[c.Data] {
 			return true
@@ -32,6 +35,9 @@ func HasBlockChild(n *html.Node) bool {
 }
 
 func FindNode(n *html.Node, tag string) *html.Node {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("office/internal/htmlutil", "FindNode: tag=%.120q", tag)
+	}
 	if n.Type == html.ElementNode && n.Data == tag {
 		return n
 	}
@@ -44,6 +50,9 @@ func FindNode(n *html.Node, tag string) *html.Node {
 }
 
 func Attr(n *html.Node, name string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/htmlutil", "Attr: name=%.120q", name)
+	}
 	for _, a := range n.Attr {
 		if a.Key == name {
 			return a.Val
@@ -54,6 +63,9 @@ func Attr(n *html.Node, name string) string {
 
 // StyleProp extracts one property from an inline style attribute
 func StyleProp(style, prop string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/htmlutil", "StyleProp: style=%.120q prop=%.120q", style, prop)
+	}
 	for _, decl := range strings.Split(style, ";") {
 		kv := strings.SplitN(decl, ":", 2)
 		if len(kv) == 2 && strings.TrimSpace(strings.ToLower(kv[0])) == prop {
@@ -67,6 +79,9 @@ func StyleProp(style, prop string) string {
 // pixel/point units - the column resizer writes px), normalized to 100;
 // equal split when absent or malformed
 func TableColPercents(tbl *html.Node, cols int) []float64 {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/htmlutil", "TableColPercents: cols=%d", cols)
+	}
 	out := make([]float64, cols)
 	got := 0
 	for cg := tbl.FirstChild; cg != nil; cg = cg.NextSibling {
@@ -112,6 +127,7 @@ func TableColPercents(tbl *html.Node, cols int) []float64 {
 // TableWidthPct reads the table's own inline width (px, pt or percent) as
 // a percentage of the text width; 100 when absent
 func TableWidthPct(tbl *html.Node) float64 {
+	logger.Debug("office/internal/htmlutil", "TableWidthPct")
 	const textWpx = 620.0
 	ws := strings.TrimSpace(StyleProp(Attr(tbl, "style"), "width"))
 	if strings.HasSuffix(ws, "%") {
@@ -142,6 +158,9 @@ func TableWidthPct(tbl *html.Node) float64 {
 // CSSColorHex normalizes "#rgb", "#rrggbb" or "rgb(r, g, b)" to "RRGGBB"
 // ("" when unparseable or transparent)
 func CSSColorHex(c string) string {
+	if logger.IsDebug() {
+		logger.Debugf("office/internal/htmlutil", "CSSColorHex: c=%.120q", c)
+	}
 	c = strings.TrimSpace(c)
 	if c == "" || c == "transparent" {
 		return ""
@@ -192,6 +211,7 @@ func CSSColorHex(c string) string {
 }
 
 func TextContent(n *html.Node) string {
+	logger.Debug("office/internal/htmlutil", "TextContent")
 	var sb strings.Builder
 	var walk func(*html.Node)
 	walk = func(x *html.Node) {

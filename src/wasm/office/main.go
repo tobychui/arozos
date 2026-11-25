@@ -37,6 +37,8 @@ package main
 
 import (
 	"syscall/js"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 const bridgeVersion = "1"
@@ -44,18 +46,25 @@ const bridgeVersion = "1"
 // jsError is the shape every failure comes back as: the front end shows
 // .error verbatim, so it must read as a sentence a person can act on.
 func jsError(err error) map[string]interface{} {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("wasm/office", "jsError: err=%v", err)
+	}
 	return map[string]interface{}{"ok": false, "error": err.Error()}
 }
 
 // toUint8Array copies Go bytes into a fresh JS Uint8Array. js.CopyBytesToJS
 // needs a real typed array on the JS side, so one is allocated first.
 func toUint8Array(b []byte) js.Value {
+	if logger.IsDebug() {
+		logger.Debugf("wasm/office", "toUint8Array: len(b)=%d", len(b))
+	}
 	arr := js.Global().Get("Uint8Array").New(len(b))
 	js.CopyBytesToJS(arr, b)
 	return arr
 }
 
 func fromUint8Array(v js.Value) []byte {
+	logger.Debug("wasm/office", "fromUint8Array")
 	n := v.Get("length").Int()
 	b := make([]byte, n)
 	js.CopyBytesToGo(b, v)
@@ -63,6 +72,9 @@ func fromUint8Array(v js.Value) []byte {
 }
 
 func stringSlice(list []string) []interface{} {
+	if logger.IsDebug() {
+		logger.Debugf("wasm/office", "stringSlice: len(list)=%d", len(list))
+	}
 	out := make([]interface{}, len(list))
 	for i, s := range list {
 		out[i] = s
@@ -75,6 +87,7 @@ func stringSlice(list []string) []interface{} {
 // runtime cannot restart inside the page, so a panic would leave every later
 // conversion dead until the tab is reloaded.
 func recoverTo(result *interface{}) {
+	logger.Debug("wasm/office", "recoverTo")
 	if r := recover(); r != nil {
 		msg := "conversion failed"
 		if e, ok := r.(error); ok {
@@ -87,6 +100,9 @@ func recoverTo(result *interface{}) {
 }
 
 func runImport(this js.Value, args []js.Value) (result interface{}) {
+	if logger.IsDebug() {
+		logger.Debugf("wasm/office", "runImport: len(args)=%d", len(args))
+	}
 	defer recoverTo(&result)
 	if len(args) < 2 {
 		return map[string]interface{}{"ok": false, "error": "runImport(name, bytes) needs two arguments"}
@@ -101,6 +117,9 @@ func runImport(this js.Value, args []js.Value) (result interface{}) {
 }
 
 func runExport(this js.Value, args []js.Value) (result interface{}) {
+	if logger.IsDebug() {
+		logger.Debugf("wasm/office", "runExport: len(args)=%d", len(args))
+	}
 	defer recoverTo(&result)
 	if len(args) < 2 {
 		return map[string]interface{}{"ok": false, "error": "runExport(name, json) needs two arguments"}
@@ -123,6 +142,7 @@ func runExport(this js.Value, args []js.Value) (result interface{}) {
 }
 
 func main() {
+	logger.Debug("wasm/office", "main")
 	in, out := ConverterNames()
 	js.Global().Set("__officeWasm", map[string]interface{}{
 		"version":   bridgeVersion,

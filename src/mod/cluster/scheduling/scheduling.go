@@ -24,6 +24,7 @@ import (
 
 	"imuslab.com/arozos/mod/cluster/membership"
 	"imuslab.com/arozos/mod/cluster/metadata"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // SettingKey is where the weights live in the replicated setting store.
@@ -45,6 +46,7 @@ type Weights struct {
 
 // DefaultWeights is the shipped tuning.
 func DefaultWeights() Weights {
+	logger.DebugTrace("cluster/scheduling", "DefaultWeights")
 	return Weights{
 		Locality:  0.45,
 		CPU:       0.20,
@@ -60,6 +62,7 @@ func DefaultWeights() Weights {
 
 // Validate rejects nonsense weights.
 func (w Weights) Validate() error {
+	logger.Debug("cluster/scheduling", "Weights.Validate")
 	vals := map[string]float64{
 		"locality": w.Locality, "cpu": w.CPU, "memory": w.Memory, "disk": w.Disk,
 		"queue": w.Queue, "latency": w.Latency, "degraded": w.Degraded, "preferred": w.Preferred,
@@ -123,6 +126,7 @@ type Manager struct {
 
 // New creates the scorer.
 func New(m *membership.Manager, meta *metadata.Manager) (*Manager, error) {
+	logger.Debug("cluster/scheduling", "New")
 	if m == nil || meta == nil {
 		return nil, errors.New("membership and metadata are required")
 	}
@@ -131,6 +135,7 @@ func New(m *membership.Manager, meta *metadata.Manager) (*Manager, error) {
 
 // Weights returns the cluster-wide weights (defaults until an admin sets them).
 func (s *Manager) Weights() Weights {
+	logger.Debug("cluster/scheduling", "Manager.Weights")
 	if st, ok := s.meta.Setting(SettingKey); ok {
 		//Start from the defaults so a record written by an older version,
 		//which did not know a weight yet, keeps that weight's default
@@ -149,6 +154,7 @@ func (s *Manager) Weights() Weights {
 
 // SetWeights replicates new weights to the whole cluster.
 func (s *Manager) SetWeights(w Weights) error {
+	logger.Debug("cluster/scheduling", "Manager.SetWeights")
 	if err := w.Validate(); err != nil {
 		return err
 	}
@@ -166,13 +172,19 @@ func (s *Manager) SetWeights(w Weights) error {
 }
 
 // ResetWeights restores the shipped tuning.
-func (s *Manager) ResetWeights() error { return s.SetWeights(DefaultWeights()) }
+func (s *Manager) ResetWeights() error {
+	logger.DebugTrace("cluster/scheduling", "Manager.ResetWeights")
+	return s.SetWeights(DefaultWeights())
+}
 
 /*
 	Scoring
 */
 
 func clamp01(v float64) float64 {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/scheduling", "clamp01: v=%g", v)
+	}
 	if v < 0 {
 		return 0
 	}
@@ -185,6 +197,7 @@ func clamp01(v float64) float64 {
 // cpuFree is the share of the node's processor that is idle. A node that has
 // not reported health yet counts as idle so a fresh node is not punished.
 func cpuFree(n membership.NodeView) float64 {
+	logger.Debug("cluster/scheduling", "cpuFree")
 	if n.Health.Timestamp == 0 {
 		return 1
 	}
@@ -193,6 +206,7 @@ func cpuFree(n membership.NodeView) float64 {
 
 // Score rates one candidate and explains the result.
 func (s *Manager) Score(c Candidate) (float64, []Factor) {
+	logger.Debug("cluster/scheduling", "Manager.Score")
 	w := s.Weights()
 	factors := []Factor{}
 	add := func(name string, value float64, weight float64) {
@@ -268,6 +282,9 @@ func (s *Manager) Score(c Candidate) (float64, []Factor) {
 // Rank scores every candidate and returns them best first. Candidates that
 // are not eligible keep their reason and sort last.
 func (s *Manager) Rank(candidates []Candidate, eligible func(Candidate) (bool, string)) []Result {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/scheduling", "Manager.Rank: len(candidates)=%d", len(candidates))
+	}
 	out := []Result{}
 	anyOnline := false
 	for _, c := range candidates {
@@ -302,6 +319,9 @@ func (s *Manager) Rank(candidates []Candidate, eligible func(Candidate) (bool, s
 
 // Best returns the winning node of a ranking, or "" with the first reason.
 func Best(results []Result) (string, string) {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/scheduling", "Best: len(results)=%d", len(results))
+	}
 	for _, r := range results {
 		if r.Eligible {
 			return r.NodeID, ""
@@ -344,6 +364,7 @@ type Status struct {
 // Status builds a preview: every node scored with no locality and no queue,
 // which is what an admin wants to see when tuning the weights.
 func (s *Manager) Status() Status {
+	logger.Debug("cluster/scheduling", "Manager.Status")
 	st := Status{InCluster: s.m.InCluster(), Weights: s.Weights(), Defaults: DefaultWeights(), Nodes: []NodeStatus{}, Updated: time.Now().Unix()}
 	for _, n := range s.m.NodeViews() {
 		c := Candidate{Node: n, FreeDisk: -1, LatencyToData: -1, Diversity: -1}
@@ -371,6 +392,9 @@ func (s *Manager) Status() Status {
 
 // ParseFeatures splits a comma separated feature list.
 func ParseFeatures(s string) []string {
+	if logger.IsDebug() {
+		logger.Debugf("cluster/scheduling", "ParseFeatures: s=%.120q", s)
+	}
 	out := []string{}
 	for _, p := range strings.Split(s, ",") {
 		if v := strings.TrimSpace(p); v != "" {

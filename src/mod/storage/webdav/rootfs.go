@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network/webdav"
 )
 
@@ -30,6 +31,9 @@ type RootFsWebDAVAdapter struct {
 // It is built per request, so newly mounted or closed storages show up
 // immediately.
 func NewRootFsWebDAVAdapter(fshs []*filesystem.FileSystemHandler, username string, canWrite WriteChecker) *RootFsWebDAVAdapter {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "NewRootFsWebDAVAdapter: len(fshs)=%d username=%.120q", len(fshs), username)
+	}
 	adapters := map[string]*FshWebDAVAdapter{}
 	for _, fsh := range fshs {
 		adapters[fsh.UUID] = NewFshWebDAVAdapter(fsh, username, canWrite)
@@ -43,6 +47,9 @@ func NewRootFsWebDAVAdapter(fshs []*filesystem.FileSystemHandler, username strin
 // splitRootPath cleans a request path and splits it into the storage UUID
 // and the path inside that storage. An empty UUID means the root itself.
 func splitRootPath(name string) (string, string) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "splitRootPath: name=%.120q", name)
+	}
 	name = path.Clean("/" + name)
 	if name == "/" {
 		return "", "/"
@@ -57,6 +64,9 @@ func splitRootPath(name string) (string, string) {
 // isRootLevel reports whether name is the root or an entry directly inside
 // it. Those entries are the storages themselves and cannot be changed.
 func isRootLevel(name string) bool {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "isRootLevel: name=%.120q", name)
+	}
 	_, subpath := splitRootPath(name)
 	return subpath == "/"
 }
@@ -64,6 +74,9 @@ func isRootLevel(name string) bool {
 // resolve returns the adapter of the storage that holds name and the path
 // inside it. adapter is nil (with a nil error) for the root itself.
 func (a *RootFsWebDAVAdapter) resolve(name string) (*FshWebDAVAdapter, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "RootFsWebDAVAdapter.resolve: name=%.120q", name)
+	}
 	uuid, subpath := splitRootPath(name)
 	if uuid == "" {
 		return nil, "/", nil
@@ -78,6 +91,7 @@ func (a *RootFsWebDAVAdapter) resolve(name string) (*FshWebDAVAdapter, string, e
 // rootFs builds the root listing as an in-memory file system holding one
 // folder per storage.
 func (a *RootFsWebDAVAdapter) rootFs(ctx context.Context) webdav.FileSystem {
+	logger.Debug("storage/webdav", "RootFsWebDAVAdapter.rootFs")
 	memfs := webdav.NewMemFS()
 	for _, fsh := range a.fshs {
 		memfs.Mkdir(ctx, "/"+fsh.UUID, 0555)
@@ -88,6 +102,9 @@ func (a *RootFsWebDAVAdapter) rootFs(ctx context.Context) webdav.FileSystem {
 // VirtualPath maps a request path to an arozos virtual path (e.g. user:/Video)
 // and its storage. It fails for the root, which has no virtual path.
 func (a *RootFsWebDAVAdapter) VirtualPath(name string) (*filesystem.FileSystemHandler, string, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "RootFsWebDAVAdapter.VirtualPath: name=%.120q", name)
+	}
 	adapter, subpath, err := a.resolve(name)
 	if err != nil {
 		return nil, "", err
@@ -99,6 +116,9 @@ func (a *RootFsWebDAVAdapter) VirtualPath(name string) (*filesystem.FileSystemHa
 }
 
 func (a *RootFsWebDAVAdapter) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "RootFsWebDAVAdapter.Mkdir: name=%.120q", name)
+	}
 	if isRootLevel(name) {
 		return os.ErrPermission
 	}
@@ -110,6 +130,9 @@ func (a *RootFsWebDAVAdapter) Mkdir(ctx context.Context, name string, perm os.Fi
 }
 
 func (a *RootFsWebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "RootFsWebDAVAdapter.OpenFile: name=%.120q flag=%d", name, flag)
+	}
 	if isRootLevel(name) && flag&(os.O_WRONLY|os.O_RDWR|os.O_CREATE|os.O_TRUNC|os.O_APPEND) != 0 {
 		return nil, os.ErrPermission
 	}
@@ -129,6 +152,9 @@ func (a *RootFsWebDAVAdapter) OpenFile(ctx context.Context, name string, flag in
 }
 
 func (a *RootFsWebDAVAdapter) RemoveAll(ctx context.Context, name string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "RootFsWebDAVAdapter.RemoveAll: name=%.120q", name)
+	}
 	if isRootLevel(name) {
 		return os.ErrPermission
 	}
@@ -140,6 +166,9 @@ func (a *RootFsWebDAVAdapter) RemoveAll(ctx context.Context, name string) error 
 }
 
 func (a *RootFsWebDAVAdapter) Rename(ctx context.Context, oldName, newName string) error {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "RootFsWebDAVAdapter.Rename: oldName=%.120q newName=%.120q", oldName, newName)
+	}
 	if isRootLevel(oldName) || isRootLevel(newName) {
 		return os.ErrPermission
 	}
@@ -181,6 +210,9 @@ func (a *RootFsWebDAVAdapter) Rename(ctx context.Context, oldName, newName strin
 }
 
 func (a *RootFsWebDAVAdapter) Stat(ctx context.Context, name string) (os.FileInfo, error) {
+	if logger.IsDebug() {
+		logger.Debugf("storage/webdav", "RootFsWebDAVAdapter.Stat: name=%.120q", name)
+	}
 	adapter, subpath, err := a.resolve(name)
 	if err != nil {
 		return nil, err
@@ -203,6 +235,9 @@ func (a *RootFsWebDAVAdapter) Stat(ctx context.Context, name string) (os.FileInf
 
 // copyAcrossFsh copies a file or folder tree from one storage to another.
 func copyAcrossFsh(srcFsa filesystem.FileSystemAbstraction, src string, destFsa filesystem.FileSystemAbstraction, dest string) error {
+	if logger.IsDebugTrace() {
+		logger.DebugTracef("storage/webdav", "copyAcrossFsh: src=%.120q dest=%.120q", src, dest)
+	}
 	s, err := srcFsa.Stat(src)
 	if err != nil {
 		return err
@@ -241,6 +276,7 @@ type renamedFileInfo struct {
 }
 
 func (r renamedFileInfo) Name() string {
+	logger.DebugTrace("storage/webdav", "renamedFileInfo.Name")
 	return r.name
 }
 
@@ -252,6 +288,7 @@ type renamedFile struct {
 }
 
 func (r renamedFile) Stat() (os.FileInfo, error) {
+	logger.Debug("storage/webdav", "renamedFile.Stat")
 	s, err := r.File.Stat()
 	if err != nil {
 		return nil, err
