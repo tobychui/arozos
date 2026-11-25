@@ -187,6 +187,8 @@ The following startup parameters are supported (v2.016)
         TLS certificate file (.crt) (default "localhost.crt")
   -console
         Enable the debugging console.
+  -debug
+        Write DEBUG level records to the console and the system log (storage, drive and file operation traces). Verbose, for tracing crashes
   -demo_mode
         Run the system in demo mode. All directories and database are read only.
   -dir_list

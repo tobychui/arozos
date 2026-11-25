@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // fakeBackend is an in-memory namespace.
@@ -378,5 +379,51 @@ func TestThumbnailWithoutBackendSupport(t *testing.T) {
 	}
 	if _, err := c.RenderThumbnail("/v/a.mp4"); !errors.Is(err, arozfs.ErrNoThumbnail) {
 		t.Errorf("RenderThumbnail on a plain backend should report ErrNoThumbnail, got %v", err)
+	}
+}
+
+// captureDebug turns debug mode on for one test, sends the system log to a
+// file of its own and returns a function that reads what was logged.
+func captureDebug(t *testing.T, enabled bool) func() string {
+	t.Helper()
+	l, err := logger.NewLogger("debug", t.TempDir(), true)
+	if err != nil {
+		t.Fatalf("NewLogger error: %v", err)
+	}
+	logger.SetDefaultLogger(l)
+	logger.SetDebug(enabled)
+	t.Cleanup(func() {
+		logger.SetDebug(false)
+		tmp, _ := logger.NewTmpLogger()
+		logger.SetDefaultLogger(tmp)
+		l.Close()
+	})
+	return func() string {
+		data, err := os.ReadFile(l.CurrentLogFile)
+		if err != nil {
+			t.Fatalf("ReadFile error: %v", err)
+		}
+		return string(data)
+	}
+}
+
+// TestDebugf checks the debug record of the drive, which warns when it has no
+// backend because the next call on it panics.
+func TestDebugf(t *testing.T) {
+	tests := []struct {
+		name    string
+		enabled bool
+		want    string
+	}{
+		{"debug off", false, ""},
+		{"no backend", true, "[Cluster FS] cluster:/ Stat \"/a\" [backend is nil: this call will panic]"},
+	}
+	for _, tt := range tests {
+		read := captureDebug(t, tt.enabled)
+		New("cluster", nil).debugf("Stat %q", "/a")
+		got := read()
+		if (tt.want == "") != (got == "") || !strings.Contains(got, tt.want) {
+			t.Errorf("%s: record %q, want %q", tt.name, got, tt.want)
+		}
 	}
 }

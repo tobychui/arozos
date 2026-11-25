@@ -1,10 +1,13 @@
 package nightly
 
 import (
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func TestNewNightlyTaskManager(t *testing.T) {
@@ -178,6 +181,53 @@ func TestTaskName(t *testing.T) {
 		got := taskName(tt.option, tt.task)
 		if !strings.HasSuffix(got, tt.want) {
 			t.Errorf("%s: taskName() = %q, want it to end with %q", tt.name, got, tt.want)
+		}
+	}
+}
+
+// captureDebug turns debug mode on for one test, sends the system log to a
+// file of its own and returns a function that reads what was logged.
+func captureDebug(t *testing.T, enabled bool) func() string {
+	t.Helper()
+	l, err := logger.NewLogger("debug", t.TempDir(), true)
+	if err != nil {
+		t.Fatalf("NewLogger error: %v", err)
+	}
+	logger.SetDefaultLogger(l)
+	logger.SetDebug(enabled)
+	t.Cleanup(func() {
+		logger.SetDebug(false)
+		tmp, _ := logger.NewTmpLogger()
+		logger.SetDefaultLogger(tmp)
+		l.Close()
+	})
+	return func() string {
+		data, err := os.ReadFile(l.CurrentLogFile)
+		if err != nil {
+			t.Fatalf("ReadFile error: %v", err)
+		}
+		return string(data)
+	}
+}
+
+// TestNightlyRunDebugTrace checks that a nightly run records each task as it
+// starts and finishes, and a skipped one.
+func TestNightlyRunDebugTrace(t *testing.T) {
+	read := captureDebug(t, true)
+	tm := &TaskManager{}
+	tm.RegisterNightlyTaskWithOption(TaskOption{Name: "version cleanup"}, func() {})
+	tm.RegisterNightlyTaskWithOption(TaskOption{Name: "cluster sweep", MasterNodeOnly: true}, func() {})
+	tm.SetMasterNodeResolver(func() bool { return false })
+	tm.NightlyTaskRun()
+	log := read()
+	for _, want := range []string{
+		"running 2 nightly task(s)",
+		"version cleanup started",
+		"version cleanup finished in",
+		"cluster sweep skipped, it runs on the master node only",
+	} {
+		if !strings.Contains(log, want) {
+			t.Errorf("%q missing from %q", want, log)
 		}
 	}
 }

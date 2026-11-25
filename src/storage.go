@@ -197,6 +197,7 @@ func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 			}
 
 			//Add the new fsh to all the storage pools that have it originally
+			logger.Debugf("Storage", "Heartbeat: %s:/ attaching the new handler to %d pool(s)", originalStartOption.Uuid, len(parentsp))
 			for _, pool := range parentsp {
 				err := pool.AttachFsHandler(newfsh)
 				if err != nil {
@@ -236,6 +237,7 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 		//Read the config file
 		pgStorageConfig, err := os.ReadFile(expectedConfigPath)
 		if err != nil {
+			logger.Debugf("Storage", "LoadStoragePoolForGroup(%s): config unreadable, the group keeps NO storage pool (nil); the heartbeat and every drive listing panic on it: %v", pg.Name, err)
 			systemWideLogger.PrintAndLog("Storage", "Failed to read config for "+pg.Name+": "+err.Error(), err)
 			return errors.New("Failed to read config for " + pg.Name + ": " + err.Error())
 		}
@@ -246,6 +248,7 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 		})
 
 		if err != nil {
+			logger.Debugf("Storage", "LoadStoragePoolForGroup(%s): config is not valid, the group keeps NO storage pool (nil); the heartbeat and every drive listing panic on it: %v", pg.Name, err)
 			systemWideLogger.PrintAndLog("Storage", "Failed to load storage configuration: "+err.Error(), err)
 			return errors.New("Failed to load storage configuration: " + err.Error())
 		}

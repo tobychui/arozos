@@ -2,6 +2,7 @@ package sftpserver
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -72,6 +73,14 @@ func (r *rootEntry) Sys() interface{} {
 	return nil
 }
 
+// debugf writes a DEBUG record about a request of this SFTP user (-debug flag).
+func (fs *root) debugf(format string, args ...interface{}) {
+	if !logger.DebugEnabled() {
+		return
+	}
+	logger.DebugDepth(1, "Sftpserver", "[SFTP] "+fs.username+": "+fmt.Sprintf(format, args...))
+}
+
 func GetNewSFTPRoot(username string, userAccess Access) sftp.Handlers {
 	root := &root{
 		username:       username,
@@ -105,6 +114,7 @@ func (fs *root) getWritableFsh(pathname string) (*filesystem.FileSystemHandler, 
 }
 
 func (fs *root) Fileread(r *sftp.Request) (io.ReaderAt, error) {
+	fs.debugf("Fileread %q", r.Filepath)
 	flags := r.Pflags()
 	if !flags.Read {
 		// sanity check
@@ -128,6 +138,7 @@ func (fs *root) Fileread(r *sftp.Request) (io.ReaderAt, error) {
 }
 
 func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
+	fs.debugf("Filewrite %q (flags %+v)", r.Filepath, r.Pflags())
 	if arozfs.ToSlash(filepath.Dir(r.Filepath)) == "/" {
 		//Uploading to virtual root folder. Return error
 		return nil, errors.New("ArozOS SFTP root is read only")
@@ -150,6 +161,7 @@ func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 }
 
 func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
+	fs.debugf("OpenFile %q (flags %+v)", r.Filepath, r.Pflags())
 	if arozfs.ToSlash(filepath.Dir(r.Filepath)) == "/" {
 		return nil, errors.New("ArozOS SFTP root is read only")
 	}
@@ -442,6 +454,7 @@ func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.F
 	//Combined virtual path
 	vpath := vrootID + ":/" + subpath
 	if !fs.access.CanRead(vpath) {
+		fs.debugf("%q: no read access to %q", pathname, vpath)
 		return nil, "", "", os.ErrPermission
 	}
 
@@ -449,9 +462,11 @@ func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.F
 	fshAbs := fsh.FileSystemAbstraction
 	rpath, err := fshAbs.VirtualPathToRealPath(vpath, fs.username)
 	if err != nil {
+		fs.debugf("%q: %q did not translate: %v", pathname, vpath, err)
 		return nil, "", "", err
 	}
 
+	fs.debugf("%q -> %s:/ (%s) real path %q", pathname, fsh.UUID, fsh.Filesystem, rpath)
 	return fsh, subpath, rpath, nil
 }
 

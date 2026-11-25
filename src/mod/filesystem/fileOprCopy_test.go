@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // newTestLocalHandler builds a local file system handler rooted at a temp folder
@@ -313,5 +316,62 @@ func TestSameFileSystem(t *testing.T) {
 				t.Errorf("SameFileSystem() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// captureDebug sets the debug flag for one test, sends the system log to a
+// file of its own and returns a function that reads what was logged.
+func captureDebug(t *testing.T, enabled bool) func() string {
+	t.Helper()
+	l, err := logger.NewLogger("debug", t.TempDir(), true)
+	if err != nil {
+		t.Fatalf("NewLogger error: %v", err)
+	}
+	logger.SetDefaultLogger(l)
+	logger.SetDebug(enabled)
+	t.Cleanup(func() {
+		logger.SetDebug(false)
+		tmp, _ := logger.NewTmpLogger()
+		logger.SetDefaultLogger(tmp)
+		l.Close()
+	})
+	return func() string {
+		data, err := os.ReadFile(l.CurrentLogFile)
+		if err != nil {
+			t.Fatalf("ReadFile error: %v", err)
+		}
+		return string(data)
+	}
+}
+
+// TestFileCopyDebugTrace checks that a copy leaves a trail of what it did, in
+// order, when debug is enabled.
+func TestFileCopyDebugTrace(t *testing.T) {
+	read := captureDebug(t, true)
+	srcFsh, srcRoot := newTestLocalHandler(t, "srcdrive")
+	destFsh, destRoot := newTestLocalHandler(t, "destdrive")
+	writeTestFile(t, srcRoot+"a.bin", 1024)
+
+	if err := FileCopy(srcFsh, srcRoot+"a.bin", destFsh, destRoot, "overwrite", nil); err != nil {
+		t.Fatalf("FileCopy() returned error: %v", err)
+	}
+	log := read()
+	src := `"` + srcRoot + "a.bin" + `"`
+	steps := []string{
+		"FileCopy: " + src + ` on "srcdrive" (srcdrive:/`,
+		"FileCopy: copying file " + src,
+		"streamFile: " + src + " (1024 bytes",
+		"FileCopy: " + src + " done",
+	}
+	last := -1
+	for _, step := range steps {
+		i := strings.Index(log, step)
+		if i < 0 {
+			t.Fatalf("trace step %q missing from %q", step, log)
+		}
+		if i < last {
+			t.Errorf("trace step %q is out of order in %q", step, log)
+		}
+		last = i
 	}
 }

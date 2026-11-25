@@ -610,7 +610,9 @@ func reloadGroupPool(group string) {
 
 	//Recreate a new pool for this permission group
 	//If there is no handler in config, the empty one will be kept
-	LoadStoragePoolForGroup(pg)
+	if err := LoadStoragePoolForGroup(pg); err != nil {
+		logger.Debugf("Storage", "reloadGroupPool(%s): loading the pool failed, it stays EMPTY: %v", group, err)
+	}
 }
 
 func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {

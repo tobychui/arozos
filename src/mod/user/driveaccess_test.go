@@ -1,10 +1,13 @@
 package user
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/permission"
 	storage "imuslab.com/arozos/mod/storage"
 	"imuslab.com/arozos/mod/storage/access"
@@ -196,4 +199,55 @@ func TestResetQuotaManagers(t *testing.T) {
 		t.Errorf("%v is still buffered", key)
 		return true
 	})
+}
+
+// captureDebug turns debug mode on for one test, sends the system log to a
+// file of its own and returns a function that reads what was logged.
+func captureDebug(t *testing.T, enabled bool) func() string {
+	t.Helper()
+	l, err := logger.NewLogger("debug", t.TempDir(), true)
+	if err != nil {
+		t.Fatalf("NewLogger error: %v", err)
+	}
+	logger.SetDefaultLogger(l)
+	logger.SetDebug(enabled)
+	t.Cleanup(func() {
+		logger.SetDebug(false)
+		tmp, _ := logger.NewTmpLogger()
+		logger.SetDefaultLogger(tmp)
+		l.Close()
+	})
+	return func() string {
+		data, err := os.ReadFile(l.CurrentLogFile)
+		if err != nil {
+			t.Fatalf("ReadFile error: %v", err)
+		}
+		return string(data)
+	}
+}
+
+// TestDriveLookupDebug checks that drive lookups and access decisions of a
+// user are traced, a failed lookup with the warning about the empty handler
+// the caller receives.
+func TestDriveLookupDebug(t *testing.T) {
+	u := newDriveTestUser(ruleMap{}, "family")
+	tests := []struct {
+		name string
+		run  func()
+		want string
+	}{
+		{"drive found", func() { u.GetFileSystemHandlerFromVirtualPath("user:/Desktop") }, `GetFileSystemHandlerFromVirtualPath("alice", "user:/Desktop"): `},
+		{"drive missing", func() { u.GetFileSystemHandlerFromVirtualPath("nope:/a") }, `GetFileSystemHandlerFromVirtualPath("alice", "nope:/a"): `},
+		{"drive missing warns", func() { u.GetFileSystemHandlerFromVirtualPath("nope:/a") }, "Returned an EMPTY handler with no abstraction"},
+		{"drive list", func() { u.GetAllFileSystemHandler() }, `GetAllFileSystemHandler("alice"): `},
+		{"path escapes", func() { u.GetPathAccessPermission("user:../bob/a.txt") }, "denied, bad path"},
+		{"unknown drive", func() { u.GetPathAccessPermission("nope:/a") }, "denied, no pool holds drive nope:/"},
+	}
+	for _, tt := range tests {
+		read := captureDebug(t, true)
+		tt.run()
+		if got := read(); !strings.Contains(got, tt.want) {
+			t.Errorf("%s: record %q does not contain %q", tt.name, got, tt.want)
+		}
+	}
 }

@@ -3,6 +3,7 @@ package ftpfs
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"math/rand"
@@ -72,9 +73,11 @@ func (l FTPFSAbstraction) makeConn() (*ftp.ServerConn, error) {
 	succ := false
 	var c *ftp.ServerConn
 	for retryCount < 5 && !succ {
+		l.debugf("connecting (attempt %d of 5)", retryCount+1)
 		c, lastError = ftp.Dial(l.hostname, ftp.DialWithTimeout(3*time.Second))
 		if lastError != nil {
 			//Connection failed. Delay and retry
+			l.debugf("connecting (attempt %d of 5) failed: %v", retryCount+1, lastError)
 			retryCount++
 			r := rand.Intn(500)
 			time.Sleep(time.Duration(r) * time.Microsecond)
@@ -88,7 +91,6 @@ func (l FTPFSAbstraction) makeConn() (*ftp.ServerConn, error) {
 
 	if !succ && lastError != nil {
 		logger.PrintAndLog("Ftpfs", "[FTPFS] Unable to dial TCP: "+lastError.Error(), nil)
-		logger.Debugf("Ftpfs", "%s:/ dial %s failed after %d tries: %v", l.uuid, l.hostname, retryCount, lastError)
 		return nil, lastError
 	}
 
@@ -100,7 +102,7 @@ func (l FTPFSAbstraction) makeConn() (*ftp.ServerConn, error) {
 	//Login to the FTP account
 	err := c.Login(username, password)
 	if err != nil {
-		logger.Debugf("Ftpfs", "%s:/ login to %s as %q failed, the connection is left open: %v", l.uuid, l.hostname, username, err)
+		l.debugf("login as %s failed, the connection is left open: %v", username, err)
 		return nil, err
 	}
 
@@ -120,6 +122,7 @@ func (l FTPFSAbstraction) Create(filename string) (arozfs.File, error) {
 	return nil, arozfs.ErrOperationNotSupported
 }
 func (l FTPFSAbstraction) Mkdir(filename string, mode os.FileMode) error {
+	l.debugf("Mkdir %q", filename)
 	c, err := l.makeConn()
 	if err != nil {
 		return err
@@ -147,6 +150,7 @@ var errNotDir = errors.New("not a directory")
 // with os.MkdirAll.
 func (l FTPFSAbstraction) MkdirAll(filename string, mode os.FileMode) error {
 	filename = filterFilepath(filename)
+	l.debugf("MkdirAll %q", filename)
 	c, err := l.makeConn()
 	if err != nil {
 		return err
@@ -188,6 +192,7 @@ func (l FTPFSAbstraction) OpenFile(filename string, flag int, perm os.FileMode) 
 }
 func (l FTPFSAbstraction) Remove(filename string) error {
 	filename = filterFilepath(filename)
+	l.debugf("Remove %q", filename)
 	c, err := l.makeConn()
 	if err != nil {
 		return err
@@ -203,11 +208,13 @@ func (l FTPFSAbstraction) Remove(filename string) error {
 }
 func (l FTPFSAbstraction) RemoveAll(path string) error {
 	path = filterFilepath(path)
+	l.debugf("RemoveAll %q", path)
 	return l.Remove(path)
 }
 func (l FTPFSAbstraction) Rename(oldname, newname string) error {
 	oldname = filterFilepath(oldname)
 	newname = filterFilepath(newname)
+	l.debugf("Rename %q -> %q", oldname, newname)
 	c, err := l.makeConn()
 	if err != nil {
 		return err
@@ -225,6 +232,7 @@ func (l FTPFSAbstraction) Rename(oldname, newname string) error {
 // server has no MLST.
 func (l FTPFSAbstraction) Stat(filename string) (os.FileInfo, error) {
 	filename = filterFilepath(filename)
+	l.debugf("Stat %q", filename)
 	c, err := l.makeConn()
 	if err != nil {
 		return nil, err
@@ -312,7 +320,7 @@ func (l FTPFSAbstraction) classify(c *ftp.ServerConn, op, filename string, err e
 	return err
 }
 func (l FTPFSAbstraction) Close() error {
-	logger.Debugf("Ftpfs", "%s:/ Close (%s): every call opens its own connection, nothing to close", l.uuid, l.hostname)
+	l.debugf("Close")
 	time.Sleep(500 * time.Millisecond)
 	return nil
 }
@@ -361,6 +369,7 @@ func (l FTPFSAbstraction) GetModTime(realpath string) (int64, error) {
 
 func (l FTPFSAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) error {
 	filename = filterFilepath(filename)
+	l.debugf("WriteFile %q (%d bytes)", filename, len(content))
 	c, err := l.makeConn()
 	if err != nil {
 		return err
@@ -372,6 +381,7 @@ func (l FTPFSAbstraction) WriteFile(filename string, content []byte, mode os.Fil
 
 func (l FTPFSAbstraction) ReadFile(filename string) ([]byte, error) {
 	filename = filterFilepath(filename)
+	l.debugf("ReadFile %q", filename)
 	c, err := l.makeConn()
 	if err != nil {
 		return []byte{}, err
@@ -387,6 +397,7 @@ func (l FTPFSAbstraction) ReadFile(filename string) ([]byte, error) {
 	return io.ReadAll(r)
 }
 func (l FTPFSAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
+	l.debugf("ReadDir %q", filename)
 	results := []fs.DirEntry{}
 	filename = filterFilepath(filename)
 	c, err := l.makeConn()
@@ -396,10 +407,8 @@ func (l FTPFSAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
 	defer c.Quit()
 	entries, err := c.List(filename)
 	if err != nil {
-		logger.Debugf("Ftpfs", "%s:/ ReadDir(%q) failed: %v", l.uuid, filename, err)
 		return results, l.classify(c, "readdir", filename, err)
 	}
-	logger.Debugf("Ftpfs", "%s:/ ReadDir(%q): %d entries", l.uuid, filename, len(entries))
 
 	for _, entry := range entries {
 		entryFilename := arozfs.ToSlash(filepath.Join(filename, entry.Name))
@@ -411,17 +420,17 @@ func (l FTPFSAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
 }
 func (l FTPFSAbstraction) WriteStream(filename string, stream io.Reader, mode os.FileMode) error {
 	filename = filterFilepath(filename)
+	l.debugf("WriteStream %q", filename)
 	c, err := l.makeConn()
 	if err != nil {
 		return err
 	}
 	defer c.Quit()
-	err = c.Stor(filename, stream)
-	logger.Debugf("Ftpfs", "%s:/ WriteStream(%q), error: %v", l.uuid, filename, err)
-	return err
+	return c.Stor(filename, stream)
 }
 func (l FTPFSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 	filename = filterFilepath(filename)
+	l.debugf("ReadStream %q", filename)
 	c, err := l.makeConn()
 	if err != nil {
 		return nil, err
@@ -432,6 +441,7 @@ func (l FTPFSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 	for retryCount < 5 {
 		resp, err := c.Retr(filename)
 		if err != nil {
+			l.debugf("ReadStream %q: RETR attempt %d failed: %v", filename, retryCount+1, err)
 			lastErr = err
 			if isUnavailable(err) {
 				break
@@ -446,7 +456,6 @@ func (l FTPFSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 		return &retrStream{resp: resp, conn: c}, nil
 	}
 	err = l.classify(c, "open", filename, lastErr)
-	logger.Debugf("Ftpfs", "%s:/ ReadStream(%q) failed after %d retries: %v", l.uuid, filename, retryCount, err)
 	c.Quit()
 	return nil, err
 }
@@ -467,6 +476,7 @@ func (r *retrStream) Close() error {
 
 func (l FTPFSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
 	root = filterFilepath(root)
+	l.debugf("Walk %q", root)
 	logger.PrintAndLog("Ftpfs", "[FTP FS] Walking a root on FTP is extremely slow. Please consider rewritting this function. Scanning: "+root, nil)
 	c, err := l.makeConn()
 	if err != nil {
@@ -474,9 +484,8 @@ func (l FTPFSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
 	}
 	defer c.Quit()
 	rootStat, err := c.GetEntry(root)
-	logger.Debugf("Ftpfs", "%s:/ Walk(%q), root entry error: %v", l.uuid, root, err)
-	if rootStat == nil {
-		logger.Debugf("Ftpfs", "%s:/ Walk(%q) hands the callback a file info with NO entry; any method on it (IsDir, Size, Name) panics with a nil pointer dereference", l.uuid, root)
+	if err != nil {
+		l.debugf("Walk %q: reading the root entry failed (%v), the walk callback gets a FileInfo with no entry, any call on it will panic", root, err)
 	}
 	rootStatInfo := NewFileInfoFromEntry(rootStat, c, root)
 	err = walkFn(root, rootStatInfo, err)
@@ -488,6 +497,14 @@ func (l FTPFSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
 
 func (l FTPFSAbstraction) Heartbeat() error {
 	return nil
+}
+
+// debugf writes a DEBUG record about an operation on this drive (-debug flag).
+func (l FTPFSAbstraction) debugf(format string, args ...interface{}) {
+	if !logger.DebugEnabled() {
+		return
+	}
+	logger.DebugDepth(1, "Ftpfs", "[FTP FS] "+l.uuid+":/ ("+l.hostname+") "+fmt.Sprintf(format, args...))
 }
 
 // Utilities
@@ -504,6 +521,7 @@ func filterFilepath(rawpath string) string {
 func (l FTPFSAbstraction) walk(thisPath string, walkFun filepath.WalkFunc) error {
 	files, err := l.ReadDir(thisPath)
 	if err != nil {
+		l.debugf("Walk: listing %q failed: %v", thisPath, err)
 		return err
 	}
 

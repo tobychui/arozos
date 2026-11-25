@@ -269,6 +269,7 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Serve all storages of the user under one virtual root, like the FTP server
+	logger.Debug("Webdav", "[WebDAV] "+userinfo.Username+" "+r.Method+" "+r.URL.Path)
 	fs := s.getRootFs(userinfo.GetAllFileSystemHandler(), userinfo.Username, userinfo.CanWrite)
 
 	//Serve the content

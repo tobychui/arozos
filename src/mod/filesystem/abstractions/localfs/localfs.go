@@ -1,6 +1,7 @@
 package localfs
 
 import (
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -37,39 +38,50 @@ func NewLocalFileSystemAbstraction(uuid, root, hierarchy string, readonly bool) 
 }
 
 func (l LocalFileSystemAbstraction) Chmod(filename string, mode os.FileMode) error {
+	l.debugf("Chmod %q %v", filename, mode)
 	return os.Chmod(filename, mode)
 }
 func (l LocalFileSystemAbstraction) Chown(filename string, uid int, gid int) error {
+	l.debugf("Chown %q %d:%d", filename, uid, gid)
 	return os.Chown(filename, uid, gid)
 }
 func (l LocalFileSystemAbstraction) Chtimes(filename string, atime time.Time, mtime time.Time) error {
+	l.debugf("Chtimes %q", filename)
 	return os.Chtimes(filename, atime, mtime)
 }
 func (l LocalFileSystemAbstraction) Create(filename string) (arozfs.File, error) {
+	l.debugf("Create %q", filename)
 	return os.Create(filename)
 }
 func (l LocalFileSystemAbstraction) Mkdir(filename string, mode os.FileMode) error {
+	l.debugf("Mkdir %q", filename)
 	return os.Mkdir(filename, mode)
 }
 func (l LocalFileSystemAbstraction) MkdirAll(filename string, mode os.FileMode) error {
+	l.debugf("MkdirAll %q", filename)
 	return os.MkdirAll(filename, mode)
 }
 func (l LocalFileSystemAbstraction) Name() string {
 	return ""
 }
 func (l LocalFileSystemAbstraction) Open(filename string) (arozfs.File, error) {
+	l.debugf("Open %q", filename)
 	return os.Open(filename)
 }
 func (l LocalFileSystemAbstraction) OpenFile(filename string, flag int, perm os.FileMode) (arozfs.File, error) {
+	l.debugf("OpenFile %q flag=%#x perm=%v", filename, flag, perm)
 	return os.OpenFile(filename, flag, perm)
 }
 func (l LocalFileSystemAbstraction) Remove(filename string) error {
+	l.debugf("Remove %q", filename)
 	return os.Remove(filename)
 }
 func (l LocalFileSystemAbstraction) RemoveAll(path string) error {
+	l.debugf("RemoveAll %q", path)
 	return os.RemoveAll(path)
 }
 func (l LocalFileSystemAbstraction) Rename(oldname, newname string) error {
+	l.debugf("Rename %q -> %q", oldname, newname)
 	return os.Rename(oldname, newname)
 }
 func (l LocalFileSystemAbstraction) Stat(filename string) (os.FileInfo, error) {
@@ -86,11 +98,13 @@ func (l LocalFileSystemAbstraction) Close() error {
 func (l LocalFileSystemAbstraction) VirtualPathToRealPath(subpath string, username string) (string, error) {
 	rpath, err := arozfs.GenericVirtualPathToRealPathTranslator(l.UUID, l.Hierarchy, subpath, username)
 	if err != nil {
+		l.debugf("VirtualPathToRealPath %q for %s refused: %v", subpath, username, err)
 		return "", err
 	}
 
 	//Append the local root path to the translated path to allow read write from os package
 	rpath = filepath.Join(l.Rootpath, rpath)
+	l.debugf("VirtualPathToRealPath %q for %s -> %q", subpath, username, rpath)
 
 	//fmt.Println("VIRTUAL TO REAL", l.Rootpath, subpath, rpath)
 	return rpath, nil
@@ -104,6 +118,9 @@ func (l LocalFileSystemAbstraction) RealPathToVirtualPath(fullpath string, usern
 	}
 
 	vpath, err := arozfs.GenericRealPathToVirtualPathTranslator(l.UUID, l.Hierarchy, arozfs.ToSlash(fullpath), username)
+	if err != nil {
+		l.debugf("RealPathToVirtualPath %q for %s failed: %v", fullpath, username, err)
+	}
 	//fmt.Println("REAL TO VIRTUAL", arozfs.ToSlash(filepath.Clean(l.Rootpath)), fullpath, vpath)
 	return vpath, err
 }
@@ -130,6 +147,7 @@ func (l LocalFileSystemAbstraction) IsDir(realpath string) bool {
 }
 
 func (l LocalFileSystemAbstraction) Glob(realpathWildcard string) ([]string, error) {
+	l.debugf("Glob %q", realpathWildcard)
 	files, err := filepath.Glob(realpathWildcard)
 	if err != nil {
 		return files, err
@@ -177,15 +195,19 @@ func (l LocalFileSystemAbstraction) GetModTime(realpath string) (int64, error) {
 }
 
 func (l LocalFileSystemAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) error {
+	l.debugf("WriteFile %q (%d bytes)", filename, len(content))
 	return os.WriteFile(filename, content, mode)
 }
 func (l LocalFileSystemAbstraction) ReadFile(filename string) ([]byte, error) {
+	l.debugf("ReadFile %q", filename)
 	return os.ReadFile(filename)
 }
 func (l LocalFileSystemAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
+	l.debugf("ReadDir %q", filename)
 	return os.ReadDir(filename)
 }
 func (l LocalFileSystemAbstraction) WriteStream(filename string, stream io.Reader, mode os.FileMode) error {
+	l.debugf("WriteStream %q", filename)
 	// O_TRUNC: WriteStream replaces the file. Without it, writing fewer
 	// bytes than the file already holds leaves the old tail behind and
 	// corrupts structured formats (zip containers like .pptx read their
@@ -193,31 +215,47 @@ func (l LocalFileSystemAbstraction) WriteStream(filename string, stream io.Reade
 	// stale document - or fail to open at all)
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
-		logger.Debugf("Localfs", "%s:/ WriteStream(%q) open failed: %v", l.UUID, filename, err)
+		l.debugf("WriteStream %q: open failed: %v", filename, err)
 		return err
 	}
-	written, err := io.Copy(f, stream)
+	n, err := io.Copy(f, stream)
 	f.Close()
-	logger.Debugf("Localfs", "%s:/ WriteStream(%q): %d bytes, error: %v", l.UUID, filename, written, err)
+	if err != nil {
+		l.debugf("WriteStream %q: failed after %d bytes: %v", filename, n, err)
+	}
 	return err
 }
 func (l LocalFileSystemAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
+	l.debugf("ReadStream %q", filename)
 	f, err := os.OpenFile(filename, os.O_RDONLY, 0644)
 	if err != nil {
-		logger.Debugf("Localfs", "%s:/ ReadStream(%q) failed: %v", l.UUID, filename, err)
 		return nil, err
 	}
 	return f, nil
 }
 
 func (l LocalFileSystemAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
-	//filepath.Walk hands the callback a nil FileInfo, along with the error,
-	//for any entry it cannot stat: the root itself, or a file that is gone
-	//or unreadable by the time it is reached
-	logger.Debugf("Localfs", "%s:/ Walk(%q)", l.UUID, root)
-	return filepath.Walk(root, walkFn)
+	if !logger.DebugEnabled() {
+		return filepath.Walk(root, walkFn)
+	}
+	l.debugf("Walk %q", root)
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			//filepath.Walk passes no FileInfo when it could not stat a path
+			l.debugf("Walk %q: error at %q (%v), FileInfo is nil: %v", root, path, err, info == nil)
+		}
+		return walkFn(path, info, err)
+	})
 }
 
 func (l LocalFileSystemAbstraction) Heartbeat() error {
 	return nil
+}
+
+// debugf writes a DEBUG record about an operation on this drive (-debug flag).
+func (l LocalFileSystemAbstraction) debugf(format string, args ...interface{}) {
+	if !logger.DebugEnabled() {
+		return
+	}
+	logger.DebugDepth(1, "Localfs", "[Local FS] "+l.UUID+":/ ("+l.Rootpath+") "+fmt.Sprintf(format, args...))
 }

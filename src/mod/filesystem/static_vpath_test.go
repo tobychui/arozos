@@ -2,6 +2,7 @@ package filesystem
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
@@ -58,6 +59,26 @@ func TestGetIDFromVirtualPath_RejectsTraversal(t *testing.T) {
 		id, subpath, err := GetIDFromVirtualPath(vpath)
 		if !errors.Is(err, arozfs.ErrPathEscapesRoot) {
 			t.Errorf("GetIDFromVirtualPath(%q) = %q, %q, %v; want %v", vpath, id, subpath, err, arozfs.ErrPathEscapesRoot)
+		}
+	}
+}
+
+// TestGetIDFromVirtualPathDebug checks that refused virtual paths are traced.
+func TestGetIDFromVirtualPathDebug(t *testing.T) {
+	tests := []struct {
+		vpath string
+		want  string
+	}{
+		{"nodrive", `GetIDFromVirtualPath: "nodrive" has no drive id`},
+		{"user:../bob/a.txt", "climbs above the root of user:/, refused"},
+	}
+	for _, tt := range tests {
+		read := captureDebug(t, true)
+		if _, _, err := GetIDFromVirtualPath(tt.vpath); err == nil {
+			t.Errorf("GetIDFromVirtualPath(%q) should fail", tt.vpath)
+		}
+		if got := read(); !strings.Contains(got, tt.want) {
+			t.Errorf("GetIDFromVirtualPath(%q) record %q does not contain %q", tt.vpath, got, tt.want)
 		}
 	}
 }

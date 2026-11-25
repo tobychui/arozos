@@ -170,6 +170,7 @@ func (i *Instance) serve(nConn net.Conn, config *ssh.ServerConfig, sftpConfig *S
 	//Each client runs in its own goroutine, where a panic stops the whole server
 	defer logger.TracePanic("Sftpserver", "serving the SFTP client at "+nConn.RemoteAddr().String())
 	defer nConn.Close()
+	logger.Debugf("Sftpserver", "SFTP connection from %s", nConn.RemoteAddr())
 	if !AddressAllowed(nConn.RemoteAddr(), sftpConfig.AllowPublic) {
 		logger.Debugf("Sftpserver", "refused %s: not a LAN address and public access is off", nConn.RemoteAddr())
 		return

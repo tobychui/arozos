@@ -71,6 +71,7 @@ func (s *StoragePool) GetFSHandlerFromVirtualPath(vpath string) (*fs.FileSystemH
 
 	fsh, err := s.GetFsHandlerByUUID(fshid)
 	if err != nil {
+		logger.Debugf("Storage", "GetFSHandlerFromVirtualPath(pool %s, %q): drive %s:/ is not in this pool", s.Owner, vpath, fshid)
 		return nil, subpath, err
 	}
 
@@ -122,6 +123,9 @@ func (s *StoragePool) Close() {
 	logger.Debugf("Storage", "StoragePool.Close(%s): closing %s", s.Owner, fs.DebugHandlerList(s.Storages))
 	//For each storage pool, close it
 	for _, fsh := range s.Storages {
+		if fsh == nil {
+			logger.Debugf("Storage", "StoragePool.Close(%s): the pool holds a nil drive handler, closing it panics", s.Owner)
+		}
 		if !fsh.Closed {
 			fsh.Close()
 		}

@@ -345,6 +345,7 @@ func nightlyShouldMaintainFsh(fsh *fs.FileSystemHandler) bool {
 
 // clusterSyncDrive mounts or unmounts cluster:/ to match clusterDriveWanted.
 func clusterSyncDrive() {
+	logger.Debugf("Cluster", "[Drive] syncing cluster:/ (wanted %v)", clusterDriveWanted())
 	if clusterDriveWanted() {
 		clusterMountDrive()
 	} else {
@@ -384,7 +385,11 @@ func clusterMountDrive() {
 		return
 	}
 	systemWideLogger.PrintAndLog("Cluster", "cluster:/ mounted", nil)
-	go clusterRemoveThumbnailFolders()
+	go func() {
+		//A panic here is in no request: it ends the whole process
+		defer logger.TracePanic("Cluster", "removing thumbnail folders from cluster:/")
+		clusterRemoveThumbnailFolders()
+	}()
 }
 
 func clusterUnmountDrive() {

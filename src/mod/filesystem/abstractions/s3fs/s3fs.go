@@ -86,6 +86,7 @@ func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, se
 		scheme = "http"
 	}
 
+	logger.Debug("S3fs", fmt.Sprintf("[S3 FS] %s:/ connecting to s3://%s/%s (endpoint=%s ssl=%v hierarchy=%s)", uuid, bucket, prefix, endpoint, useSSL, hierarchy))
 	credProvider := credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")
 
 	// newClient is a helper to build an s3.Client for a given signing region.
@@ -136,8 +137,8 @@ func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, se
 	_, err = client.HeadBucket(valCtx, &s3.HeadBucketInput{
 		Bucket: aws.String(bucket),
 	})
-	logger.Debugf("S3fs", "%s:/ HeadBucket %q at %s://%s, error: %v", uuid, bucket, scheme, endpoint, err)
 	if err != nil {
+		logger.Debug("S3fs", "[S3 FS] "+uuid+":/ bucket "+bucket+" is not reachable: "+err.Error())
 		var nf *types.NotFound
 		if errors.As(err, &nf) {
 			return nil, os.ErrNotExist
@@ -215,6 +216,7 @@ func (s *S3FSAbstraction) Create(_ string) (arozfs.File, error) {
 
 // Mkdir creates a zero-byte S3 "directory marker" object whose key ends with "/".
 func (s *S3FSAbstraction) Mkdir(filename string, _ os.FileMode) error {
+	s.debugf("Mkdir %q", filename)
 	key := s.realPathToKey(filename)
 	if !strings.HasSuffix(key, "/") {
 		key += "/"
@@ -248,6 +250,7 @@ func (s *S3FSAbstraction) OpenFile(_ string, _ int, _ os.FileMode) (arozfs.File,
 
 // Remove deletes a single object or an entire virtual directory (recursively).
 func (s *S3FSAbstraction) Remove(filename string) error {
+	s.debugf("Remove %q", filename)
 	if s.IsDir(filename) {
 		return s.RemoveAll(filename)
 	}
@@ -263,6 +266,7 @@ func (s *S3FSAbstraction) Remove(filename string) error {
 
 // RemoveAll deletes every object whose key starts with the given path prefix.
 func (s *S3FSAbstraction) RemoveAll(path string) error {
+	s.debugf("RemoveAll %q", path)
 	defer s.cache.clear()
 	prefix := s.realPathToKey(path)
 	if prefix != "" && !strings.HasSuffix(prefix, "/") {
@@ -302,6 +306,7 @@ func (s *S3FSAbstraction) RemoveAll(path string) error {
 // Rename copies all objects from oldname to newname then removes the originals.
 // S3 has no native rename; this is a copy-then-delete sequence.
 func (s *S3FSAbstraction) Rename(oldname, newname string) error {
+	s.debugf("Rename %q -> %q", oldname, newname)
 	defer s.cache.clear()
 	ctx := context.Background()
 
@@ -367,6 +372,7 @@ func (s *S3FSAbstraction) Rename(oldname, newname string) error {
 // objects exist under the path as a prefix.  The object is asked for first,
 // so a file costs one request, and answers are cached (statcache.go).
 func (s *S3FSAbstraction) Stat(filename string) (os.FileInfo, error) {
+	s.debugf("Stat %q", filename)
 	key := s.realPathToKey(filename)
 	if key == "" || key == s.prefix {
 		return NewS3FileInfo(arozfs.Base(filename), 0, true, time.Now()), nil
@@ -414,7 +420,10 @@ func (s *S3FSAbstraction) Stat(filename string) (os.FileInfo, error) {
 	return nil, err
 }
 
-func (s *S3FSAbstraction) Close() error { return nil }
+func (s *S3FSAbstraction) Close() error {
+	s.debugf("Close")
+	return nil
+}
 
 // ---------------------------------------------------------------------------
 // Utility Functions (FileSystemAbstraction interface)
@@ -431,6 +440,7 @@ func (s *S3FSAbstraction) RealPathToVirtualPath(fullpath, username string) (stri
 // FileExists returns true if an exact object exists with this key, or if the
 // path is a virtual directory (i.e. objects exist under it as a prefix).
 func (s *S3FSAbstraction) FileExists(realpath string) bool {
+	s.debugf("FileExists %q", realpath)
 	_, err := s.Stat(realpath)
 	return err == nil
 }
@@ -439,6 +449,7 @@ func (s *S3FSAbstraction) FileExists(realpath string) bool {
 // either an explicit directory-marker object exists, or at least one object
 // has this path as a key prefix.
 func (s *S3FSAbstraction) IsDir(realpath string) bool {
+	s.debugf("IsDir %q", realpath)
 	key := s.realPathToKey(realpath)
 	// Bucket root (or configured prefix root) is always a directory.
 	if key == "" || key == s.prefix {
@@ -494,6 +505,7 @@ func (s *S3FSAbstraction) dirExists(key string) (bool, error) {
 // Glob lists all entries in the same directory as realpathWildcard whose names
 // match the wildcard pattern.  It uses ReadDir so it works on all FS types.
 func (s *S3FSAbstraction) Glob(realpathWildcard string) ([]string, error) {
+	s.debugf("Glob %q", realpathWildcard)
 	dir := arozfs.ToSlash(filepath.Dir(realpathWildcard))
 	entries, err := s.ReadDir(dir)
 	if err != nil {
@@ -546,6 +558,7 @@ func (s *S3FSAbstraction) ReadFile(filename string) ([]byte, error) {
 // Uses ListObjectsV2 with Delimiter "/" so that only the direct contents of
 // the requested level are returned (files and virtual sub-directories).
 func (s *S3FSAbstraction) ReadDir(dirname string) ([]fs.DirEntry, error) {
+	s.debugf("ReadDir %q", dirname)
 	results := []fs.DirEntry{}
 
 	dirKey := s.realPathToKey(dirname)
@@ -624,6 +637,7 @@ func (s *S3FSAbstraction) ReadDir(dirname string) ([]fs.DirEntry, error) {
 // NEVER held in RAM, which is safe on memory-constrained devices (e.g. a
 // Raspberry Pi) even for multi-GiB files.
 func (s *S3FSAbstraction) WriteStream(filename string, stream io.Reader, _ os.FileMode) error {
+	s.debugf("WriteStream %q", filename)
 	key := s.realPathToKey(filename)
 	defer s.cache.changed(key)
 	_, err := s.uploader.Upload(context.Background(), &s3.PutObjectInput{
@@ -632,7 +646,9 @@ func (s *S3FSAbstraction) WriteStream(filename string, stream io.Reader, _ os.Fi
 		Body:        stream,
 		ContentType: aws.String("application/octet-stream"),
 	})
-	logger.Debugf("S3fs", "%s:/ WriteStream(%q) key %q, error: %v", s.uuid, filename, key, err)
+	if err != nil {
+		s.debugf("WriteStream %q: upload failed: %v", filename, err)
+	}
 	return err
 }
 
@@ -642,13 +658,14 @@ func (s *S3FSAbstraction) WriteStream(filename string, stream io.Reader, _ os.Fi
 // until the caller calls Read().  This allows serving or copying arbitrarily
 // large files on memory-constrained devices.
 func (s *S3FSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
+	s.debugf("ReadStream %q", filename)
 	key := s.realPathToKey(filename)
 	resp, err := s.client.GetObject(context.Background(), &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 	})
-	logger.Debugf("S3fs", "%s:/ ReadStream(%q) key %q, error: %v", s.uuid, filename, key, err)
 	if err != nil {
+		s.debugf("ReadStream %q failed: %v", filename, err)
 		return nil, notExist(err)
 	}
 	return resp.Body, nil // io.ReadCloser backed directly by the S3 HTTP response
@@ -658,7 +675,7 @@ func (s *S3FSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 // calling walkFn for each.  It builds the tree level by level via ReadDir so
 // that virtual directory entries are naturally included.
 func (s *S3FSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
-	logger.Debugf("S3fs", "%s:/ Walk(%q)", s.uuid, root)
+	s.debugf("Walk %q", root)
 	rootInfo := NewS3FileInfo(arozfs.Base(root), 0, true, time.Now())
 	if err := walkFn(root, rootInfo, nil); err != nil {
 		return err
@@ -669,7 +686,7 @@ func (s *S3FSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
 func (s *S3FSAbstraction) walkDir(dirPath string, walkFn filepath.WalkFunc) error {
 	entries, err := s.ReadDir(dirPath)
 	if err != nil {
-		logger.Debugf("S3fs", "%s:/ Walk: ReadDir(%q) failed (%v), handing the callback NO file info; a callback that reads it without checking the error panics", s.uuid, dirPath, err)
+		s.debugf("Walk: listing %q failed (%v), the walk callback gets a nil FileInfo", dirPath, err)
 		_ = walkFn(dirPath, nil, err)
 		return err
 	}
@@ -690,13 +707,14 @@ func (s *S3FSAbstraction) walkDir(dirPath string, walkFn filepath.WalkFunc) erro
 
 // Heartbeat checks that the bucket is still reachable within 5 seconds.
 func (s *S3FSAbstraction) Heartbeat() error {
+	s.debugf("Heartbeat")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, err := s.client.HeadBucket(ctx, &s3.HeadBucketInput{
 		Bucket: aws.String(s.bucket),
 	})
 	if err != nil {
-		logger.Debugf("S3fs", "%s:/ heartbeat to bucket %q failed: %v", s.uuid, s.bucket, err)
+		s.debugf("Heartbeat failed: %v", err)
 	}
 	return err
 }
@@ -704,6 +722,24 @@ func (s *S3FSAbstraction) Heartbeat() error {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+// debugf writes a DEBUG record about an operation on this drive (-debug flag).
+// It says so when the drive holds no S3 client, because any call on it would
+// then panic with a nil pointer.
+func (s *S3FSAbstraction) debugf(format string, args ...interface{}) {
+	if !logger.DebugEnabled() {
+		return
+	}
+	if s == nil {
+		logger.DebugDepth(1, "S3fs", "[S3 FS] "+fmt.Sprintf(format, args...)+" [drive is nil, this call will panic]")
+		return
+	}
+	state := ""
+	if s.client == nil {
+		state = " [client is nil: the drive is not connected, this call will panic]"
+	}
+	logger.DebugDepth(1, "S3fs", "[S3 FS] "+s.uuid+":/ (s3://"+s.bucket+"/"+s.prefix+") "+fmt.Sprintf(format, args...)+state)
+}
 
 // s3CopySource builds a properly URL-encoded CopySource value for
 // s3.CopyObjectInput.  The AWS API requires each path segment of the key

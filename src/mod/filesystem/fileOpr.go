@@ -49,12 +49,15 @@ func ZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) e
 
 // A basic file unzip function
 func Unzip(source, destination string) error {
+	logger.Debugf("Filesystem", "Unzip: %q -> %q", source, destination)
 	archive, err := zip.OpenReader(source)
 	if err != nil {
+		logger.Debugf("Filesystem", "Unzip: opening %q failed: %v", source, err)
 		return err
 	}
 	defer archive.Close()
 	for _, file := range archive.Reader.File {
+		logger.Debugf("Filesystem", "Unzip: %q: extracting entry %q (%d bytes)", source, file.Name, file.UncompressedSize64)
 		reader, err := file.Open()
 		if err != nil {
 			return err
@@ -99,9 +102,11 @@ func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHan
 	//Gether the total number of files in all zip files
 	totalFileCounts := 0
 	unzippedFileCount := 0
+	logger.Debugf("Filesystem", "Unzip: %d archive(s) %q -> %q", len(filelist), filelist, outputfile)
 	for _, srcFile := range filelist {
 		archive, err := zip.OpenReader(srcFile)
 		if err != nil {
+			logger.Debugf("Filesystem", "Unzip: opening %q failed: %v", srcFile, err)
 			return err
 		}
 
@@ -125,8 +130,10 @@ func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHan
 		defer archive.Close()
 		logger.Debugf("Filesystem", "Unzip: extracting %q (%d entries)", srcFile, len(archive.Reader.File))
 		for _, file := range archive.Reader.File {
+			logger.Debugf("Filesystem", "Unzip: %q: extracting entry %q (%d bytes)", srcFile, file.Name, file.UncompressedSize64)
 			reader, err := file.Open()
 			if err != nil {
+				logger.Debugf("Filesystem", "Unzip: %q: opening entry %q failed: %v", srcFile, file.Name, err)
 				return err
 			}
 			defer reader.Close()
@@ -168,6 +175,7 @@ func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHan
 			reporter.currentFile = file.Name
 			_, err = io.Copy(writer, newProgressReader(reader, reporter, 0))
 			if err != nil {
+				logger.Debugf("Filesystem", "Unzip: %q: writing entry %q to %q failed: %v", srcFile, file.Name, path, err)
 				//Extraction failed. Remove this file if exists
 				writer.Close()
 				if FileExists(path) {
@@ -295,6 +303,7 @@ func ArozZipFileWithProgressAndCompression(sourceFshs []*FileSystemHandler, file
 		file, err = os.Create(outputfile)
 	}
 	if err != nil {
+		logger.Debugf("Filesystem", "Zip: creating %q on %s failed: %v", outputfile, outputFsh.Describe(), err)
 		return err
 	}
 
@@ -324,9 +333,14 @@ func ArozZipFileWithProgressAndCompression(sourceFshs []*FileSystemHandler, file
 
 			//This is a directory
 			topLevelFolderName := filepath.ToSlash(arozfs.Base(filepath.Dir(srcpath)) + "/" + arozfs.Base(srcpath))
+			logger.Debugf("Filesystem", "Zip: adding folder %q", srcpath)
 			err := fshAbs.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
+					logger.Debugf("Filesystem", "Zip: walking %q: error at %q, stopping: %v", srcpath, path, err)
 					return err
+				}
+				if info == nil {
+					logger.Debugf("Filesystem", "Zip: walking %q: no FileInfo for %q, the next call on it will panic", srcpath, path)
 				}
 				if info.IsDir() {
 					return nil
@@ -793,6 +807,7 @@ func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 		}
 		if info.IsDir() {
 			//Mkdir base on relative path
+			logger.Debugf("Filesystem", "dirCopy: making folder %q", filepath.Join(realDest, folderRootRelative))
 			return destFshAbs.MkdirAll(filepath.Join(realDest, folderRootRelative), 0755)
 		} else {
 			//Move file base on relative path
