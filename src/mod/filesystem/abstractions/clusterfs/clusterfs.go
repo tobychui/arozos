@@ -15,6 +15,7 @@ package clusterfs
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -24,6 +25,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Info is what the backend reports about an entry.
@@ -74,6 +76,20 @@ type ClusterFileSystem struct {
 // New creates the abstraction over a backend.
 func New(uuid string, backend Backend) *ClusterFileSystem {
 	return &ClusterFileSystem{UUID: uuid, backend: backend}
+}
+
+// debugf writes a DEBUG record about an operation on this drive (-debug flag).
+// It says so when the drive has no backend, because any call on it would then
+// panic with a nil pointer.
+func (c *ClusterFileSystem) debugf(format string, args ...interface{}) {
+	if !logger.DebugEnabled() {
+		return
+	}
+	state := ""
+	if c.backend == nil {
+		state = " [backend is nil: this call will panic]"
+	}
+	logger.DebugDepth(1, "Clusterfs", "[Cluster FS] "+c.UUID+":/ "+fmt.Sprintf(format, args...)+state)
 }
 
 // normalize turns any path form into "/a/b".
@@ -131,28 +147,34 @@ func (c *ClusterFileSystem) OpenFile(string, int, os.FileMode) (arozfs.File, err
 }
 
 func (c *ClusterFileSystem) Mkdir(p string, mode os.FileMode) error {
+	c.debugf("Mkdir %q", p)
 	return c.backend.Mkdir(normalize(p), "")
 }
 
 func (c *ClusterFileSystem) MkdirAll(p string, mode os.FileMode) error {
+	c.debugf("MkdirAll %q", p)
 	return c.backend.Mkdir(normalize(p), "")
 }
 
 func (c *ClusterFileSystem) Name() string { return "cluster" }
 
 func (c *ClusterFileSystem) Remove(p string) error {
+	c.debugf("Remove %q", p)
 	return c.backend.Remove(normalize(p), false)
 }
 
 func (c *ClusterFileSystem) RemoveAll(p string) error {
+	c.debugf("RemoveAll %q", p)
 	return c.backend.Remove(normalize(p), true)
 }
 
 func (c *ClusterFileSystem) Rename(oldname, newname string) error {
+	c.debugf("Rename %q -> %q", oldname, newname)
 	return c.backend.Rename(normalize(oldname), normalize(newname))
 }
 
 func (c *ClusterFileSystem) Stat(p string) (os.FileInfo, error) {
+	c.debugf("Stat %q", p)
 	info, err := c.backend.Stat(normalize(p))
 	if err != nil {
 		return nil, err
@@ -184,6 +206,7 @@ func (c *ClusterFileSystem) IsDir(p string) bool {
 // Glob emulates a depth-limited glob over directory listings, like webdavfs.
 func (c *ClusterFileSystem) Glob(wildcard string) ([]string, error) {
 	wildcard = normalize(wildcard)
+	c.debugf("Glob %q", wildcard)
 	chunks := strings.Split(strings.TrimPrefix(wildcard, "/"), "/")
 	return c.globPath("/", chunks)
 }
@@ -234,10 +257,12 @@ func (c *ClusterFileSystem) GetModTime(p string) (int64, error) {
 }
 
 func (c *ClusterFileSystem) WriteFile(p string, content []byte, mode os.FileMode) error {
+	c.debugf("WriteFile %q (%d bytes)", p, len(content))
 	return c.backend.Write(normalize(p), strings.NewReader(string(content)), "")
 }
 
 func (c *ClusterFileSystem) ReadFile(p string) ([]byte, error) {
+	c.debugf("ReadFile %q", p)
 	r, err := c.backend.OpenRead(normalize(p))
 	if err != nil {
 		return nil, err
@@ -247,6 +272,7 @@ func (c *ClusterFileSystem) ReadFile(p string) ([]byte, error) {
 }
 
 func (c *ClusterFileSystem) ReadDir(p string) ([]fs.DirEntry, error) {
+	c.debugf("ReadDir %q", p)
 	entries, err := c.backend.List(normalize(p))
 	if err != nil {
 		return nil, err
@@ -259,17 +285,21 @@ func (c *ClusterFileSystem) ReadDir(p string) ([]fs.DirEntry, error) {
 }
 
 func (c *ClusterFileSystem) WriteStream(p string, stream io.Reader, mode os.FileMode) error {
+	c.debugf("WriteStream %q", p)
 	return c.backend.Write(normalize(p), stream, "")
 }
 
 func (c *ClusterFileSystem) ReadStream(p string) (io.ReadCloser, error) {
+	c.debugf("ReadStream %q", p)
 	return c.backend.OpenRead(normalize(p))
 }
 
 func (c *ClusterFileSystem) Walk(root string, walkFn filepath.WalkFunc) error {
 	root = normalize(root)
+	c.debugf("Walk %q", root)
 	info, err := c.backend.Stat(root)
 	if err != nil {
+		c.debugf("Walk %q: stat of the root failed (%v), the walk callback gets a nil FileInfo", root, err)
 		return walkFn(root, nil, err)
 	}
 	return c.walk(root, info, walkFn)
@@ -319,6 +349,7 @@ func (c *ClusterFileSystem) ThumbnailKey(p string) (string, error) {
 
 // RenderThumbnail has a node holding a copy of the file render its thumbnail.
 func (c *ClusterFileSystem) RenderThumbnail(p string) ([]byte, error) {
+	c.debugf("RenderThumbnail %q", p)
 	backend, ok := c.backend.(ThumbnailBackend)
 	if !ok {
 		return nil, arozfs.ErrNoThumbnail

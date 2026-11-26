@@ -15,6 +15,7 @@ import (
 
 	db "imuslab.com/arozos/mod/database"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // QuotaHandler Object
@@ -124,8 +125,13 @@ func (q *QuotaHandler) ReclaimSpace(filesize int64) error {
 // Recalculate the user storage quota. This takes a lot of time and CPUs
 func (q *QuotaHandler) CalculateQuotaUsage() {
 	totalUsedVolume := int64(0)
+	logger.Debugf("Quota", "[Quota] %s: measuring usage over %d drive(s)", q.username, len(q.fspool))
 	for _, thisfs := range q.fspool {
+		if thisfs == nil {
+			logger.Debugf("Quota", "[Quota] %s: a nil drive handler in the quota pool, this will panic", q.username)
+		}
 		if thisfs.Hierarchy == "user" {
+			logger.Debugf("Quota", "[Quota] %s: walking %s:/ at %q", q.username, thisfs.UUID, thisfs.Path)
 			if !fs.FileExists(filepath.ToSlash(filepath.Clean(thisfs.Path)) + "/users/" + q.username) {
 				//This folder not exists. Maybe not initialized
 				continue
@@ -146,6 +152,7 @@ func (q *QuotaHandler) CalculateQuotaUsage() {
 		}
 	}
 	q.UsedStorageQuota = totalUsedVolume
+	logger.Debugf("Quota", "[Quota] %s: %d bytes used", q.username, totalUsedVolume)
 }
 
 func inSlice(slice []string, val string) (int, bool) {

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 	//user "imuslab.com/arozos/mod/user"
 )
@@ -105,6 +106,8 @@ func system_disk_quota_handleQuotaInfo(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(jsonString))
 
 	go func() {
+		//Outside the request: a panic here ends the whole process
+		defer logger.TracePanic("Quota", "measuring the storage used by "+userinfo.Username)
 		//Update this user's quota estimation in go routine
 		userinfo.StorageQuota.CalculateQuotaUsage()
 	}()

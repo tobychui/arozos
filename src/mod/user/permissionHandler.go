@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	permission "imuslab.com/arozos/mod/permission"
 	"imuslab.com/arozos/mod/storage/access"
 	"imuslab.com/arozos/mod/utils"
@@ -96,11 +97,17 @@ func (u *User) GetPathAccessPermission(vpath string) string {
 	if err != nil || arozfs.SubpathEscapesRoot(subpath) {
 		//Everything below decides by the drive alone, so a subpath that climbs
 		//out of the drive or the user's home ("user:../bob") must be denied here
+		logger.Debugf("User", "GetPathAccessPermission(%q, %q): denied, bad path (err=%v)", u.Username, vpath, err)
 		return arozfs.FsDenied
 	}
 	decision, found := u.ExplainDriveAccess(fsid)
 	if !found {
+		logger.Debugf("User", "GetPathAccessPermission(%q, %q): denied, no pool holds drive %s:/", u.Username, vpath, fsid)
 		return arozfs.FsDenied
+	}
+	//Allowed checks are not logged: listing a folder asks once per file
+	if decision.Level == arozfs.FsDenied {
+		logger.Debugf("User", "GetPathAccessPermission(%q, %q): denied by the access list of %s:/", u.Username, vpath, fsid)
 	}
 	return decision.Level
 }

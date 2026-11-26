@@ -119,6 +119,22 @@ func (b BufferFsIoHandler) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
+// debugf writes a DEBUG record about a WebDAV request on this drive (-debug
+// flag). It says so when the drive has no abstraction, since using it panics.
+func (a *FshWebDAVAdapter) debugf(format string, args ...interface{}) {
+	if !logger.DebugEnabled() {
+		return
+	}
+	drive := "<nil drive>"
+	if a.fsh != nil {
+		drive = a.fsh.UUID + ":/"
+		if a.fsh.FileSystemAbstraction == nil {
+			drive += " <nil abstraction, this call will panic>"
+		}
+	}
+	logger.DebugDepth(1, "Webdav", "[WebDAV] "+a.username+" on "+drive+" "+fmt.Sprintf(format, args...))
+}
+
 func NewFshWebDAVAdapter(fsh *filesystem.FileSystemHandler, username string, canWrite WriteChecker) *FshWebDAVAdapter {
 	return &FshWebDAVAdapter{
 		fsh,
@@ -147,6 +163,7 @@ func (a *FshWebDAVAdapter) requestPathToRealPath(name string) (string, error) {
 	fullVpath := a.requestPathToVpath(name)
 	realRequestPath, err := a.fsh.FileSystemAbstraction.VirtualPathToRealPath(fullVpath, a.username)
 	if err != nil {
+		a.debugf("%q (%q) did not translate: %v", name, fullVpath, err)
 		return "", err
 	}
 
@@ -155,6 +172,7 @@ func (a *FshWebDAVAdapter) requestPathToRealPath(name string) (string, error) {
 }
 
 func (a *FshWebDAVAdapter) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
+	a.debugf("Mkdir %q", name)
 	if err := a.checkWrite(name); err != nil {
 		return err
 	}
@@ -165,6 +183,7 @@ func (a *FshWebDAVAdapter) Mkdir(ctx context.Context, name string, perm os.FileM
 	return a.fsh.FileSystemAbstraction.Mkdir(realRequestPath, perm)
 }
 func (a *FshWebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
+	a.debugf("OpenFile %q flag=%#x", name, flag)
 	if flag&(os.O_WRONLY|os.O_RDWR|os.O_CREATE|os.O_TRUNC|os.O_APPEND) != 0 {
 		if err := a.checkWrite(name); err != nil {
 			return nil, err
@@ -181,12 +200,14 @@ func (a *FshWebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, 
 
 	if a.fsh.RequireBuffer {
 		//Buffer the remote content to local for access
+		a.debugf("OpenFile %q: drive needs a buffer, reading %q into memory", name, realRequestPath)
 		return newBufferFsIoHandler(a.fsh.FileSystemAbstraction, realRequestPath)
 	} else {
 		return a.fsh.FileSystemAbstraction.OpenFile(realRequestPath, flag, perm)
 	}
 }
 func (a *FshWebDAVAdapter) RemoveAll(ctx context.Context, name string) error {
+	a.debugf("RemoveAll %q", name)
 	if err := a.checkWrite(name); err != nil {
 		return err
 	}
@@ -197,6 +218,7 @@ func (a *FshWebDAVAdapter) RemoveAll(ctx context.Context, name string) error {
 	return a.fsh.FileSystemAbstraction.RemoveAll(realRequestPath)
 }
 func (a *FshWebDAVAdapter) Rename(ctx context.Context, oldName, newName string) error {
+	a.debugf("Rename %q -> %q", oldName, newName)
 	if err := a.checkWrite(oldName); err != nil {
 		return err
 	}
@@ -216,6 +238,7 @@ func (a *FshWebDAVAdapter) Rename(ctx context.Context, oldName, newName string) 
 	return a.fsh.FileSystemAbstraction.Rename(realOldname, realNewname)
 }
 func (a *FshWebDAVAdapter) Stat(ctx context.Context, name string) (os.FileInfo, error) {
+	a.debugf("Stat %q", name)
 	realRequestPath, err := a.requestPathToRealPath(name)
 	if err != nil {
 		return nil, err

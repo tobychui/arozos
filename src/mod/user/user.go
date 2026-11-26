@@ -105,6 +105,9 @@ func (u *UserHandler) GetUserInfoFromUsername(username string) (*User, error) {
 	}
 
 	//Create user directories in the Home Directories
+	if u.basePool == nil {
+		logger.Debugf("User", "GetUserInfoFromUsername(%q): the user handler has no base pool (nil), reading its drives panics with a nil pointer dereference", username)
+	}
 	if u.basePool.Storages == nil {
 		//This userhandler do not have a basepool?
 		logger.PrintAndLog("User", "USER HANDLER DO NOT HAVE BASEPOOL", nil)

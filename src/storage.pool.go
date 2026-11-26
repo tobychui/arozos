@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/storage/access"
 	"imuslab.com/arozos/mod/utils"
 
@@ -178,17 +179,22 @@ func localFilesystemType() string {
 */
 
 func mountDrive(poolOwner string, option fs.FileSystemOption) error {
+	defer logger.TracePanic("Storage", "mounting "+option.Uuid+":/ in pool "+poolOwner)
+	logger.Debugf("Storage", "mountDrive(%s): %s", poolOwner, option.DebugString())
 	pool, err := GetStoragePoolByOwner(poolOwner)
 	if err != nil {
+		logger.Debugf("Storage", "mountDrive(%s): pool not found: %v", poolOwner, err)
 		return err
 	}
 	handler, err := fs.NewFileSystemHandler(option, fs.RuntimePersistenceConfig{
 		LocalBufferPath: *tmp_directory,
 	})
 	if err != nil {
+		logger.Debugf("Storage", "mountDrive(%s): %s:/ not opened: %v", poolOwner, option.Uuid, err)
 		return err
 	}
 	if err := pool.AttachFsHandler(handler); err != nil {
+		logger.Debugf("Storage", "mountDrive(%s): %s:/ not attached (%v), closing it again", poolOwner, option.Uuid, err)
 		handler.Close()
 		return err
 	}
@@ -197,14 +203,18 @@ func mountDrive(poolOwner string, option fs.FileSystemOption) error {
 }
 
 func unmountDrive(poolOwner string, uuid string) {
+	defer logger.TracePanic("Storage", "unmounting "+uuid+":/ from pool "+poolOwner)
 	pool, err := GetStoragePoolByOwner(poolOwner)
 	if err != nil {
+		logger.Debugf("Storage", "unmountDrive(%s, %s): pool not found: %v", poolOwner, uuid, err)
 		return
 	}
 	fsh, err := pool.GetFsHandlerByUUID(uuid)
 	if err != nil {
+		logger.Debugf("Storage", "unmountDrive(%s, %s): not mounted in this pool, nothing to close", poolOwner, uuid)
 		return
 	}
+	logger.Debugf("Storage", "unmountDrive(%s): detaching and closing %s. Requests already holding it keep using it after it is closed", poolOwner, fsh.Describe())
 	pool.DetachFsHandler(uuid)
 	if !fsh.Closed {
 		fsh.Close()
@@ -231,6 +241,7 @@ func sendMountResult(w http.ResponseWriter, mountErr error) {
 
 // Handle editing of a given File System Handler
 func HandleFSHEdit(w http.ResponseWriter, r *http.Request) {
+	defer logger.TracePanic("Storage", "handling "+r.URL.Path)
 	opr, _ := utils.PostPara(r, "opr")
 	group, err := utils.PostPara(r, "group")
 	if err != nil {
@@ -242,6 +253,7 @@ func HandleFSHEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logger.Debugf("Storage", "HandleFSHEdit: opr=%q group=%q", opr, group)
 	switch opr {
 	case "get":
 		handleDriveGet(w, r, group)
@@ -309,6 +321,7 @@ func handleDriveSet(w http.ResponseWriter, r *http.Request, group string) {
 	}
 
 	//Replace the running drive with the new settings
+	logger.Debugf("Storage", "handleDriveSet(%s): replacing running %s:/ with %s", group, uuid, newFsOption.DebugString())
 	unmountDrive(group, uuid)
 	sendMountResult(w, mountDrive(group, newFsOption))
 	driveAccessChanged()
@@ -353,7 +366,9 @@ func handleDriveNew(w http.ResponseWriter, r *http.Request, group string) {
 // drive was not saved; mountErr when it was saved but could not be mounted,
 // in which case it shows as offline. rule, if given, is its access list.
 func addDrive(group string, option fs.FileSystemOption, rule *access.Rule) (mountErr error, err error) {
+	logger.Debugf("Storage", "addDrive(%s): %s, access rule given=%v", group, option.DebugString(), rule != nil)
 	if err := validateNewDrive(&option, collectPoolStates()); err != nil {
+		logger.Debugf("Storage", "addDrive(%s): %s:/ refused: %v", group, option.Uuid, err)
 		return nil, err
 	}
 
@@ -372,6 +387,7 @@ func addDrive(group string, option fs.FileSystemOption, rule *access.Rule) (moun
 
 	mountErr = mountDrive(group, option)
 	driveAccessChanged()
+	logger.Debugf("Storage", "addDrive(%s): %s:/ saved, mount error: %v", group, option.Uuid, mountErr)
 	return mountErr, nil
 }
 
@@ -469,6 +485,9 @@ func HandleFSHToggle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//Only the flag changes: the abstraction stays open, and is used again
+	//as is when the drive is turned back on
+	logger.Debugf("Storage", "HandleFSHToggle(%s): flipping the closed flag of %s", group, targetFSH.Describe())
 	targetFSH.Closed = !targetFSH.Closed
 
 	//Return ok
@@ -478,6 +497,8 @@ func HandleFSHToggle(w http.ResponseWriter, r *http.Request) {
 
 // reloadBasePool closes and reopens the system pool, built-in drives included
 func reloadBasePool() {
+	defer logger.TracePanic("Storage", "reloading the base storage pool")
+	logger.Debugf("Storage", "reloadBasePool: closing base pool %p %s. Until the reload ends the base pool is EMPTY, and requests holding its drives use closed abstractions", baseStoragePool, fs.DebugHandlerList(baseStoragePool.Storages))
 	baseStoragePool.Close()
 	emptyPool := storage.StoragePool{}
 	baseStoragePool = &emptyPool
@@ -486,15 +507,19 @@ func reloadBasePool() {
 	err := LoadBaseStoragePool()
 	if err != nil {
 		systemWideLogger.PrintAndLog("Storage", err.Error(), err)
+		logger.Debugf("Storage", "reloadBasePool: reload failed (%v). The base pool stays EMPTY (owner %q) and the user handler keeps the old, closed pool", err, baseStoragePool.Owner)
 		return
 	}
 	//Update userHandler's basePool
 	userHandler.UpdateStoragePool(baseStoragePool)
+	logger.Debugf("Storage", "reloadBasePool: done, base pool %p %s handed to the user handler", baseStoragePool, fs.DebugHandlerList(baseStoragePool.Storages))
 }
 
 // Handle reload of storage pool
 func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
+	defer logger.TracePanic("Storage", "handling "+r.URL.Path)
 	pool, _ := utils.PostPara(r, "pool")
+	logger.Debugf("Storage", "HandleStoragePoolReload: pool=%q", pool)
 
 	switch pool {
 	case reloadAllPools:
@@ -521,6 +546,7 @@ func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
 	// from succeeding.
 	restartAllEnabledServers()
 
+	logger.Debugf("Storage", "HandleStoragePoolReload: pool=%q reloaded, %d drive(s) loaded in all pools", pool, len(GetAllLoadedFsh()))
 	utils.SendOK(w)
 }
 
@@ -529,13 +555,16 @@ func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
 // WebDAV, SFTP, FTP, etc.) see the re-mounted drives.  Failures are
 // logged to systemWideLogger but never block the reload response.
 func restartAllEnabledServers() {
+	defer logger.TracePanic("Storage", "restarting the file servers after a pool reload")
 	for _, fserv := range networkFileServerDaemon {
 		if fserv.EnableCheck == nil || fserv.ToggleFunc == nil {
+			logger.Debugf("Storage", "restartAllEnabledServers: %s has no enable check or toggle, skipped", fserv.Name)
 			continue
 		}
 		if !fserv.EnableCheck() {
 			continue
 		}
+		logger.Debugf("Storage", "restartAllEnabledServers: stopping %s", fserv.Name)
 
 		systemWideLogger.PrintAndLog("Storage", fmt.Sprintf("Restarting file server: %s", fserv.Name), nil)
 
@@ -561,8 +590,16 @@ func restartAllEnabledServers() {
 
 // reloadGroupPool closes and reopens the pool of a permission group
 func reloadGroupPool(group string) {
+	defer logger.TracePanic("Storage", "reloading the storage pool of group "+group)
 	systemWideLogger.PrintAndLog("Storage", "Reloading Storage Pool for: "+group, nil)
 	pg := permissionHandler.GetPermissionGroupByName(group)
+	if pg == nil {
+		logger.Debugf("Storage", "reloadGroupPool(%s): no such permission group, reading its pool panics with a nil pointer dereference", group)
+	} else if pg.StoragePool == nil {
+		logger.Debugf("Storage", "reloadGroupPool(%s): the group has no pool (nil), closing it panics with a nil pointer dereference", group)
+	} else {
+		logger.Debugf("Storage", "reloadGroupPool(%s): closing pool %p %s. Until the reload ends the pool is EMPTY", group, pg.StoragePool, fs.DebugHandlerList(pg.StoragePool.Storages))
+	}
 
 	//Pool should be exists. Close it
 	pg.StoragePool.Close()
@@ -573,10 +610,13 @@ func reloadGroupPool(group string) {
 
 	//Recreate a new pool for this permission group
 	//If there is no handler in config, the empty one will be kept
-	LoadStoragePoolForGroup(pg)
+	if err := LoadStoragePoolForGroup(pg); err != nil {
+		logger.Debugf("Storage", "reloadGroupPool(%s): loading the pool failed, it stays EMPTY: %v", group, err)
+	}
 }
 
 func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
+	defer logger.TracePanic("Storage", "handling "+r.URL.Path)
 	groupname, err := utils.PostPara(r, "group")
 	if err != nil {
 		utils.SendErrorResponse(w, "group not defined")
@@ -608,6 +648,7 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 // removeDrive takes a drive out of a pool's config, unmounts it and drops its
 // access rule once no pool holds that id any more
 func removeDrive(groupname string, uuid string) error {
+	logger.Debugf("Storage", "removeDrive(%s, %s)", groupname, uuid)
 	//Generate new confic by filtering
 	oldConfigs, err := readPoolConfig(groupname)
 	if err != nil {
@@ -687,13 +728,17 @@ func testNetworkDrive(option fs.FileSystemOption) error {
 	option.Automount = false
 
 	result := make(chan error, 1)
+	logger.Debugf("Storage", "testNetworkDrive: %s", option.DebugString())
 	go func() {
+		//A panic here stops the whole server, not just this request
+		defer logger.TracePanic("Storage", "testing the connection to "+option.Filesystem+" drive "+option.Uuid+":/")
 		handler, err := fs.NewFileSystemHandler(option, fs.RuntimePersistenceConfig{
 			LocalBufferPath: *tmp_directory,
 		})
 		if err == nil {
 			handler.Close()
 		}
+		logger.Debugf("Storage", "testNetworkDrive: %s:/ connection test finished: %v", option.Uuid, err)
 		result <- err
 	}()
 
@@ -701,6 +746,7 @@ func testNetworkDrive(option fs.FileSystemOption) error {
 	case err := <-result:
 		return err
 	case <-time.After(driveTestTimeout):
+		logger.Debugf("Storage", "testNetworkDrive: %s:/ no answer within %v; the connection attempt goes on in its goroutine", option.Uuid, driveTestTimeout)
 		return errors.New("The server did not answer in time")
 	}
 }

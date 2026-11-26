@@ -26,6 +26,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem/abstractions/sharefs"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/metadata"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/share"
 	"imuslab.com/arozos/mod/user"
 )
@@ -99,7 +100,9 @@ func sharedDriveAttach(handlers []*fs.FileSystemHandler) []*fs.FileSystemHandler
 			return handlers
 		}
 	}
-	return append(handlers, newSharedDriveHandler())
+	shared := newSharedDriveHandler()
+	logger.Debugf("Storage", "sharedDriveAttach: adding %s to the base pool", shared.Describe())
+	return append(handlers, shared)
 }
 
 // sharedDriveOwnerOf returns who shared a file on the share:/ drive with the

@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network/webdav"
 )
 
@@ -70,7 +71,11 @@ func (a *RootFsWebDAVAdapter) resolve(name string) (*FshWebDAVAdapter, string, e
 	}
 	adapter, ok := a.adapters[uuid]
 	if !ok {
+		logger.Debugf("Webdav", "resolve(%q): drive %q is not open to this user", name, uuid)
 		return nil, "", os.ErrNotExist
+	}
+	if adapter.fsh == nil || adapter.fsh.Closed || adapter.fsh.FileSystemAbstraction == nil {
+		logger.Debugf("Webdav", "resolve(%q): serving drive %s, closed or not loaded", name, adapter.fsh.Describe())
 	}
 	return adapter, subpath, nil
 }

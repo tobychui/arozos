@@ -5,6 +5,7 @@ import (
 	//"log"
 
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -17,8 +18,12 @@ import (
 
 // Return the user quota information, returning used / total
 func (u *User) HaveSpaceFor(fsh *fs.FileSystemHandler, vpath string) bool {
+	if fsh == nil || fsh.FileSystemAbstraction == nil || u.StorageQuota == nil {
+		logger.Debugf("User", "HaveSpaceFor(%q, %q): drive %s, quota manager set=%v; a nil one panics below", u.Username, vpath, fsh.Describe(), u.StorageQuota != nil)
+	}
 	realpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
 	if err != nil {
+		logger.Debugf("User", "HaveSpaceFor(%q, %q): path not resolved on %s:/: %v", u.Username, vpath, fsh.UUID, err)
 		return false
 	}
 	if u.StorageQuota.HaveSpace(fsh.FileSystemAbstraction.GetFileSize(realpath)) {

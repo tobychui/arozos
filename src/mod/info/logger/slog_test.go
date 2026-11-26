@@ -62,8 +62,10 @@ func TestSlogMessages(t *testing.T) {
 	}
 }
 
-// TestSlogDropsDebug checks that debug records never reach the system log.
+// TestSlogDropsDebug checks that debug records never reach the system log
+// while debug mode is off.
 func TestSlogDropsDebug(t *testing.T) {
+	SetDebug(false)
 	l, lines := captureSlog("WSD")
 	l.Debug("noise")
 	if len(*lines) != 0 {
@@ -84,7 +86,7 @@ func TestNewSlog(t *testing.T) {
 	if !ok {
 		t.Fatalf("handler is %T", l.Handler())
 	}
-	if h.title != "SMB" || h.emit == nil {
+	if h.title != "SMB" || h.emit == nil || h.debug == nil {
 		t.Errorf("handler not set up: %+v", h)
 	}
 	l.Info("written through PrintAndLog")

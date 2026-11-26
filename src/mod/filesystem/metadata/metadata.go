@@ -57,6 +57,7 @@ func NewRenderHandler() *RenderHandler {
 func (rh *RenderHandler) BuildCacheForFolder(fsh *filesystem.FileSystemHandler, vpath string, username string) error {
 	fshAbs := fsh.FileSystemAbstraction
 	rpath, _ := fshAbs.VirtualPathToRealPath(vpath, username)
+	logger.Debugf("Metadata", "[Thumbnail] building the cache of %q (%q) on %s:/ for %s", vpath, rpath, fsh.UUID, username)
 
 	//Get a list of all files inside this path
 	fis, err := fshAbs.ReadDir(filepath.ToSlash(filepath.Clean(rpath)))
@@ -209,6 +210,9 @@ func (rh *RenderHandler) generateCache(fsh *filesystem.FileSystemHandler, cacheF
 // cacheFolder, which ends with a slash.
 func renderThumbnail(fsh *filesystem.FileSystemHandler, cacheFolder string, rpath string, generateOnly bool) (string, error) {
 	ext := strings.ToLower(filepath.Ext(rpath))
+	//Logged before decoding: the renderers parse untrusted files, so a crash
+	//in one of them is found by the last of these lines
+	logger.Debugf("Metadata", "[Thumbnail] rendering %q (%s) on %s:/ into %q", rpath, ext, fsh.UUID, cacheFolder)
 	switch {
 	case utils.StringInArray(audioThumbnailFormats, ext):
 		return generateThumbnailForAudio(fsh, cacheFolder, rpath, generateOnly)
