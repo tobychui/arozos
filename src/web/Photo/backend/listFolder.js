@@ -129,17 +129,22 @@ function main(){
     // taken_date = EXIF DateTimeOriginal for every indexed photo, so resolve it
     // with one folder-scoped query instead of decoding EXIF per file per request.
     // The index only refines the dates: if it cannot be read (busy, damaged),
-    // list the folder anyway and let mtime stand in.
+    // list the folder anyway and let mtime stand in. The index also knows the
+    // upright size of each photo, which the waterfall layout needs up front.
     var takenMap = {};
+    var sizeMap = {};
     try {
         var db = openIndexDB();
         if (db != null) {
             // `folder` is the request wildcard ("user:/Photo/*"); its dirname is
             // the folder being listed, which is exactly how the index keys its rows.
-            var rows = db.query("SELECT filepath, taken_date FROM photos WHERE folder = ?", [dirname(folder)]);
+            var rows = db.query("SELECT filepath, taken_date, width, height FROM photos WHERE folder = ?", [dirname(folder)]);
             for (var ri = 0; ri < rows.length; ri++) {
                 if (rows[ri].taken_date) {
                     takenMap[rows[ri].filepath] = rows[ri].taken_date;
+                }
+                if (rows[ri].width && rows[ri].height) {
+                    sizeMap[rows[ri].filepath] = [rows[ri].width, rows[ri].height];
                 }
             }
             db.close();
@@ -159,11 +164,14 @@ function main(){
         if (mtime === false){
             mtime = 0;
         }
+        var dim = sizeMap[filepath];
         filesWithSize.push({
             filepath: filepath,
             filesize: filesize,
             mtime: mtime,
-            taken_date: takenMap[filepath] || null
+            taken_date: takenMap[filepath] || null,
+            width: dim ? dim[0] : null,
+            height: dim ? dim[1] : null
         });
     }
 

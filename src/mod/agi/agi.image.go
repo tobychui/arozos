@@ -666,6 +666,9 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		return otto.TrueValue()
 	})
 
+	//Photo previews that keep their shape (agi.image.preview.go)
+	g.injectImagePreviewFunction(payload)
+
 	//Wrap all the native code function into an imagelib class
 	vm.Run(`
 		var imagelib = {};
@@ -677,6 +680,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		imagelib.hasExif = _imagelib_hasExif;
 		imagelib.getExif = _imagelib_getExif;
 		imagelib.rawToJPEG = _imagelib_rawToJPEG;
+		imagelib.renderPreview = _imagelib_renderPreview;
 	`)
 }
 

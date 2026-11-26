@@ -446,6 +446,20 @@ Returns JSON string. JPEG, TIFF based RAW and HEIC / HEIF photos.
 var exif = JSON.parse(imagelib.getExif("user:/img.jpg"));
 ```
 
+### `imagelib.renderPreview(src, dest, maxWidth, maxHeight)`
+Draws a photo upright and scaled down to fit `maxWidth` x `maxHeight`, keeping
+its shape (0 leaves a side free; smaller photos are not enlarged). Reads JPEG,
+PNG, WebP, GIF, HEIC / HEIF and RAW (its embedded JPEG) and applies the EXIF
+orientation. `dest` is a `.jpg` or `.png` path (folders are created); pass `""`
+to get a JPEG data URL instead of writing a file. Returns
+`{width, height}` (plus `dataURL` when `dest` is `""`). Pictures over 120 MP
+are refused.
+
+```javascript
+var p = imagelib.renderPreview("user:/Photo/a.heic", "user:/.appdata/photo/previews/a.jpg", 720, 1440);
+var inline = imagelib.renderPreview("user:/Photo/b.jpg", "", 480, 480).dataURL;
+```
+
 ## http API
 
 Load:

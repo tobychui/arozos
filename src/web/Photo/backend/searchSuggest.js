@@ -8,12 +8,16 @@
       - When the box is empty: popular facets (top cameras, recent years,
         orientation, common file types) so there is always something to tap.
       - While typing: completions for the active (last) token — matching camera
-        models, lenses, file names, years, file types, plus smart filter tokens
-        (iso:..., f/...) when the user starts typing a known filter keyword.
+        models, lenses, folders, file names, years, file types, plus smart filter
+        tokens (iso:..., f/..., shutter / size / time of day presets) when the
+        user starts typing a known filter keyword. A leading "-" asks for the
+        same completions as exclusions.
 
     Each suggestion: { type, label, value, hint }
-      type  -> drives the icon on the front-end (camera/lens/date/type/file/filter)
-      label -> what is shown to the user
+      type  -> drives the icon on the front-end
+               (camera/lens/date/type/file/folder/filter/rating/shutter/size/time)
+      label -> what is shown to the user (the front-end translates the
+               labels that are not data)
       value -> text inserted into the query box when picked
       hint  -> small right-aligned note (usually a photo count)
 
@@ -22,6 +26,27 @@
 */
 
 includes("imagedb.js");
+
+// Presets offered for the filter keywords, as query tokens
+var SHUTTER_PRESETS = [
+    ["shutter:<=1/1000", "Faster than 1/1000 s"],
+    ["shutter:1/1000..1/250", "1/1000 - 1/250 s"],
+    ["shutter:1/250..1/30", "1/250 - 1/30 s"],
+    ["shutter:1/30..1", "1/30 - 1 s"],
+    ["shutter:>=1", "Long exposure (1 s or longer)"]
+];
+var SIZE_PRESETS = [
+    ["size:<1mb", "Under 1 MB"],
+    ["size:1mb..5mb", "1 - 5 MB"],
+    ["size:5mb..20mb", "5 - 20 MB"],
+    ["size:>20mb", "Over 20 MB"]
+];
+var TIME_PRESETS = [
+    ["hour:5..11", "Morning", ["morning", "sunrise"]],
+    ["hour:12..16", "Afternoon", ["afternoon", "noon"]],
+    ["hour:17..20", "Evening", ["evening", "sunset"]],
+    ["hour:21..4", "Night", ["night", "midnight"]]
+];
 
 function buildSuggestions(db, q) {
     var out = [];
@@ -71,8 +96,15 @@ function buildSuggestions(db, q) {
     var lastToken = parts[parts.length - 1].toLowerCase();
     var prefix = parts.slice(0, parts.length - 1).join(" ");
 
+    // "-word": the same completions, inserted as exclusions
+    var neg = false;
+    if (lastToken.length > 1 && lastToken.charAt(0) === "-") {
+        neg = true;
+        lastToken = lastToken.substring(1);
+    }
+
     function withPrefix(tok) {
-        return (prefix ? prefix + " " : "") + tok;
+        return (prefix ? prefix + " " : "") + (neg ? "-" : "") + tok;
     }
 
     var like = "%" + lastToken + "%";
@@ -99,6 +131,30 @@ function buildSuggestions(db, q) {
             add("rating", rs + "★ & up", withPrefix("rating:>=" + rs), (rc && rc.c ? rc.c + " photos" : ""));
         }
     }
+    // Shutter speed presets: "shutter", "exposure", "long", "fast".
+    if (lastToken.length >= 2 && ("shutter".indexOf(lastToken) === 0 || "exposure".indexOf(lastToken) === 0 ||
+            lastToken.indexOf("shutter") === 0 || lastToken === "long" || lastToken === "fast")) {
+        for (a = 0; a < SHUTTER_PRESETS.length; a++) {
+            add("shutter", SHUTTER_PRESETS[a][1], withPrefix(SHUTTER_PRESETS[a][0]), "");
+        }
+    }
+    // File size presets.
+    if (lastToken.length >= 2 && ("size".indexOf(lastToken) === 0 || lastToken.indexOf("size") === 0)) {
+        for (a = 0; a < SIZE_PRESETS.length; a++) {
+            add("size", SIZE_PRESETS[a][1], withPrefix(SIZE_PRESETS[a][0]), "");
+        }
+    }
+    // Time of day presets ("night", "morning", "hour", "time").
+    for (a = 0; a < TIME_PRESETS.length; a++) {
+        var words = TIME_PRESETS[a][2];
+        var hit = lastToken.length >= 3 && ("hour".indexOf(lastToken) === 0 || "time".indexOf(lastToken) === 0);
+        for (var wi = 0; wi < words.length && !hit; wi++) {
+            hit = lastToken.length >= 3 && words[wi].indexOf(lastToken) === 0;
+        }
+        if (hit) {
+            add("time", TIME_PRESETS[a][1], withPrefix(TIME_PRESETS[a][0]), "");
+        }
+    }
 
     // Camera models.
     list = db.query("SELECT camera_model AS m, COUNT(*) AS c FROM photos" +
@@ -116,11 +172,25 @@ function buildSuggestions(db, q) {
         add("lens", list[a].l, withPrefix("lens:\"" + list[a].l + "\""), list[a].c + " photos");
     }
 
+    // Folders whose own name contains the token (with what is below them).
+    if (lastToken.length >= 2) {
+        list = db.query("SELECT folder AS f, COUNT(*) AS c FROM photos" +
+            " WHERE LOWER(folder) LIKE ? GROUP BY folder ORDER BY c DESC LIMIT 40", [like]);
+        var folderSeen = 0;
+        for (a = 0; a < list.length && folderSeen < 3; a++) {
+            var fname = ("" + list[a].f).split("/").pop();
+            if (fname.toLowerCase().indexOf(lastToken) >= 0) {
+                add("folder", fname, withPrefix("folder:\"" + list[a].f + "\""), list[a].c + " photos");
+                folderSeen++;
+            }
+        }
+    }
+
     // File names.
     list = db.query("SELECT filename FROM photos WHERE filename_lc LIKE ?" +
         " ORDER BY filename_lc LIMIT 6", [like]);
     for (a = 0; a < list.length; a++) {
-        add("file", list[a].filename, list[a].filename, "file name");
+        add("file", list[a].filename, withPrefix(list[a].filename), "file name");
     }
 
     // Years.

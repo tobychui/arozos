@@ -33,47 +33,17 @@ function getViewableImageUrl(filepath, callback) {
     callback(imageUrl, true, false, isRawImage(filepath) ? 'backend_raw' : 'direct');
 }
 
-// Grid zoom: 0 = responsive (auto column count by width); a positive value pins
-// the number of columns, set by the user with Ctrl/⌘ + mouse wheel over the grid
-// (Google-Photos-style gallery zoom). Smaller column count => larger thumbnails.
-let photoGridColumns = 0;
-const PHOTO_GRID_MIN_COLS = 2;
-const PHOTO_GRID_MAX_COLS = 12;
-
-function getContainerWidth(){
-    const container = document.getElementById('viewboxContainer');
-    return container ? container.clientWidth : (window.innerWidth - 210);
+// The running gallery component, or null before Alpine has started
+function photoApp(){
+    const el = document.querySelector('[x-data*="photoListObject"]');
+    return (el && el._x_dataStack) ? el._x_dataStack[0] : null;
 }
 
-// Responsive column count for a given container width (used until the user
-// pins a zoom level via the mouse wheel).
-function autoColumnCount(containerWidth){
-    if (containerWidth < 400) return 2;
-    if (containerWidth < 600) return 3;
-    if (containerWidth < 900) return 4;
-    if (containerWidth < 1100) return 5;
-    if (containerWidth < 1400) return 6;
-    return 8;
-}
-
-function getColumnCount(){
-    if (photoGridColumns > 0) return photoGridColumns;
-    return autoColumnCount(getContainerWidth());
-}
-
-function getImageWidth(){
-    // Use the actual viewbox container width so the sidebar and scrollbar are
-    // already subtracted — this prevents gaps when the window is resized.
-    return Math.floor(getContainerWidth() / getColumnCount());
-}
-
+// Called on window resizes (and by older markup): the gallery measures its
+// width again, which sets the column count
 function updateImageSizes(){
-    let newImageWidth = getImageWidth();
-    //Updates all the size of the images
-    $(".imagecard").css({
-        width: newImageWidth,
-        height: newImageWidth
-    });
+    const app = photoApp();
+    if (app) app.measureGallery();
 }
 
 // Briefly show the current columns-per-row while zooming the grid.
@@ -85,34 +55,6 @@ function showGridZoomHint(cols){
     el.classList.add('visible');
     clearTimeout(_gridZoomHintTimer);
     _gridZoomHintTimer = setTimeout(function(){ el.classList.remove('visible'); }, 1100);
-}
-
-// ── Date grouping (Google-Photos-style Year / Month sections) ──────────────────
-// Capture date for a grid item: the EXIF shoot time (taken_date, supplied by
-// both search results and folder listings via the photo index) with file mtime
-// as the fallback for photos the background indexer has not reached yet.
-function photoImageDateUnix(img){
-    if (!img) return null;
-    if (img.taken_date) return img.taken_date;
-    if (img.mtime) return img.mtime;
-    if (img.modified_date) return img.modified_date;
-    return null;
-}
-
-// "June 2023" style header for a unix-second timestamp, in the page's language.
-function photoGroupLabel(unixSec){
-    if (!unixSec) return T('grid/undated', 'Undated');
-    var d = new Date(unixSec * 1000);
-    if (isNaN(d.getTime())) return T('grid/undated', 'Undated');
-    return d.toLocaleDateString(localeTag() || 'en-us', { year: 'numeric', month: 'long' });
-}
-
-// Newest-first ordering so each Year/Month section is contiguous regardless of
-// the folder's own sort order.
-function sortImagesByDateDesc(arr){
-    return arr.slice().sort(function(a, b){
-        return (photoImageDateUnix(b) || 0) - (photoImageDateUnix(a) || 0);
-    });
 }
 
 function extractFolderName(folderpath){
@@ -142,26 +84,67 @@ function formatShutterSpeed(value) {
     }
 }
 
+// View choices kept between visits (this browser)
+const PHOTO_PREFS_KEY = 'ao-photo-view';
+const PHOTO_TIMELINES = ['none', 'day', 'month', 'year'];
+
+function photoLoadPrefs(){
+    try {
+        return JSON.parse(localStorage.getItem(PHOTO_PREFS_KEY)) || {};
+    } catch (e) {
+        return {};
+    }
+}
+
+// Ratios the index knows for the photos on show (not reactive)
+let photoIndexRatios = {};
+
+// Messages of photoSettings.js errors
+function photoSettingsError(code){
+    switch (code) {
+        case 'not a folder path': return T('settings/errPath', 'Pick a folder.');
+        case 'folder not found': return T('settings/errMissing', 'That folder does not exist.');
+        case 'folder is read only': return T('settings/errReadOnly', 'You cannot write to that folder.');
+        case 'folder is inside the photo library': return T('settings/errLibrary', 'Pick a folder outside the Photo library, or the previews would show up as photos.');
+        case 'index unavailable': return T('settings/errIndex', 'The photo index cannot be opened.');
+        default: return code;
+    }
+}
+
 function photoListObject() {
+    const prefs = photoLoadPrefs();
     return {
         // data
         pathWildcard: "user:/Photo/*",
         currentPath: "user:/Photo",
-        renderSize: 200,
         vroots: [],
         allImages: [],       // full list from server
         images: [],           // currently displayed slice
         folders: [],
-        sortOrder: 'smart',
-        groupByDate: true,    // Google-Photos-style Year / Month grid sections
-        ratingFilter: 0,      // active "rating ≥ N stars" quick filter (0 = off)
         restored: false,
         hasMoreImages: false,
         isLoadingMore: false, // guard: blocks new batch until DOM has updated
         sidebarOpen: !isMobile,  // start hidden on mobile, visible on desktop
 
+        // view (top right "view" menu), kept in localStorage
+        sortOrder: PHOTO_SORT_OPTIONS.some(o => o.v === prefs.sortOrder) ? prefs.sortOrder : 'smart',
+        timeline: PHOTO_TIMELINES.includes(prefs.timeline) ? prefs.timeline : 'month',
+        layout: prefs.layout === 'waterfall' ? 'waterfall' : 'grid',
+        zoomLevel: Number.isInteger(prefs.zoomLevel) ? Math.max(0, Math.min(PHOTO_ZOOM_STEPS.length - 1, prefs.zoomLevel)) : PHOTO_ZOOM_DEFAULT,
+        containerWidth: 0,
+        layoutTick: 0,        // bumps when preview shapes arrive (waterfall relayout)
+        openMenu: '',         // '' | 'filter' | 'view'
+
+        // filter panel (top right funnel); its controls write search chips
+        scope: prefs.scope === 'all' ? 'all' : 'folder',
+        pf: photoEmptyPanel(),
+        showAdvanced: false,
+        facets: null,
+        facetsKey: '',
+        facetsLoading: false,
+
         // search state (tags input)
-        searchTags: [],         // committed filter chips: {label, value, type}
+        searchTags: [],         // chips: {label, value, type, slot?, neg?}
         searchInput: '',        // text currently being typed in the box
         searchMode: false,      // true while showing search results instead of a folder
         suggestions: [],
@@ -172,15 +155,32 @@ function photoListObject() {
         indexStatusText: '',
         _suggestTimer: null,
         _searchTimer: null,
+        _searchSeq: 0,
+        _relayoutTimer: null,
+
+        // settings dialog (gear)
+        settingsOpen: false,
+        settings: {
+            loaded: false, mode: 'appdata', path: '', dir: '', defaultDir: '',
+            stats: null, statsLoading: false, error: '', busy: false,
+            total: 0, lastIndexed: 0, exclude: [], excludeInput: ''
+        },
 
         // init
         init() {
             this.getFolderInfo();
             this.getRootInfo();
-            this.renderSize = getImageWidth();
-            updateImageSizes();
             this.restored = false;
-            this.$nextTick(() => { this.setupInfiniteScroll(); this.setupGridZoom(); });
+            this.$nextTick(() => {
+                this.measureGallery();
+                this.setupInfiniteScroll();
+                this.setupGridZoom();
+                this.setupResizeWatch();
+            });
+            PhotoPreviews.onSize = (fp, w, h) => this.onPreviewSize(fp, w, h);
+            ['sortOrder', 'timeline', 'layout', 'zoomLevel', 'scope'].forEach(k => {
+                this.$watch(k, () => this.savePrefs());
+            });
 
             // Kick off background (auto) indexing shortly after the first paint so
             // it doesn't compete with the initial folder load.
@@ -192,29 +192,43 @@ function photoListObject() {
             window.addEventListener('resize', () => {
                 clearTimeout(_resizeTimer);
                 _resizeTimer = setTimeout(() => {
-                    // Recalculate tile sizes
-                    this.renderSize = getImageWidth();
-                    updateImageSizes();
-
+                    this.measureGallery();
                     // Auto-manage sidebar visibility on breakpoint crossing
                     const nowMobile = window.innerWidth <= MOBILE_BP;
-                    if (nowMobile && !_prevMobile) {
-                        // Desktop → mobile: hide sidebar so it doesn't overlay content
-                        this.sidebarOpen = false;
-                    } else if (!nowMobile && _prevMobile) {
-                        // Mobile → desktop: sidebar is back in normal flow, keep state clean
+                    if (nowMobile !== _prevMobile) {
                         this.sidebarOpen = false;
                     }
                     _prevMobile = nowMobile;
                 }, 80);
             });
         },
-        
+
+        savePrefs() {
+            try {
+                localStorage.setItem(PHOTO_PREFS_KEY, JSON.stringify({
+                    sortOrder: this.sortOrder, timeline: this.timeline, layout: this.layout,
+                    zoomLevel: this.zoomLevel, scope: this.scope
+                }));
+            } catch (e) { /* private mode: keep for this visit only */ }
+        },
+
         updateRenderingPath(newPath, callback = null){
             this.currentPath = JSON.parse(JSON.stringify(newPath));
             this.pathWildcard = newPath + '/*';
             this.restored = false;
             if (isMobile) this.sidebarOpen = false;
+            const box = document.getElementById('viewboxContainer');
+            if (box) box.scrollTop = 0;
+            if (this.searchMode) {
+                if (this.scope === 'folder') {
+                    // Keep the filters, now for the new folder
+                    this.facets = null;
+                    this.runSearch();
+                } else {
+                    // Browsing a folder ends a search over every photo
+                    this.clearSearch(true);
+                }
+            }
             this.getFolderInfo(callback);
         },
 
@@ -230,7 +244,33 @@ function photoListObject() {
             return segments;
         },
 
+        // Whether the photos are ordered by the date they were taken (the
+        // timeline needs it; "newest / oldest first" ask for it)
+        needsDateSort() {
+            return this.timeline !== 'none' || this.sortOrder === 'mostRecent' || this.sortOrder === 'leastRecent';
+        },
+
+        orderImages(list) {
+            if (this.needsDateSort()) return sortImagesByDate(list, this.sortOrder === 'leastRecent');
+            return list;
+        },
+
+        // Show a new list of photos (folder content or search results)
+        setImages(list) {
+            photoIndexRatios = {};
+            for (let i = 0; i < list.length; i++) {
+                if (list[i].width && list[i].height) photoIndexRatios[list[i].filepath] = list[i].width / list[i].height;
+            }
+            this.allImages = list;
+            this.images = list.slice(0, PAGE_SIZE);
+            this.hasMoreImages = list.length > PAGE_SIZE;
+            this.isLoadingMore = false;
+            if (list.length == 0) { $("#noimg").show(); } else { $("#noimg").hide(); }
+            this.$nextTick(() => this.ensureFilled());
+        },
+
         getFolderInfo(callback = null) {
+            const path = this.currentPath;
             fetch(ao_root + "system/ajgi/interface?script=Photo/backend/listFolder.js", {
                 method: 'POST',
                 cache: 'no-cache',
@@ -239,32 +279,20 @@ function photoListObject() {
                 },
                 body: JSON.stringify({
                     "folder": this.pathWildcard,
-                    "sort": this.sortOrder
+                    // Dates are sorted here, by the date taken
+                    "sort": this.needsDateSort() ? 'smart' : this.sortOrder
                 })
-            }).then(resp => {
-                resp.json().then(data => {
-                    console.log(data);
-                    this.folders = data[0];
-                    this.allImages = data[1];
-                    // Date grouping reads cleanest newest-first; sort the loaded
-                    // list so Year/Month sections are contiguous as you scroll.
-                    if (this.groupByDate) { this.allImages = sortImagesByDateDesc(this.allImages); }
-                    this.images = this.allImages.slice(0, PAGE_SIZE);
-                    this.hasMoreImages = this.allImages.length > PAGE_SIZE;
-                    this.isLoadingMore = false;
-
-                    if (this.allImages.length == 0){
-                        $("#noimg").show();
-                    }else{
-                        $("#noimg").hide();
-                    }
-
-                    console.log(this.folders);
-
-                    if (!this.restored) { restoreFromHash(); this.restored = true; }
-                    
-                    if (callback) callback();
-                });
+            }).then(resp => resp.json()).then(data => {
+                if (path !== this.currentPath) return; // navigated on meanwhile
+                this.folders = data[0];
+                if (!this.searchMode) {
+                    this.setImages(this.orderImages(data[1]));
+                }
+                if (!this.restored) {
+                    this.restored = true;
+                    this.$nextTick(() => restoreFromHash());
+                }
+                if (callback) callback();
             });
         },
 
@@ -279,16 +307,14 @@ function photoListObject() {
             }).then(resp => {
                 resp.json().then(data => {
                     this.vroots = data;
-                    this.$nextTick(() => {
-                        $('.ui.dropdown').dropdown();
-                    });
                 });
             })
         },
 
-        changeSort(newSort) {
-            this.sortOrder = newSort;
-            this.getFolderInfo();
+        // Fetch the view again so a new order takes effect
+        reloadView() {
+            if (this.searchMode) { this.runSearch(); }
+            else { this.getFolderInfo(); }
         },
 
         // Load the next PAGE_SIZE images into the displayed list
@@ -301,7 +327,17 @@ function photoListObject() {
             this.images = this.images.concat(next);
             this.hasMoreImages = this.images.length < this.allImages.length;
             // Release the guard only after Alpine has re-rendered and scrollHeight has grown
-            this.$nextTick(() => { this.isLoadingMore = false; });
+            this.$nextTick(() => { this.isLoadingMore = false; this.ensureFilled(); });
+        },
+
+        // Small tiles may not fill the window with one page, and then no
+        // scroll event ever asks for more: keep loading until it is full
+        ensureFilled() {
+            const box = document.getElementById('viewboxContainer');
+            if (!box || !this.hasMoreImages || this.isLoadingMore) return;
+            if (box.scrollHeight - box.clientHeight < 300) {
+                this.loadMoreImages();
+            }
         },
 
         // Attach a scroll listener to the viewbox container for infinite scroll
@@ -317,13 +353,34 @@ function photoListObject() {
             });
         },
 
-        // ── Grid zoom (Ctrl/⌘ + mouse wheel) ───────────────────────────────────
+        // ── Gallery size, zoom and layout ──────────────────────────────────────
 
-        // Recompute the tile size from the current column count and push it to
-        // both the reactive binding and the already-rendered cards.
-        applyRenderSize() {
-            this.renderSize = getImageWidth();
-            updateImageSizes();
+        measureGallery() {
+            const box = document.getElementById('viewboxContainer');
+            if (!box) return;
+            const w = box.clientWidth;
+            if (w > 0 && Math.abs(w - this.containerWidth) > 1) {
+                this.containerWidth = w;
+                this.$nextTick(() => this.ensureFilled());
+            }
+        },
+
+        setupResizeWatch() {
+            const box = document.getElementById('viewboxContainer');
+            if (!box || typeof ResizeObserver === 'undefined') return;
+            let frame = 0;
+            new ResizeObserver(() => {
+                cancelAnimationFrame(frame);
+                frame = requestAnimationFrame(() => this.measureGallery());
+            }).observe(box);
+        },
+
+        columnCount() {
+            return photoColumnCount(this.containerWidth, this.zoomLevel);
+        },
+
+        gridStyle() {
+            return { gridTemplateColumns: 'repeat(' + this.columnCount() + ', minmax(0, 1fr))' };
         },
 
         // Ctrl/⌘ + wheel (and trackpad pinch, which also sets ctrlKey) zooms the
@@ -338,83 +395,268 @@ function photoListObject() {
             }, { passive: false });
         },
 
-        // direction: +1 = zoom in (fewer columns, larger photos), -1 = zoom out.
+        // direction: +1 = zoom in (larger photos), -1 = zoom out.
         zoomGrid(direction) {
-            const cur = getColumnCount();
-            let next = cur - direction;
-            if (next < PHOTO_GRID_MIN_COLS) next = PHOTO_GRID_MIN_COLS;
-            if (next > PHOTO_GRID_MAX_COLS) next = PHOTO_GRID_MAX_COLS;
-            if (next === cur) return;
-            photoGridColumns = next;
-            this.applyRenderSize();
-            showGridZoomHint(next);
+            this.setZoom(this.zoomLevel + direction);
         },
 
-        // ── Date grouping ──────────────────────────────────────────────────────
+        setZoom(level) {
+            level = Math.max(0, Math.min(PHOTO_ZOOM_STEPS.length - 1, level));
+            if (level === this.zoomLevel) return;
+            this.zoomLevel = level;
+            showGridZoomHint(this.columnCount());
+            this.$nextTick(() => this.ensureFilled());
+        },
 
-        // Split the loaded slice into contiguous Year/Month sections for the grid.
-        // Returns a single unlabelled group when grouping is disabled.
-        groupedImages() {
-            const imgs = this.images;
-            if (!this.groupByDate) {
-                return [{ key: 'all', label: '', images: imgs }];
+        // The 5-dot zoom slider: click or drag along it
+        zoomPointer(e) {
+            const slider = e.currentTarget;
+            const track = slider.querySelector('.zs-track');
+            if (!track) return;
+            const pick = (x) => {
+                const r = track.getBoundingClientRect();
+                const ratio = Math.max(0, Math.min(1, (x - r.left) / Math.max(1, r.width)));
+                this.setZoom(Math.round(ratio * (PHOTO_ZOOM_STEPS.length - 1)));
+            };
+            pick(e.clientX);
+            slider.focus();
+            const move = (ev) => pick(ev.clientX);
+            const up = () => {
+                slider.removeEventListener('pointermove', move);
+                slider.removeEventListener('pointerup', up);
+                slider.removeEventListener('pointercancel', up);
+            };
+            try { slider.setPointerCapture(e.pointerId); } catch (err) { /* old browsers */ }
+            slider.addEventListener('pointermove', move);
+            slider.addEventListener('pointerup', up);
+            slider.addEventListener('pointercancel', up);
+        },
+
+        zoomKey(e) {
+            const map = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 };
+            if (map[e.key]) { e.preventDefault(); this.setZoom(this.zoomLevel + map[e.key]); }
+            else if (e.key === 'Home') { e.preventDefault(); this.setZoom(0); }
+            else if (e.key === 'End') { e.preventDefault(); this.setZoom(PHOTO_ZOOM_STEPS.length - 1); }
+        },
+
+        setTimeline(mode) {
+            if (this.timeline === mode) return;
+            this.timeline = mode;
+            if (this.needsDateSort()) {
+                // Every item knows its date: order the list here, at once
+                this.setImages(this.orderImages(this.allImages));
+            } else {
+                // Back to a name / size / type order, which the server gives
+                this.reloadView();
             }
-            const groups = [];
-            let cur = null;
-            for (let i = 0; i < imgs.length; i++) {
-                const img = imgs[i];
-                const d = photoImageDateUnix(img);
-                let key, label;
-                if (d) {
-                    const dt = new Date(d * 1000);
-                    key = dt.getFullYear() + '-' + (dt.getMonth() + 1);
-                    label = photoGroupLabel(d);
-                } else {
-                    key = 'undated';
-                    label = T('grid/undated', 'Undated');
+        },
+
+        setLayout(layout) {
+            if (this.layout === layout) return;
+            this.layout = layout;
+            this.$nextTick(() => this.ensureFilled());
+        },
+
+        setSort(v) {
+            if (this.sortOrder === v) return;
+            this.sortOrder = v;
+            this.reloadView();
+        },
+
+        // The order in effect: the timeline always orders by date
+        effectiveSort() {
+            const opt = PHOTO_SORT_OPTIONS.find(o => o.v === this.sortOrder);
+            if (this.timeline !== 'none' && (!opt || !opt.date)) return 'mostRecent';
+            return this.sortOrder;
+        },
+
+        sortOptions() {
+            return PHOTO_SORT_OPTIONS.map(o => ({ v: o.v, date: o.date, label: T(o.key, o.en) }));
+        },
+
+        // A sort the timeline cannot show (it orders by date)
+        sortDisabled(opt) {
+            return this.timeline !== 'none' && !opt.date;
+        },
+
+        timelineOptions() {
+            return [
+                { v: 'none', label: T('view/timelineOff', 'Off') },
+                { v: 'day', label: T('view/day', 'Day') },
+                { v: 'month', label: T('view/month', 'Month') },
+                { v: 'year', label: T('view/year', 'Year') }
+            ];
+        },
+
+        // Split the loaded slice into date sections (one unlabelled section
+        // with the timeline off); in waterfall each section is dealt into columns
+        groupedImages() {
+            this.layoutTick; // waterfall shapes changed
+            const imgs = this.images;
+            let groups = [];
+            if (this.timeline === 'none') {
+                groups = [{ key: 'all', label: '', images: imgs }];
+            } else {
+                let cur = null;
+                let curSection = '';
+                const used = {};
+                for (let i = 0; i < imgs.length; i++) {
+                    const sec = photoTimelineSection(imgs[i], this.timeline);
+                    if (!cur || curSection !== sec.key) {
+                        // Keys must be unique for x-for, even if a list that
+                        // is not in date order brings a section back
+                        let key = this.timeline + ':' + sec.key;
+                        used[key] = (used[key] || 0) + 1;
+                        if (used[key] > 1) key += '#' + used[key];
+                        cur = { key: key, label: sec.label, images: [] };
+                        curSection = sec.key;
+                        groups.push(cur);
+                    }
+                    cur.images.push(imgs[i]);
                 }
-                if (!cur || cur.key !== key) {
-                    cur = { key: key, label: label, images: [] };
-                    groups.push(cur);
-                }
-                cur.images.push(img);
+            }
+            if (this.layout === 'waterfall') {
+                const cols = this.columnCount();
+                groups.forEach(g => { g.columns = photoMasonry(g.images, cols); });
             }
             return groups;
         },
 
-        // Re-fetch the current view so the new ordering / headers take effect.
-        onGroupByDateChange() {
-            if (this.searchMode) { this.runSearch(); }
-            else { this.getFolderInfo(); }
+        thumbUrl(image) {
+            return '../system/file_system/loadThumbnail?bytes=true&vpath=' + encodeURIComponent(image.filepath);
         },
 
-        // ── Rating quick-filter (sidebar stars) ────────────────────────────────
+        // Waterfall card shape (follows previews as they arrive)
+        cardRatio(image) {
+            this.layoutTick;
+            return '' + Math.max(0.25, Math.min(4, photoRatioOf(image)));
+        },
 
-        // Select "rating ≥ n" (tapping the active level again clears it). Driven
-        // through the same search-chip pipeline as every other filter.
-        setRatingFilter(n) {
-            n = parseInt(n, 10) || 0;
-            if (n === this.ratingFilter) n = 0;
-            this.ratingFilter = n;
-            this.searchTags = this.searchTags.filter(function (t) { return t.type !== 'rating'; });
-            if (n > 0) {
-                this.searchTags.push({ label: '★ ≥ ' + n, value: 'rating:>=' + n, type: 'rating' });
+        cardFiledata(image) {
+            return encodeURIComponent(JSON.stringify({
+                'filename': image.filepath.split('/').pop(),
+                'filepath': image.filepath,
+                'filesize': image.filesize
+            }));
+        },
+
+        // A preview showed the real shape of a photo: lay the waterfall out
+        // again if it differs from what the cards assumed (batched)
+        onPreviewSize(filepath, w, h) {
+            const ratio = w / h;
+            const before = photoRatioOverrides[filepath] || photoIndexRatios[filepath] || 4 / 3;
+            photoRatioOverrides[filepath] = ratio;
+            if (Math.abs(before - ratio) / ratio > 0.02 && this.layout === 'waterfall') {
+                clearTimeout(this._relayoutTimer);
+                this._relayoutTimer = setTimeout(() => { this.layoutTick++; }, 250);
             }
+        },
+
+        // ── Top right menus ────────────────────────────────────────────────────
+
+        toggleMenu(name) {
+            this.openMenu = this.openMenu === name ? '' : name;
+            if (this.openMenu === 'filter') this.loadFacets();
+        },
+
+        closeMenu(name) {
+            if (this.openMenu === name) this.openMenu = '';
+        },
+
+        activeFilterCount() {
+            return photoPanelCount(this.pf);
+        },
+
+        // Write the panel's chips (keeping the typed ones) and search again
+        applyPanel() {
+            const typed = this.searchTags.filter(t => !t.slot);
+            const panel = photoPanelChips(this.pf).filter(c => !typed.some(t => t.value === c.value));
+            this.searchTags = typed.concat(panel);
             this.runSearch();
         },
 
-        // Keep the sidebar stars in step with whatever rating chip is present
-        // (a chip may also be typed, picked from autocomplete or removed by hand).
-        syncRatingFilterFromTags() {
-            let found = 0;
-            for (let i = 0; i < this.searchTags.length; i++) {
-                const t = this.searchTags[i];
-                if (t.type === 'rating') {
-                    const m = ('' + t.value).match(/(\d)/);
-                    if (m) found = parseInt(m[1], 10);
-                }
-            }
-            this.ratingFilter = found;
+        resetPanel() {
+            this.pf = photoEmptyPanel();
+            this.applyPanel();
+        },
+
+        setPanelRating(n) {
+            this.pf.rating = this.pf.rating === n ? 0 : n;
+            this.applyPanel();
+        },
+
+        togglePanelValue(field, v) {
+            const list = this.pf[field];
+            const i = list.indexOf(v);
+            if (i >= 0) list.splice(i, 1); else list.push(v);
+            this.applyPanel();
+        },
+
+        setScope(scope) {
+            if (this.scope === scope) return;
+            this.scope = scope;
+            this.facets = null;
+            if (this.openMenu === 'filter') this.loadFacets();
+            if (this.searchMode) this.runSearch();
+        },
+
+        scopeName() {
+            return extractFolderName(this.currentPath) || this.currentPath;
+        },
+
+        // "12 results in Trip" under the search box
+        searchSummary() {
+            const n = this.searchTotal;
+            const results = n === 1 ? T('search/result', '{n} result', { n: n }) : T('search/results', '{n} results', { n: n });
+            if (this.scope !== 'folder') return results;
+            return T('search/inFolder', '{results} in {folder}', { results: results, folder: this.scopeName() });
+        },
+
+        // What the panel can offer for the current scope
+        loadFacets(force) {
+            const key = this.scope === 'folder' ? this.currentPath : '*';
+            if (!force && this.facets && this.facetsKey === key) return;
+            this.facetsKey = key;
+            this.facetsLoading = true;
+            aoPhotoBackend('Photo/backend/searchFacets.js', { folder: this.scope === 'folder' ? this.currentPath : '' }).then(data => {
+                if (this.facetsKey !== key) return;
+                this.facets = (data && data.available) ? data : null;
+                this.facetsLoading = false;
+            }).catch(() => { this.facetsLoading = false; });
+        },
+
+        cameraOptions() {
+            const list = (this.facets && this.facets.cameras) ? this.facets.cameras.map(c => ({ v: c.v, label: photoCameraName(c.v, c.make), c: c.c })) : [];
+            if (this.pf.camera && !list.some(c => c.v === this.pf.camera)) list.unshift({ v: this.pf.camera, label: this.pf.camera, c: 0 });
+            return list;
+        },
+
+        lensOptions() {
+            const list = (this.facets && this.facets.lenses) ? this.facets.lenses.map(l => ({ v: l.v, label: l.v, c: l.c })) : [];
+            if (this.pf.lens && !list.some(l => l.v === this.pf.lens)) list.unshift({ v: this.pf.lens, label: this.pf.lens, c: 0 });
+            return list;
+        },
+
+        typeOptions() {
+            const list = (this.facets && this.facets.exts) ? this.facets.exts.map(e => ({ v: e.v, c: e.c })) : [];
+            this.pf.types.forEach(t => { if (!list.some(e => e.v === t)) list.push({ v: t, c: 0 }); });
+            return list;
+        },
+
+        ratingCount(n) {
+            if (!this.facets || !this.facets.ratings) return '';
+            const r = this.facets.ratings;
+            let c = 0;
+            if (n < 0) { c = r[0] || 0; }
+            else { for (let k = n; k <= 5; k++) c += (r[k] || 0); }
+            return c;
+        },
+
+        rangeHint(name, fmt) {
+            const r = this.facets && this.facets.ranges ? this.facets.ranges[name] : null;
+            if (!r || r.min === null || r.max === null) return '';
+            fmt = fmt || (v => Math.round(v * 10) / 10);
+            return fmt(r.min) + ' – ' + fmt(r.max);
         },
 
         // ── Search ────────────────────────────────────────────────────────────
@@ -465,7 +707,7 @@ function photoListObject() {
                 this.showSuggestions = false;
                 return;
             }
-            this.searchTags.push({ label: tag.label, value: tag.value, type: tag.type || 'search' });
+            this.searchTags.push({ label: tag.label, value: tag.value, type: tag.type || 'search', neg: !!tag.neg });
             this.searchInput = '';
             this.suggestions = [];
             this.showSuggestions = false;
@@ -474,7 +716,9 @@ function photoListObject() {
         },
 
         // A picked autocomplete suggestion becomes a chip.
-        applySuggestion(s) { this.addTag({ label: s.label, value: s.value, type: s.type }); },
+        applySuggestion(s) {
+            this.addTag({ label: s.label, value: s.value, type: s.type, neg: /(^|\s)-\S/.test(s.value) && s.type !== 'file' });
+        },
 
         // Commit whatever text is in the box as a chip (Enter / Space).
         commitInput() {
@@ -484,56 +728,54 @@ function photoListObject() {
         },
 
         removeTag(i) {
+            const tag = this.searchTags[i];
             this.searchTags.splice(i, 1);
+            if (tag && tag.slot) photoClearPanelSlot(this.pf, tag.slot);
             this.runSearch();
             this.$nextTick(() => { const el = document.getElementById('photo-search-input'); if (el) el.focus(); });
         },
 
         removeLastTag() {
             if (this.searchTags.length > 0) {
-                this.searchTags.pop();
-                this.runSearch();
+                this.removeTag(this.searchTags.length - 1);
             }
         },
 
         runSearch() {
             // NOTE: this is also the live/debounced search fired while typing, so it
             // must NOT close the autocomplete dropdown — only explicit actions
-            // (pick/commit/Escape/click-outside/clear) hide it. Closing it here made
-            // the dropdown flash and vanish ~400ms after each keystroke.
+            // (pick/commit/Escape/click-outside/clear) hide it.
             clearTimeout(this._searchTimer);
-            this.syncRatingFilterFromTags();
             const q = this.currentQuery();
+            const seq = ++this._searchSeq;
             if (q.length === 0) {
                 // Nothing to search — fall back to normal folder browsing.
                 if (this.searchMode) { this.searchMode = false; this.searchTotal = 0; this.getFolderInfo(); }
                 return;
             }
             this.searchMode = true;
+            const sort = this.needsDateSort() ? (this.sortOrder === 'leastRecent' ? 'taken_asc' : 'taken_desc') : photoBackendSort(this.sortOrder);
             aoPhotoBackend("Photo/backend/searchPhotos.js", {
                 q: q,
-                sort: 'taken_desc',
-                limit: 1000
+                folder: this.scope === 'folder' ? this.currentPath : '',
+                sort: sort,
+                limit: 5000
             }).then(data => {
+                if (seq !== this._searchSeq || !this.searchMode) return; // a newer search is on its way
                 const results = (data && data.results) ? data.results : [];
                 this.searchTotal = (data && typeof data.total === 'number') ? data.total : results.length;
-                // Carry the date + rating through so the grid can group by month
-                // and the viewer can show the star rating without a refetch.
-                this.allImages = results.map(r => ({
+                // Carry the date, size and rating through so the grid can group,
+                // lay out and the viewer can show the rating without a refetch.
+                this.setImages(this.orderImages(results.map(r => ({
                     filepath: r.filepath, filesize: r.filesize,
-                    taken_date: r.taken_date, modified_date: r.modified_date, rating: r.rating
-                }));
-                if (this.groupByDate) { this.allImages = sortImagesByDateDesc(this.allImages); }
-                this.images = this.allImages.slice(0, PAGE_SIZE);
-                this.hasMoreImages = this.allImages.length > PAGE_SIZE;
-                this.isLoadingMore = false;
-                this.folders = [];
-                if (this.allImages.length == 0) { $("#noimg").show(); } else { $("#noimg").hide(); }
-                this.$nextTick(() => { updateImageSizes(); });
+                    taken_date: r.taken_date, modified_date: r.modified_date, rating: r.rating,
+                    width: r.width, height: r.height
+                }))));
             }).catch(() => { /* leave current view untouched on error */ });
         },
 
-        clearSearch() {
+        // keepFolder: called while navigating, which loads the folder itself
+        clearSearch(keepFolder) {
             this.searchTags = [];
             this.searchInput = '';
             this.suggestions = [];
@@ -541,9 +783,10 @@ function photoListObject() {
             this.suggestIndex = -1;
             this.searchTotal = 0;
             this.searchMode = false;
-            this.ratingFilter = 0;
+            this.pf = photoEmptyPanel();
+            this._searchSeq++;
             clearTimeout(this._searchTimer);
-            this.getFolderInfo();   // restore normal folder browsing
+            if (keepFolder !== true) this.getFolderInfo();   // restore normal folder browsing
         },
 
         onSearchKeydown(e) {
@@ -583,30 +826,157 @@ function photoListObject() {
             }
         },
 
+        // Escape closes the top-most of the menus / dialog
+        onEscape() {
+            if (this.settingsOpen) { this.settingsOpen = false; return; }
+            if (this.openMenu) { this.openMenu = ''; }
+        },
+
+        // ── Settings dialog ───────────────────────────────────────────────────
+
+        openSettings() {
+            this.openMenu = '';
+            this.settingsOpen = true;
+            this.settings.error = '';
+            this.loadSettings();
+        },
+
+        loadSettings() {
+            aoPhotoBackend('Photo/backend/photoSettings.js', { action: 'get' }).then(d => {
+                this.applySettingsReply(d);
+            }).catch(() => { this.settings.error = T('settings/errLoad', 'Settings could not be loaded.'); });
+        },
+
+        applySettingsReply(d) {
+            const s = this.settings;
+            if (!d || d.error) {
+                s.error = photoSettingsError(d ? d.error : '');
+                return;
+            }
+            s.mode = d.preview.mode;
+            s.path = d.preview.path || '';
+            s.dir = d.preview.dir || '';
+            s.defaultDir = d.preview.defaultDir;
+            s.total = d.index.total;
+            s.lastIndexed = d.index.lastIndexed;
+            s.exclude = d.exclude || [];
+            s.loaded = true;
+            this.loadCacheStats();
+        },
+
+        setPreviewMode(mode, path) {
+            const s = this.settings;
+            if (mode === 'custom' && !path && !s.path) {
+                this.chooseCacheFolder();
+                return;
+            }
+            s.error = '';
+            s.busy = true;
+            const before = s.mode + '|' + s.dir;
+            aoPhotoBackend('Photo/backend/photoSettings.js', { action: 'set', previewMode: mode, previewPath: path || s.path }).then(d => {
+                s.busy = false;
+                if (!d || d.error) {
+                    s.error = photoSettingsError(d ? d.error : '');
+                    return;
+                }
+                this.applySettingsReply(d);
+                if (before !== s.mode + '|' + s.dir) PhotoPreviews.reset();
+            }).catch(() => { s.busy = false; });
+        },
+
+        chooseCacheFolder() {
+            window.photoCacheFolderPicked = (files) => {
+                if (files && files.length && files[0].filepath) {
+                    this.setPreviewMode('custom', files[0].filepath.replace(/\/+$/, ''));
+                }
+            };
+            ao_module_openFileSelector(window.photoCacheFolderPicked, this.settings.path || 'user:/', 'folder', false, {
+                path_memory_key: 'previewCache'
+            });
+        },
+
+        loadCacheStats() {
+            const s = this.settings;
+            if (s.mode === 'realtime') { s.stats = null; return; }
+            s.statsLoading = true;
+            aoPhotoBackend('Photo/backend/photoSettings.js', { action: 'cacheStats' }).then(d => {
+                s.statsLoading = false;
+                s.stats = d && typeof d.files === 'number' ? d : null;
+            }).catch(() => { s.statsLoading = false; });
+        },
+
+        cacheStatsText() {
+            const st = this.settings.stats;
+            if (this.settings.statsLoading) return T('settings/counting', 'Counting…');
+            if (!st) return '';
+            return T('settings/cacheSize', '{n} previews, {size}', { n: st.files, size: photoFormatBytes(st.bytes) });
+        },
+
+        clearPreviewCache() {
+            const s = this.settings;
+            s.busy = true;
+            aoPhotoBackend('Photo/backend/photoSettings.js', { action: 'clearCache' }).then(() => {
+                s.busy = false;
+                PhotoPreviews.reset();
+                this.loadCacheStats();
+            }).catch(() => { s.busy = false; });
+        },
+
+        addExclude() {
+            const v = this.settings.excludeInput.trim().replace(/^\/+|\/+$/g, '');
+            if (!v || this.settings.exclude.includes(v)) { this.settings.excludeInput = ''; return; }
+            this.saveExclude(this.settings.exclude.concat([v]));
+            this.settings.excludeInput = '';
+        },
+
+        removeExclude(i) {
+            const list = this.settings.exclude.slice();
+            list.splice(i, 1);
+            this.saveExclude(list);
+        },
+
+        saveExclude(list) {
+            aoPhotoBackend('Photo/backend/photoSettings.js', { action: 'setExclude', folders: list }).then(d => {
+                if (d && !d.error) {
+                    this.settings.exclude = d.exclude || [];
+                    // The next index pass drops (or adds back) those photos
+                    this.facets = null;
+                    this.startAutoIndex();
+                }
+            });
+        },
+
+        lastIndexedText() {
+            const t = this.settings.lastIndexed;
+            if (!t) return T('settings/neverIndexed', 'not indexed yet');
+            return new Date(t * 1000).toLocaleString(localeTag() || undefined);
+        },
+
         // ── Auto indexing ─────────────────────────────────────────────────────
         // Loops indexPhotos.js in the background until the whole library is
         // indexed. Incremental, so steady-state runs finish in a single pass.
         startAutoIndex() {
             if (this.indexing) return;
             this.indexing = true;
-            let indexedThisRun = 0;
+            let changedThisRun = 0;
             const step = () => {
                 aoPhotoBackend("Photo/backend/indexPhotos.js", { mode: 'incremental' }).then(data => {
                     if (data && data.error) { this.indexing = false; this.indexStatusText = ''; return; }
                     const total = (data && data.total) ? data.total : 0;
-                    indexedThisRun += (data && data.indexed) ? data.indexed : 0;
+                    changedThisRun += ((data && data.indexed) || 0) + ((data && data.removed) || 0);
                     if (data && data.hasMore) {
                         this.indexStatusText = T('index/progress', 'Indexing… {n} photos', { n: total });
                         setTimeout(step, 50);
                     } else {
                         this.indexing = false;
                         this.indexStatusText = total ? T('index/done', '{n} photos indexed', { n: total }) : '';
-                        // Newly indexed photos may carry EXIF shoot times the
-                        // current grid grouped without (mtime fallback) — reload
-                        // the view so the Year/Month sections use them.
-                        if (indexedThisRun > 0 && this.groupByDate && !this.searchMode) {
-                            this.getFolderInfo();
+                        // Newly indexed photos carry EXIF shoot times and upright
+                        // sizes the current view was drawn without: reload it
+                        if (changedThisRun > 0) {
+                            this.facets = null;
+                            this.reloadView();
                         }
+                        if (this.settingsOpen) this.loadSettings();
                         setTimeout(() => { if (!this.indexing) this.indexStatusText = ''; }, 4000);
                     }
                 }).catch(() => { this.indexing = false; this.indexStatusText = ''; });
@@ -631,8 +1001,9 @@ function photoListObject() {
                     } else {
                         this.indexing = false;
                         this.indexStatusText = total ? T('index/done', '{n} photos indexed', { n: total }) : '';
-                        if (this.searchMode) { this.runSearch(); }
-                        else if (this.groupByDate) { this.getFolderInfo(); } // refresh EXIF shoot times
+                        this.facets = null;
+                        if (this.settingsOpen) this.loadSettings();
+                        this.reloadView();
                         setTimeout(() => { if (!this.indexing) this.indexStatusText = ''; }, 4000);
                     }
                 }).catch(() => { this.indexing = false; this.indexStatusText = ''; });
@@ -949,6 +1320,11 @@ function initPhotoRatingWidget() {
 document.addEventListener('DOMContentLoaded', initPhotoRatingWidget);
 
 $(document).on("keydown", function(e){
+    // Arrows only step through photos while the viewer is open (they also
+    // move the cursor in the search box and the filter fields)
+    if ((e.keyCode == 37 || e.keyCode == 39) && !$('#photo-viewer').is(':visible')) {
+        return;
+    }
     if (e.keyCode == 27){ // Escape
         if ($('#photo-viewer').is(':visible')) {
             closeViewer();

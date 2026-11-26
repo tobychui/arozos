@@ -42,9 +42,47 @@ function photoSuggestIcon(type) {
             return 'filter';
         case 'rating':
             return 'star';
+        case 'folder':
+            return 'folder outline';
+        case 'shutter':
+            return 'stopwatch';
+        case 'size':
+            return 'hdd outline';
+        case 'time':
+            return 'clock outline';
         default:
             return 'search';
     }
+}
+
+// The label of a preset token (shutter / time of day), or null
+function photoPresetTokenLabel(value) {
+    var lists = [PHOTO_SHUTTER_PRESETS, PHOTO_TIME_PRESETS];
+    for (var l = 0; l < lists.length; l++) {
+        for (var i = 0; i < lists[l].length; i++) {
+            if (lists[l][i].q === value) return T(lists[l][i].key, lists[l][i].en);
+        }
+    }
+    return null;
+}
+
+// "1 MB", "500 KB": a size bound as typed (MB when it has no unit)
+function photoSizeBoundLabel(s) {
+    var m = /^([0-9.]+)\s*(b|k|kb|m|mb|g|gb)?$/i.exec(('' + s).trim());
+    if (!m) return '' + s;
+    var u = (m[2] || 'mb').toLowerCase();
+    var unit = u === 'b' ? 'B' : (u.charAt(0) === 'k' ? 'KB' : (u.charAt(0) === 'g' ? 'GB' : 'MB'));
+    return m[1] + ' ' + unit;
+}
+
+// Label of a range value as typed after "key:" (">=1", "1/250..1/30", "5-10")
+function photoTypedRangeLabel(val, fmt) {
+    fmt = fmt || function (v) { return v; };
+    var s = ('' + val).trim(), m;
+    if ((m = /^>=?\s*(.+)$/.exec(s))) return '≥ ' + fmt(m[1]);
+    if ((m = /^<=?\s*(.+)$/.exec(s))) return '≤ ' + fmt(m[1]);
+    if ((m = /^(.+?)\.\.(.+)$/.exec(s)) || (m = /^([^\-]+)-([^\-]+)$/.exec(s))) return fmt(m[1]) + ' – ' + fmt(m[2]);
+    return fmt(s);
 }
 
 // Title-case a single word.
@@ -94,6 +132,11 @@ function photoLocalizeSuggestion(s) {
         label = T('suggest/andUp', '{n}★ & up', { n: m[1] });
     } else if (s.type === 'date' && (m = /month:(\d+)$/.exec(s.value))) {
         label = photoMonthName(parseInt(m[1], 10));
+    } else if (s.type === 'shutter' || s.type === 'size' || s.type === 'time') {
+        label = photoParseTagToken(s.value.split(' ').pop().replace(/^-/, '')).label;
+    }
+    if (/(^|\s)-\S/.test(s.value) && s.type !== 'file') {
+        label = T('tag/not', 'Not {v}', { v: label });
     }
     if (hint === 'orientation') {
         hint = T('suggest/orientation', 'orientation');
@@ -110,6 +153,15 @@ function photoLocalizeSuggestion(s) {
 // is the friendly text shown on the chip; `type` drives the chip icon/colour.
 function photoParseTagToken(token) {
     token = ('' + token).trim();
+    // "-token" leaves out what the token matches
+    if (token.length > 1 && token.charAt(0) === '-') {
+        var inner = photoParseTagToken(token.substring(1));
+        return { label: T('tag/not', 'Not {v}', { v: inner.label }), value: '-' + inner.value, type: inner.type, neg: true };
+    }
+    var preset = photoPresetTokenLabel(token);
+    if (preset) {
+        return { label: preset, value: token, type: token.indexOf('hour:') === 0 ? 'time' : 'shutter' };
+    }
     var lower = token.toLowerCase();
     var colon = token.indexOf(':');
     var key = colon > 0 ? lower.substring(0, colon) : '';
@@ -150,7 +202,24 @@ function photoParseTagToken(token) {
             case 'model': case 'camera': return { label: unq(val), value: token, type: 'camera' };
             case 'make': case 'brand': return { label: unq(val), value: token, type: 'camera' };
             case 'lens': return { label: unq(val), value: token, type: 'lens' };
-            case 'ext': case 'type': return { label: '.' + unq(val).replace(/^\./, ''), value: token, type: 'type' };
+            case 'ext': case 'type':
+                return {
+                    label: unq(val).split(',').map(function (e) {
+                        e = e.trim().replace(/^\./, '');
+                        return e.toLowerCase() === 'raw' ? 'RAW' : '.' + e;
+                    }).join(', '),
+                    value: token, type: 'type'
+                };
+            case 'shutter': case 'exposure': case 'ss':
+                return { label: photoTypedRangeLabel(unq(val), function (v) { return ('' + v).replace(/s$/i, '') + ' s'; }), value: token, type: 'shutter' };
+            case 'size': case 'filesize':
+                return { label: T('tag/size', 'Size {v}', { v: photoTypedRangeLabel(unq(val), photoSizeBoundLabel) }), value: token, type: 'size' };
+            case 'hour': case 'time':
+                return { label: photoTypedRangeLabel(unq(val), function (v) { return v + ':00'; }), value: token, type: 'time' };
+            case 'folder': case 'in': {
+                var fv = unq(val).replace(/\/+$/, '');
+                return { label: fv.split('/').pop() || fv, value: token, type: 'folder' };
+            }
             case 'name': case 'filename': return { label: unq(val), value: token, type: 'file' };
             case 'orientation': return { label: photoOrientationLabel(unq(val)), value: token, type: 'filter' };
             case 'month':

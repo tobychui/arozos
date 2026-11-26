@@ -3,14 +3,15 @@
 
     Search the per-user photo index. Accepts an iOS-style free-text query and/or
     a structured filter object, and returns matching photos. Search covers — but
-    is not limited to — file name, resolution, shooting parameters (camera, lens,
-    ISO, aperture, shutter, focal length), the date a photo was taken (created)
-    and its file modification date.
+    is not limited to — file name, folder, resolution, shooting parameters
+    (camera, lens, ISO, aperture, shutter, focal length), the date and hour a
+    photo was taken, its file size and its file modification date.
 
     Request body (JSON, all optional):
       {
         "q": "canon iso:1600 f/2.8 2023 landscape",  // free-text query
         "filters": { ... },                          // structured overrides
+        "folder": "user:/Photo/Trip",                // only this folder + below
         "sort": "taken_desc",                        // see buildOrderBy()
         "limit": 1000,
         "offset": 0
@@ -22,8 +23,9 @@
     Each result carries `filepath` and `filesize`, so the existing Photo grid /
     viewer renders them with no further changes.
 
-    Free-text query tokens (combine freely, all AND-ed together):
-      canon              free text -> file name / camera / lens / make
+    Free-text query tokens (combine freely, all AND-ed together; several values
+    of one filter, like two cameras, are OR-ed):
+      canon              free text -> file name / camera / lens / make / folder
       name:beach         file name contains
       model:"EOS R5"     camera model
       make:sony          camera make
@@ -31,15 +33,21 @@
       iso:1600           ISO equals (or 800-3200, >800, <1600)
       f/2.8  aperture:2  aperture (or 1.4-2.8)
       focal:50  50mm     focal length mm (or 24-70)
+      shutter:<=1/1000   exposure time (1/250..1/30, >=1 for long exposures)
       mp:24  mp:>20      megapixels
       width:>4000        pixel width   (also w:)
       height:>3000       pixel height  (also h:)
+      size:>5mb          file size (kb / mb / gb; MB when no unit)
       landscape          orientation (portrait / square)
-      .jpg  raw          file type / RAW group
+      .jpg  raw          file type / RAW group (type:jpg,heic,raw)
+      in:trip            folder path contains; folder:"user:/Photo/Trip" is
+                         that folder and every folder below it
       2023  year:2023    taken in year
       taken:2023-01..2023-06   taken date range  (before:/after: also work)
+      hour:22..4         hour of the day taken (camera clock, wraps midnight)
       modified:>2024-01-01     file modified date
       rating:>=4  rating:5  rating:3-5   user star rating (0 = unrated)
+      -token             leave out what the token matches (-raw, -in:screenshots)
 */
 
 includes("imagedb.js");
@@ -61,8 +69,8 @@ function main() {
     if (isNaN(limit) || limit <= 0) {
         limit = 500;
     }
-    if (limit > 2000) {
-        limit = 2000;
+    if (limit > 5000) {
+        limit = 5000;
     }
     var offset = parseInt(payload.offset);
     if (isNaN(offset) || offset < 0) {
@@ -77,6 +85,10 @@ function main() {
 
     var filter = parseSearchQuery(q);
     applyExplicitFilters(filter, filters);
+    if (payload.folder) {
+        // "This folder" scope of the filter panel
+        filter.folder.push("" + payload.folder);
+    }
 
     var w = buildWhere(filter);
     var orderBy = buildOrderBy(sort);

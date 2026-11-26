@@ -358,6 +358,13 @@
           "desc": "Return EXIF data as a JSON string. Reads JPEG, TIFF based RAW and HEIC / HEIF photos.",
           "ret": "string (JSON)",
           "example": "requirelib(\"imagelib\");\nvar exif = JSON.parse(imagelib.getExif(\"user:/img.jpg\"));"
+        },
+        {
+          "name": "imagelib.renderPreview",
+          "sig": "imagelib.renderPreview(src, dest, maxWidth, maxHeight)",
+          "desc": "Draw a photo upright and scaled down to fit maxWidth x maxHeight, keeping its shape (0 leaves a side free, never enlarges). Reads JPEG, PNG, WebP, GIF, HEIC / HEIF and RAW, applying the EXIF orientation. dest is a .jpg or .png path (folders are created), or \"\" to get a JPEG data URL instead. Pictures over 120 MP are refused.",
+          "ret": "{width, height, dataURL?}",
+          "example": "requirelib(\"imagelib\");\nvar p = imagelib.renderPreview(\"user:/Photo/a.heic\", \"user:/.appdata/photo/previews/a.jpg\", 720, 1440);\nvar inline = imagelib.renderPreview(\"user:/Photo/b.jpg\", \"\", 480, 480).dataURL;"
         }
       ]
     },

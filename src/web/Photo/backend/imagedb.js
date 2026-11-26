@@ -32,7 +32,8 @@ requirelib("imagelib");
 var INDEX_DB_PATH = "user:/.appdata/photo/photoindex.db";
 
 // Bump when the schema below changes; openIndexDB() will rebuild the cache.
-var SCHEMA_VERSION = 1;
+// 2: width / height follow the EXIF orientation (phone photos stored sideways).
+var SCHEMA_VERSION = 2;
 
 // Image / RAW extension sets (kept in sync with constants.js + listFolder.js).
 var IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif", "arw", "cr2", "dng", "nef", "raf", "orf"];
@@ -428,6 +429,15 @@ function extractPhotoMeta(filepath, modifiedUnix, filesize) {
             meta.shutter_label = shutterLabel(expTime);
         }
         meta.iso = exifInt(exif, "ISOSpeedRatings");
+
+        // Orientations 5-8 turn the picture a quarter: the stored pixels (and
+        // the size read above) are sideways, the photo as shown is not.
+        var orient = exifInt(exif, "Orientation");
+        if (orient >= 5 && orient <= 8 && meta.width && meta.height) {
+            var tw = meta.width;
+            meta.width = meta.height;
+            meta.height = tw;
+        }
     }
 
     // Derived geometry fields.
@@ -560,23 +570,57 @@ function isExcluded(filepath, excludeList) {
  *  Query parsing (iOS-style free text) + SQL builder
  * ------------------------------------------------------------------ */
 
+// A number that may be written as a fraction ("1/250", for shutter speeds)
+// and may carry a trailing "s" (seconds).
+function parseNum(s) {
+    s = ("" + s).trim().replace(/s$/i, "");
+    var m = s.match(/^([0-9.]+)\s*\/\s*([0-9.]+)$/);
+    if (m) {
+        var den = parseFloat(m[2]);
+        return den ? parseFloat(m[1]) / den : NaN;
+    }
+    return parseFloat(s);
+}
+
+// File size with an optional unit (b, kb, mb, gb; none means MB) => bytes.
+function parseBytes(s) {
+    var m = ("" + s).trim().toLowerCase().match(/^([0-9.]+)\s*(b|k|kb|m|mb|g|gb)?$/);
+    if (!m) {
+        return NaN;
+    }
+    var n = parseFloat(m[1]);
+    var unit = m[2] || "mb";
+    if (unit === "b") {
+        return n;
+    }
+    if (unit.charAt(0) === "k") {
+        return n * 1024;
+    }
+    if (unit.charAt(0) === "g") {
+        return n * 1073741824;
+    }
+    return n * 1048576;
+}
+
 // Numeric range token: ">800", "<1600", "800-3200", "800..3200", "100".
-function parseRange(s) {
+// toNum reads one bound (parseNum unless given).
+function parseRange(s, toNum) {
+    toNum = toNum || parseNum;
     s = ("" + s).trim();
     var m;
     if ((m = s.match(/^>=?\s*(.+)$/))) {
-        return { min: parseFloat(m[1]), max: null };
+        return { min: toNum(m[1]), max: null };
     }
     if ((m = s.match(/^<=?\s*(.+)$/))) {
-        return { min: null, max: parseFloat(m[1]) };
+        return { min: null, max: toNum(m[1]) };
     }
     if ((m = s.match(/^(.+?)\.\.(.+)$/))) {
-        return { min: parseFloat(m[1]), max: parseFloat(m[2]) };
+        return { min: toNum(m[1]), max: toNum(m[2]) };
     }
-    if ((m = s.match(/^([0-9.]+)-([0-9.]+)$/))) {
-        return { min: parseFloat(m[1]), max: parseFloat(m[2]) };
+    if ((m = s.match(/^([^\-]+)-([^\-]+)$/))) {
+        return { min: toNum(m[1]), max: toNum(m[2]) };
     }
-    var v = parseFloat(s);
+    var v = toNum(s);
     if (isNaN(v)) {
         return null;
     }
@@ -710,35 +754,47 @@ function pushMonth(filter, mnum) {
 }
 
 // Every category is a list. Within a category the values are OR-ed; across
-// categories they are AND-ed (see buildWhere). `raw` is the single boolean
-// exception (a shorthand that expands into the RAW extensions).
+// categories they are AND-ed (see buildWhere). Free-text terms are the one
+// exception: each term must match (they narrow the search like the chips do).
+// `raw` is a boolean shorthand that expands into the RAW extensions, and
+// `nots` holds one filter per "-token", each of which must NOT match.
 function newFilter() {
     return {
-        text: [], filename: [], ext: [], raw: false,
+        text: [], filename: [], folder: [], ext: [], raw: false,
         model: [], make: [], lens: [], orientation: [], month: [],
-        iso: [], aperture: [], focal: [], mp: [], width: [], height: [],
-        taken: [], modified: [], rating: []
+        iso: [], aperture: [], focal: [], shutter: [], mp: [], width: [], height: [],
+        size: [], hour: [], taken: [], modified: [], rating: [],
+        nots: []
     };
 }
 
-// Split a query string into tokens, honouring `key:"quoted value"` and "quoted".
+// Split a query string into tokens, honouring `key:"quoted value"`, "quoted"
+// and a leading "-" (exclusion) on either form.
 function tokenizeQuery(q) {
     var tokens = [];
-    var re = /(\w+):"([^"]*)"|"([^"]*)"|(\S+)/g;
+    var re = /(-?)(\w+):"([^"]*)"|(-?)"([^"]*)"|(\S+)/g;
     var m;
     while ((m = re.exec(q)) !== null) {
-        if (m[1] !== undefined) {
-            tokens.push(m[1] + ":" + m[2]);
-        } else if (m[3] !== undefined) {
-            tokens.push(m[3]);
-        } else {
-            tokens.push(m[4]);
+        if (m[6]) {
+            tokens.push(m[6]);
+        } else if (m[2]) {
+            tokens.push((m[1] || "") + m[2] + ":" + (m[3] || ""));
+        } else if (m[5]) {
+            tokens.push((m[4] || "") + m[5]);
         }
     }
     return tokens;
 }
 
 function classifyToken(filter, token) {
+    // "-word" / "-key:value": photos matching the rest are left out
+    if (token.length > 1 && token.charAt(0) === "-") {
+        var neg = newFilter();
+        classifyToken(neg, token.substring(1));
+        filter.nots.push(neg);
+        return;
+    }
+
     var lower = token.toLowerCase();
     var colon = token.indexOf(":");
     var key = "";
@@ -804,7 +860,12 @@ function classifyToken(filter, token) {
                 return;
             case "focal":
             case "fl":
-                pushRange(filter, "focal", parseRange(val.replace(/mm$/i, "")));
+                pushRange(filter, "focal", parseRange(val.replace(/mm/ig, "")));
+                return;
+            case "shutter":
+            case "exposure":
+            case "ss":
+                pushRange(filter, "shutter", parseRange(val));
                 return;
             case "mp":
             case "megapixels":
@@ -817,6 +878,14 @@ function classifyToken(filter, token) {
             case "height":
             case "h":
                 pushRange(filter, "height", parseRange(val));
+                return;
+            case "size":
+            case "filesize":
+                pushRange(filter, "size", parseRange(val, parseBytes));
+                return;
+            case "hour":
+            case "time":
+                pushRange(filter, "hour", parseRange(val));
                 return;
             case "model":
             case "camera":
@@ -831,11 +900,23 @@ function classifyToken(filter, token) {
                 return;
             case "ext":
             case "type":
-                filter.ext.push(val.toLowerCase().replace(/^\./, ""));
+                var exts = val.split(",");
+                for (var ei = 0; ei < exts.length; ei++) {
+                    var e = exts[ei].toLowerCase().replace(/^\./, "").trim();
+                    if (e === "raw") {
+                        filter.raw = true;
+                    } else if (e.length) {
+                        filter.ext.push(e);
+                    }
+                }
                 return;
             case "name":
             case "filename":
                 filter.filename.push(val);
+                return;
+            case "folder":
+            case "in":
+                filter.folder.push(val);
                 return;
             case "orientation":
                 filter.orientation.push(val.toLowerCase());
@@ -896,10 +977,13 @@ function applyExplicitFilters(filter, f) {
         }
         var list = Array.isArray(v) ? v : [v];
         for (var k = 0; k < list.length; k++) {
-            filter[field].push("" + list[k]);
+            if (("" + list[k]).length) {
+                filter[field].push("" + list[k]);
+            }
         }
     }
     pushStrings("filename", f.filename);
+    pushStrings("folder", f.folder);
     pushStrings("model", f.model);
     pushStrings("make", f.make);
     pushStrings("lens", f.lens);
@@ -917,7 +1001,7 @@ function applyExplicitFilters(filter, f) {
             filter.ext.push(("" + f.ext[i]).toLowerCase().replace(/^\./, ""));
         }
     }
-    var ranges = ["iso", "aperture", "focal", "mp", "width", "height", "rating"];
+    var ranges = ["iso", "aperture", "focal", "shutter", "mp", "width", "height", "size", "hour", "rating"];
     for (var r = 0; r < ranges.length; r++) {
         var rv = f[ranges[r]];
         if (rv) {
@@ -1023,26 +1107,69 @@ function addRangeGroup(clauses, args, col, list) {
     pushOrGroup(clauses, ors);
 }
 
-// Build the parameterised WHERE clause + args for a structured filter.
-// Within a category multiple values are OR-ed; categories are AND-ed together.
-function buildWhere(filter) {
-    var clauses = [];
-    var args = [];
+// The part of a folder path after its drive ("user:/Photo/Trip" => "Photo/Trip").
+var FOLDER_PATH_SQL = "LOWER(substr(IFNULL(photos.folder,''), instr(IFNULL(photos.folder,''), ':/') + 2))";
+
+// Folder scope. A virtual path ("user:/Photo/Trip") matches that folder and
+// every folder below it; any other text matches folder paths containing it.
+function addFolderGroup(clauses, args, list) {
+    if (!list || !list.length) {
+        return;
+    }
+    var ors = [];
+    for (var i = 0; i < list.length; i++) {
+        var f = ("" + list[i]).trim().replace(/\/+$/, "");
+        if (f.length === 0) {
+            continue;
+        }
+        if (/^[^\/]+:(\/.*)?$/.test(f)) {
+            ors.push("(photos.folder = ? OR substr(photos.folder, 1, length(?)) = ?)");
+            args.push(f, f + "/", f + "/");
+        } else {
+            ors.push(FOLDER_PATH_SQL + " LIKE ?");
+            args.push("%" + f.toLowerCase() + "%");
+        }
+    }
+    pushOrGroup(clauses, ors);
+}
+
+// Hour of the day the photo was taken (0-23). The EXIF time is stored as the
+// camera's own clock, so the hour is the local time it showed. A range whose
+// start is after its end wraps over midnight ("hour:22..4").
+var HOUR_SQL = "CAST(strftime('%H', taken_date, 'unixepoch') AS INTEGER)";
+function addHourGroup(clauses, args, list) {
+    if (!list || !list.length) {
+        return;
+    }
+    var ors = [];
+    for (var i = 0; i < list.length; i++) {
+        var r = list[i];
+        var lo = (r.min === null || r.min === undefined) ? 0 : r.min;
+        var hi = (r.max === null || r.max === undefined) ? 23 : r.max;
+        ors.push("(" + HOUR_SQL + " >= ? " + (lo <= hi ? "AND " : "OR ") + HOUR_SQL + " <= ?)");
+        args.push(lo, hi);
+    }
+    // Only photos whose time came from the camera know their hour.
+    clauses.push("(has_exif = 1 AND " + (ors.length > 1 ? "(" + ors.join(" OR ") + ")" : ors[0]) + ")");
+}
+
+// Add the AND-ed clauses of one structured filter (its "-tokens" included).
+function addFilterClauses(clauses, args, filter) {
     var i;
 
-    // Free text: OR across terms, each term matching any of several columns.
+    // Free text: every term must match one of the descriptive columns.
     if (filter.text && filter.text.length) {
-        var textOrs = [];
         for (i = 0; i < filter.text.length; i++) {
             var term = "%" + filter.text[i].toLowerCase() + "%";
-            textOrs.push("(filename_lc LIKE ? OR LOWER(IFNULL(camera_model,'')) LIKE ?" +
-                " OR LOWER(IFNULL(lens_model,'')) LIKE ? OR LOWER(IFNULL(camera_make,'')) LIKE ?)");
-            args.push(term, term, term, term);
+            clauses.push("(filename_lc LIKE ? OR LOWER(IFNULL(camera_model,'')) LIKE ?" +
+                " OR LOWER(IFNULL(lens_model,'')) LIKE ? OR LOWER(IFNULL(camera_make,'')) LIKE ?" +
+                " OR " + FOLDER_PATH_SQL + " LIKE ?)");
+            args.push(term, term, term, term, term);
         }
-        pushOrGroup(clauses, textOrs);
     }
 
     addLikeGroup(clauses, args, "filename_lc", filter.filename);
+    addFolderGroup(clauses, args, filter.folder);
     addNullableLikeGroup(clauses, args, "camera_model", filter.model);
     addNullableLikeGroup(clauses, args, "camera_make", filter.make);
     addNullableLikeGroup(clauses, args, "lens_model", filter.lens);
@@ -1072,23 +1199,44 @@ function buildWhere(filter) {
     addRangeGroup(clauses, args, "iso", filter.iso);
     addRangeGroup(clauses, args, "aperture", filter.aperture);
     addRangeGroup(clauses, args, "focal_length", filter.focal);
+    addRangeGroup(clauses, args, "shutter", filter.shutter);
     addRangeGroup(clauses, args, "megapixels", filter.mp);
     addRangeGroup(clauses, args, "width", filter.width);
     addRangeGroup(clauses, args, "height", filter.height);
+    addRangeGroup(clauses, args, "filesize", filter.size);
     addRangeGroup(clauses, args, "taken_date", filter.taken);
     addRangeGroup(clauses, args, "modified_date", filter.modified);
+    addHourGroup(clauses, args, filter.hour);
     // Rating lives in the joined photo_ratings table; unrated photos count as 0.
     addRangeGroup(clauses, args, "IFNULL(photo_ratings.rating, 0)", filter.rating);
 
+    // Exclusions: each "-token" leaves out what it alone would match. A NULL
+    // comparison (photo without that data) counts as "does not match".
+    if (filter.nots) {
+        for (i = 0; i < filter.nots.length; i++) {
+            var sub = [];
+            addFilterClauses(sub, args, filter.nots[i]);
+            if (sub.length) {
+                clauses.push("NOT IFNULL((" + sub.join(" AND ") + "), 0)");
+            }
+        }
+    }
+}
+
+// Build the parameterised WHERE clause + args for a structured filter.
+function buildWhere(filter) {
+    var clauses = [];
+    var args = [];
+    addFilterClauses(clauses, args, filter);
     return { clause: clauses.length ? clauses.join(" AND ") : "1=1", args: args };
 }
 
 function buildOrderBy(sort) {
     switch (sort) {
         case "taken_asc":
-            return "taken_date ASC";
+            return "taken_date ASC, filename_lc ASC";
         case "taken_desc":
-            return "taken_date DESC";
+            return "taken_date DESC, filename_lc ASC";
         case "modified_asc":
             return "modified_date ASC";
         case "modified_desc":
@@ -1101,11 +1249,15 @@ function buildOrderBy(sort) {
             return "filesize ASC";
         case "size_desc":
             return "filesize DESC";
+        case "ext_asc":
+            return "ext ASC, filename_lc ASC";
+        case "ext_desc":
+            return "ext DESC, filename_lc ASC";
         case "mp_desc":
             return "megapixels DESC";
         case "mp_asc":
             return "megapixels ASC";
         default:
-            return "taken_date DESC";
+            return "taken_date DESC, filename_lc ASC";
     }
 }

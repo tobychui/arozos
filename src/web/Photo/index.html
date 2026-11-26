@@ -16,6 +16,8 @@
     <script src="i18n.js"></script>
     <script src="constants.js"></script>
     <script src="histogram.js"></script>
+    <script src="layout.js"></script>
+    <script src="filters.js"></script>
     <script src="search.js"></script>
     <script src="photo.js"></script>
     <style>
@@ -142,45 +144,6 @@
             margin: 0.3em 0.8em;
         }
 
-        .sidebar-select {
-            width: 100%;
-            background: #252525;
-            color: #bbb;
-            border: 1px solid #3a3a3a;
-            border-radius: 5px;
-            padding: 0.45em 2em 0.45em 0.7em;
-            font-size: 0.87em;
-            cursor: pointer;
-            outline: none;
-            appearance: none;
-            -webkit-appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23777' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 0.7em center;
-            background-size: 0.65em;
-            box-sizing: border-box;
-            transition: border-color 0.15s, color 0.15s;
-        }
-
-        .sidebar-select:hover,
-        .sidebar-select:focus {
-            border-color: #f76c5d;
-            color: #fff;
-            outline: none;
-        }
-
-        .sidebar-select:disabled {
-            opacity: 0.45;
-            cursor: not-allowed;
-            border-color: #3a3a3a;
-            color: #777;
-        }
-
-        .sidebar-select option {
-            background: #252525;
-            color: #bbb;
-        }
-
         #sidebar-overlay {
             display: none;
         }
@@ -230,18 +193,6 @@
             overflow: hidden;
             background: #1a1a1a;
             color: #ffffff;
-        }
-
-        .imagecard{
-            border: 1px solid #444;
-            overflow: hidden;
-        }
-
-        .imagecard img{
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center;
         }
 
         #viewbox{
@@ -877,9 +828,6 @@
             padding: 0.75em 0.6em 0.5em 0.6em;
             border-bottom: 1px solid #2a2a2a;
         }
-        .photo-date-cards {
-            margin: 0 !important;
-        }
 
         /* ── Grid zoom hint snackbar (Ctrl/⌘ + wheel) ────────────────────── */
         #grid-zoom-snackbar {
@@ -902,52 +850,6 @@
         #grid-zoom-snackbar.visible {
             opacity: 1;
             transform: translateX(-50%) translateY(0);
-        }
-
-        /* ── Sidebar: view toggle + rating filter ────────────────────────── */
-        .sidebar-toggle {
-            display: flex;
-            align-items: center;
-            gap: 0.5em;
-            padding: 0.25em 0.5em;
-            color: #bbb;
-            font-size: 0.87em;
-            cursor: pointer;
-            user-select: none;
-        }
-        .sidebar-toggle:hover { color: #fff; }
-        .sidebar-toggle input { cursor: pointer; accent-color: #f76c5d; }
-        .sidebar-zoom-hint {
-            padding: 0.4em 0.5em 0;
-            color: #666;
-            font-size: 0.74em;
-            line-height: 1.4;
-        }
-        .sidebar-rating {
-            display: flex;
-            align-items: center;
-            gap: 0.05em;
-            padding: 0.1em 0.4em 0;
-        }
-        .sidebar-rating .star.icon {
-            cursor: pointer;
-            margin: 0;
-            color: #f6c350;
-            transition: transform 0.08s;
-        }
-        .sidebar-rating .star.outline.icon { color: #666; }
-        .sidebar-rating .star.icon:hover { transform: scale(1.18); }
-        .sidebar-rating-clear {
-            margin-left: 0.5em;
-            color: #f76c5d;
-            font-size: 0.78em;
-            cursor: pointer;
-        }
-        .sidebar-rating-clear:hover { text-decoration: underline; }
-        .sidebar-rating-hint {
-            padding: 0.35em 0.5em 0;
-            color: #888;
-            font-size: 0.78em;
         }
 
         /* ── Viewer: download button + star rating ───────────────────────── */
@@ -995,12 +897,430 @@
             color: #aaa;
             font-size: 0.85em;
         }
+
+        /* ── Gallery: grid (square tiles) and waterfall (own shapes) ─────── */
+        .photo-grid {
+            display: grid;
+            gap: 3px;
+            padding: 0 3px;
+        }
+        .photo-masonry {
+            display: flex;
+            align-items: flex-start;
+            gap: 3px;
+            padding: 0 3px;
+        }
+        .photo-masonry-col {
+            flex: 1 1 0;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .imagecard {
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            background: #242424;
+            aspect-ratio: 1 / 1;
+        }
+        .imagecard img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            transition: transform 0.25s ease, filter 0.2s ease;
+        }
+        .imagecard:hover img { filter: brightness(1.08); }
+        .imagecard::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+            pointer-events: none;
+        }
+
+        /* ── Top right toolbar (filter / view / settings) ─────────────────── */
+        .search-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6em;
+        }
+        .search-row .search-input-wrap { flex: 1; min-width: 0; }
+        .photo-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 0.45em;
+            flex-shrink: 0;
+        }
+        .tb-anchor { position: relative; }
+        .tb-btn {
+            position: relative;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 1px solid #3c3c3c;
+            background: #1c1c1c;
+            color: #e8e8e8;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .tb-btn .tb-ico { width: 17px; height: 17px; display: block; }
+        .tb-btn:hover { background: #2c2c2c; }
+        .tb-btn.open { background: #333; border-color: #555; }
+        .tb-btn.has-filter { border-color: #f76c5d; color: #f7b3aa; }
+        .tb-btn:focus-visible { outline: 2px solid #f76c5d; outline-offset: 2px; }
+        .tb-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            min-width: 17px;
+            height: 17px;
+            padding: 0 4px;
+            border-radius: 9px;
+            background: #f76c5d;
+            color: #fff;
+            font-size: 10.5px;
+            font-weight: 700;
+            line-height: 17px;
+            text-align: center;
+        }
+        .tb-pop {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            z-index: 60;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 16px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+            color: #e8e8e8;
+            text-align: left;
+        }
+        .view-pop { width: 380px; padding: 0.7em 0.9em 0.6em 0.9em; }
+        .filter-pop {
+            width: 380px;
+            max-height: calc(100vh - 110px);
+            display: flex;
+            flex-direction: column;
+        }
+        .pop-head {
+            display: flex;
+            align-items: center;
+            padding: 0.85em 1em 0.55em 1em;
+            border-bottom: 1px solid #2c2c2c;
+        }
+        .pop-title { font-weight: 600; font-size: 1em; }
+        .pop-reset { margin-left: auto; color: #f76c5d; cursor: pointer; font-size: 0.88em; }
+        .pop-reset:hover { text-decoration: underline; }
+        .pop-body { overflow-y: auto; padding: 0.4em 1em 0.8em 1em; }
+        .pop-foot {
+            padding: 0.6em 1em;
+            border-top: 1px solid #2c2c2c;
+            color: #aaa;
+            font-size: 0.85em;
+        }
+        .pop-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.8em;
+            min-height: 44px;
+        }
+        .pop-label { color: #e3e3e3; font-size: 0.95em; white-space: nowrap; }
+        .pop-field { padding: 0.55em 0 0.2em 0; }
+        .pop-field > .pop-label { display: block; margin-bottom: 0.4em; font-size: 0.88em; color: #bbb; }
+        .pop-sep { height: 1px; background: #2c2c2c; margin: 0.35em 0; }
+        .pop-note, .pop-hint, .pf-hint {
+            color: #888;
+            font-size: 0.78em;
+            line-height: 1.4;
+        }
+        .pop-note { margin: -0.2em 0 0.3em 0; }
+        .pop-hint { padding-top: 0.35em; text-align: right; }
+        .pf-hint { margin-top: 0.25em; }
+
+        /* Segmented control */
+        .seg {
+            display: inline-flex;
+            background: #141414;
+            border: 1px solid #333;
+            border-radius: 999px;
+            padding: 3px;
+            gap: 2px;
+        }
+        .seg button {
+            border: none;
+            background: transparent;
+            color: #8d8d8d;
+            font-size: 0.88em;
+            padding: 0.38em 0.9em;
+            border-radius: 999px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s, color 0.15s;
+        }
+        .seg button:hover { color: #ddd; }
+        .seg button.on { background: #2f2f2f; color: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); }
+        .seg button:focus-visible { outline: 2px solid #f76c5d; outline-offset: 1px; }
+
+        /* Zoom slider: five dots, a round thumb */
+        .zoom-slider {
+            width: 214px;
+            height: 32px;
+            border-radius: 999px;
+            background: #141414;
+            border: 1px solid #333;
+            padding: 0 15px;
+            cursor: pointer;
+            touch-action: none;
+            outline: none;
+        }
+        .zoom-slider:focus-visible { border-color: #f76c5d; }
+        .zs-track { position: relative; height: 100%; }
+        .zs-dot, .zs-thumb {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+        }
+        .zs-dot { width: 5px; height: 5px; background: #555; }
+        .zs-thumb {
+            width: 24px;
+            height: 24px;
+            background: #2f2f2f;
+            border: 1px solid #555;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+            transition: left 0.12s ease;
+        }
+        .zs-thumb::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #f76c5d;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Filter fields */
+        .pop-select, .pf-input {
+            background: #252525;
+            color: #ddd;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 0.42em 0.6em;
+            font-size: 0.88em;
+            outline: none;
+            color-scheme: dark;
+            min-width: 0;
+        }
+        .pop-select { max-width: 200px; cursor: pointer; }
+        .pop-select.wide { width: 100%; max-width: none; }
+        .pop-select:focus, .pf-input:focus { border-color: #f76c5d; }
+        .pop-select option { background: #252525; color: #ddd; }
+        .pop-select option:disabled { color: #666; }
+        .pf-pair { display: flex; align-items: center; gap: 0.4em; }
+        .pf-pair .pf-input { flex: 1; width: 0; }
+        .pf-dash { color: #777; }
+        .pf-unit { color: #888; font-size: 0.85em; }
+        .pf-stars { display: flex; align-items: center; gap: 0.1em; flex-wrap: wrap; }
+        .pf-stars .star.icon {
+            cursor: pointer;
+            margin: 0;
+            font-size: 1.2em;
+            color: #f6c350;
+            transition: transform 0.08s;
+        }
+        .pf-stars .star.outline.icon { color: #5a5a5a; }
+        .pf-stars .star.icon:hover { transform: scale(1.15); }
+        .pf-stars .pf-chip { margin-left: 0.6em; }
+        .pf-chips { display: flex; flex-wrap: wrap; gap: 0.35em; }
+        .pf-chip {
+            border: 1px solid #3a3a3a;
+            background: #222;
+            color: #bbb;
+            border-radius: 999px;
+            padding: 0.28em 0.8em;
+            font-size: 0.82em;
+            cursor: pointer;
+        }
+        .pf-chip:hover { color: #fff; border-color: #555; }
+        .pf-chip.on { background: rgba(247, 108, 93, 0.18); border-color: rgba(247, 108, 93, 0.6); color: #f7b3aa; }
+        .pf-empty { color: #777; font-size: 0.82em; }
+        .pf-more {
+            display: flex;
+            align-items: center;
+            gap: 0.45em;
+            margin-top: 0.8em;
+            color: #bbb;
+            cursor: pointer;
+            font-size: 0.88em;
+            user-select: none;
+        }
+        .pf-more:hover { color: #fff; }
+        .pf-more .pf-chev { width: 12px; height: 12px; flex-shrink: 0; transition: transform 0.15s ease; }
+        .pf-more.open .pf-chev { transform: rotate(90deg); }
+        .pf-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 0.8em;
+        }
+
+        /* Extra chip colours of the search box */
+        .search-tag.tag-folder { background: rgba(160, 160, 160, 0.14); border-color: rgba(180, 180, 180, 0.35); color: #ddd; }
+        .search-tag.tag-folder > i.icon, .search-tag.tag-folder .tag-remove { color: #bbb; }
+        .search-tag.tag-shutter, .search-tag.tag-time { background: rgba(155, 120, 220, 0.16); border-color: rgba(155, 120, 220, 0.42); color: #c9b6f0; }
+        .search-tag.tag-shutter > i.icon, .search-tag.tag-shutter .tag-remove,
+        .search-tag.tag-time > i.icon, .search-tag.tag-time .tag-remove { color: #a98be0; }
+        .search-tag.tag-size { background: rgba(80, 180, 170, 0.15); border-color: rgba(80, 180, 170, 0.42); color: #9fdcd4; }
+        .search-tag.tag-size > i.icon, .search-tag.tag-size .tag-remove { color: #5fbfb3; }
+        .search-tag.neg { background: rgba(214, 72, 72, 0.16); border-color: rgba(214, 72, 72, 0.45); color: #f2a5a5; }
+        .search-tag.neg > i.icon, .search-tag.neg .tag-remove { color: #e06a6a; }
+
+        /* ── Settings dialog ─────────────────────────────────────────────── */
+        .photo-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 1500;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1em;
+        }
+        .photo-dialog {
+            width: 520px;
+            max-width: 100%;
+            max-height: calc(100vh - 2em);
+            display: flex;
+            flex-direction: column;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            color: #e8e8e8;
+        }
+        .pd-head {
+            display: flex;
+            align-items: center;
+            padding: 0.9em 1.1em;
+            border-bottom: 1px solid #2c2c2c;
+            font-weight: 600;
+            font-size: 1.05em;
+        }
+        .pd-close {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 1.05em;
+        }
+        .pd-close:hover { color: #fff; }
+        .pd-body { overflow-y: auto; padding: 0.4em 1.1em 1.1em 1.1em; }
+        .pd-section { padding: 0.8em 0; }
+        .pd-section + .pd-section { border-top: 1px solid #2c2c2c; }
+        .pd-title { font-weight: 600; margin-bottom: 0.3em; }
+        .pd-subtitle { font-weight: 600; font-size: 0.92em; margin: 1em 0 0.2em 0; }
+        .pd-desc { color: #999; font-size: 0.85em; line-height: 1.45; margin-bottom: 0.7em; }
+        .pd-option {
+            display: flex;
+            align-items: center;
+            gap: 0.75em;
+            padding: 0.65em 0.8em;
+            border: 1px solid #2f2f2f;
+            border-radius: 10px;
+            margin-bottom: 0.45em;
+            cursor: pointer;
+            outline: none;
+        }
+        .pd-option:hover { border-color: #444; background: #232323; }
+        .pd-option:focus-visible { border-color: #f76c5d; }
+        .pd-option.on { border-color: rgba(247, 108, 93, 0.65); background: rgba(247, 108, 93, 0.07); }
+        .pd-radio {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid #666;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .pd-option.on .pd-radio { border-color: #f76c5d; }
+        .pd-option.on .pd-radio::after {
+            content: "";
+            position: absolute;
+            inset: 2px;
+            border-radius: 50%;
+            background: #f76c5d;
+        }
+        .pd-opt-main { flex: 1; min-width: 0; }
+        .pd-opt-title { font-size: 0.92em; }
+        .pd-opt-desc { color: #888; font-size: 0.8em; margin-top: 0.15em; word-break: break-all; }
+        .pd-btn {
+            border: 1px solid #444;
+            background: #2a2a2a;
+            color: #ddd;
+            border-radius: 8px;
+            padding: 0.4em 0.9em;
+            font-size: 0.85em;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .pd-btn:hover:not(:disabled) { background: #343434; color: #fff; }
+        .pd-btn:disabled { opacity: 0.45; cursor: default; }
+        .pd-row {
+            display: flex;
+            align-items: center;
+            gap: 0.8em;
+            margin-top: 0.5em;
+        }
+        .pd-row .pd-muted { flex: 1; }
+        .pd-muted { color: #999; font-size: 0.85em; }
+        .pd-error { color: #f0857a; font-size: 0.85em; margin: 0.3em 0; }
+        .pd-tags { display: flex; flex-wrap: wrap; gap: 0.35em; margin-bottom: 0.6em; }
+        .pd-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3em;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 6px;
+            padding: 0.15em 0.3em 0.15em 0.55em;
+            font-size: 0.85em;
+        }
+        .pd-tag i.icon { margin: 0; cursor: pointer; color: #999; font-size: 0.85em; }
+        .pd-tag i.icon:hover { color: #f76c5d; }
+        .pd-add { display: flex; gap: 0.5em; }
+        .pd-add .pf-input { flex: 1; }
+
+        @media (max-width: 600px) {
+            /* Menus open full width under the search bar */
+            .tb-anchor { position: static; }
+            .tb-pop {
+                top: calc(100% + 4px);
+                left: 0.5em;
+                right: 0.5em;
+                width: auto;
+            }
+            .filter-pop { max-height: calc(100vh - 150px); }
+            .zoom-slider { width: 170px; }
+            .seg button { padding: 0.38em 0.65em; }
+        }
     </style>
 
 </head>
 <body>
     <!-- Alpine calls init() of the x-data object by itself: no x-init here -->
-    <div id="main" x-cloak x-data='photoListObject()'>
+    <div id="main" x-cloak x-data='photoListObject()' x-on:keydown.escape.window="onEscape()">
         <div class="ui inverted secondary small menu" id="menu">
             <!-- Mobile sidebar toggle (hidden on desktop via CSS) -->
             <a class="icon item" id="sidebar-toggle-btn" x-on:click="sidebarOpen = !sidebarOpen;" style="display:none;">
@@ -1014,54 +1334,6 @@
         <div id="content-area">
             <!-- Sidebar folder tree -->
             <div id="sidebar" :class="{ 'open': sidebarOpen }">
-
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title" locale="sidebar/sortBy">Sort By</div>
-                    <div style="padding: 0 0.4em;">
-                        <select class="sidebar-select" x-model="sortOrder" x-on:change="getFolderInfo();"
-                                :disabled="groupByDate" :title="groupByDate ? T('sort/groupTip', 'Turn off Group by date to sort manually') : ''">
-                            <option value="smart" locale="sort/smart">Natural Order</option>
-                            <option value="mostRecent" locale="sort/newest">Newest First</option>
-                            <option value="leastRecent" locale="sort/oldest">Oldest First</option>
-                            <option value="default" locale="sort/nameAsc">Filename A→Z</option>
-                            <option value="reverse" locale="sort/nameDesc">Filename Z→A</option>
-                            <option value="smallToLarge" locale="sort/sizeAsc">Size Small→Large</option>
-                            <option value="largeToSmall" locale="sort/sizeDesc">Size Large→Small</option>
-                            <option value="fileTypeAsce" locale="sort/extAsc">Extension A→Z</option>
-                            <option value="fileTypeDesc" locale="sort/extDesc">Extension Z→A</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="sidebar-divider"></div>
-
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title" locale="sidebar/view">View</div>
-                    <label class="sidebar-toggle" title="Split the grid into Year / Month sections">
-                        <input type="checkbox" x-model="groupByDate" x-on:change="onGroupByDateChange();">
-                        <span locale="view/groupByDate">Group by date</span>
-                    </label>
-                    <div class="sidebar-zoom-hint" locale="view/zoomHint">Hold Ctrl / ⌘ and scroll to resize photos</div>
-                </div>
-
-                <div class="sidebar-divider"></div>
-
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title" locale="sidebar/filterRating">Filter by Rating</div>
-                    <div class="sidebar-rating">
-                        <template x-for="n in [1,2,3,4,5]" :key="n">
-                            <i class="star icon" :class="{ 'outline': n > ratingFilter }"
-                               x-on:click="setRatingFilter(n)"
-                               :title="T('rating/andUp', 'Rating {n} and up', {n: n})"></i>
-                        </template>
-                        <span class="sidebar-rating-clear" x-show="ratingFilter > 0"
-                              x-on:click="setRatingFilter(0)" locale="rating/clear">Clear</span>
-                    </div>
-                    <div class="sidebar-rating-hint" x-show="ratingFilter > 0"
-                         x-text="T('rating/showing', 'Showing {n}★ & up', {n: ratingFilter})"></div>
-                </div>
-
-                <div class="sidebar-divider"></div>
 
                 <div class="sidebar-section">
                     <div class="sidebar-section-title" locale="sidebar/library">Library</div>
@@ -1111,14 +1383,15 @@
             <div id="display">
                 <!-- Search bar (iOS-style tags input with autocomplete) -->
                 <div id="search-header">
+                    <div class="search-row">
                     <div class="search-input-wrap" x-on:click.outside="showSuggestions = false">
                         <div id="search-box" :class="{ 'focused': showSuggestions }"
                             x-on:click="$refs.searchInput.focus()">
                             <i class="search icon"></i>
                             <div class="search-tags">
                                 <template x-for="(tag, ti) in searchTags" :key="ti">
-                                    <span class="search-tag" :class="'tag-' + tag.type">
-                                        <i class="icon" :class="suggestIcon(tag.type)"></i>
+                                    <span class="search-tag" :class="['tag-' + tag.type, tag.neg ? 'neg' : '']">
+                                        <i class="icon" :class="tag.neg ? 'minus circle' : suggestIcon(tag.type)"></i>
                                         <span x-text="tag.label"></span>
                                         <i class="times icon tag-remove" x-on:click.stop="removeTag(ti)"></i>
                                     </span>
@@ -1150,10 +1423,234 @@
                         </div>
                     </div>
 
+                    <!-- Top right: sort & filter, view, settings -->
+                    <div class="photo-toolbar">
+                        <div class="tb-anchor" x-on:click.outside="closeMenu('filter')">
+                            <button type="button" class="tb-btn"
+                                :class="{ 'open': openMenu === 'filter', 'has-filter': activeFilterCount() > 0 }"
+                                x-on:click="toggleMenu('filter')" :aria-expanded="openMenu === 'filter'"
+                                :title="T('toolbar/filter', 'Sort & filter')" :aria-label="T('toolbar/filter', 'Sort & filter')">
+                                <svg class="tb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6.2 7.6V18l-3.6 1.6v-7L4 5z"/></svg>
+                                <span class="tb-badge" x-show="activeFilterCount() > 0" x-text="activeFilterCount()"></span>
+                            </button>
+                            <div class="tb-pop filter-pop" x-show="openMenu === 'filter'" x-transition.opacity.duration.120ms>
+                                <div class="pop-head">
+                                    <span class="pop-title" locale="filter/title">Sort &amp; filter</span>
+                                    <a class="pop-reset" x-show="activeFilterCount() > 0" x-on:click="resetPanel()" locale="filter/reset">Reset filters</a>
+                                </div>
+                                <div class="pop-body">
+                                    <div class="pop-row">
+                                        <span class="pop-label" locale="filter/sort">Sort by</span>
+                                        <select class="pop-select" x-on:change="setSort($event.target.value)">
+                                            <template x-for="opt in sortOptions()" :key="opt.v">
+                                                <option :value="opt.v" x-text="opt.label" :disabled="sortDisabled(opt)" :selected="opt.v === effectiveSort()"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div class="pop-note" x-show="timeline !== 'none'" locale="filter/sortNote">The timeline keeps photos in date order. Turn it off under View to sort by name, size or type.</div>
+                                    <div class="pop-sep"></div>
+
+                                    <div class="pop-row">
+                                        <span class="pop-label" locale="filter/searchIn">Look in</span>
+                                        <div class="seg">
+                                            <button type="button" :class="{ 'on': scope === 'folder' }" x-on:click="setScope('folder')" locale="filter/thisFolder">This folder</button>
+                                            <button type="button" :class="{ 'on': scope === 'all' }" x-on:click="setScope('all')" locale="filter/everywhere">All photos</button>
+                                        </div>
+                                    </div>
+                                    <div class="pop-note" x-show="scope === 'folder'"
+                                        x-text="T('filter/scopeNote', '{folder} and the folders inside it', { folder: scopeName() })"></div>
+
+                                    <div class="pop-field">
+                                        <span class="pop-label" locale="filter/rating">Rating</span>
+                                        <div class="pf-stars">
+                                            <template x-for="n in [1,2,3,4,5]" :key="n">
+                                                <i class="star icon" :class="{ 'outline': !(pf.rating >= n) }"
+                                                    x-on:click="setPanelRating(n)"
+                                                    :title="T('rating/andUp', 'Rating {n} and up', { n: n }) + (facets ? ' (' + ratingCount(n) + ')' : '')"></i>
+                                            </template>
+                                            <button type="button" class="pf-chip" :class="{ 'on': pf.rating === -1 }"
+                                                x-on:click="setPanelRating(-1)" locale="rating/unrated">Unrated</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="pop-field">
+                                        <span class="pop-label" locale="filter/taken">Date taken</span>
+                                        <div class="pf-pair">
+                                            <input type="date" class="pf-input" x-model="pf.from" x-on:change="applyPanel()" :aria-label="T('filter/from', 'From')">
+                                            <span class="pf-dash">–</span>
+                                            <input type="date" class="pf-input" x-model="pf.to" x-on:change="applyPanel()" :aria-label="T('filter/to', 'To')">
+                                        </div>
+                                    </div>
+
+                                    <div class="pop-field">
+                                        <span class="pop-label" locale="filter/camera">Camera</span>
+                                        <select class="pop-select wide" x-model="pf.camera" x-on:change="applyPanel()">
+                                            <option value="" locale="filter/anyCamera">Any camera</option>
+                                            <template x-for="c in cameraOptions()" :key="c.v">
+                                                <option :value="c.v" x-text="c.label + (c.c ? '  (' + c.c + ')' : '')" :selected="c.v === pf.camera"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+
+                                    <div class="pop-field">
+                                        <span class="pop-label" locale="filter/lens">Lens</span>
+                                        <select class="pop-select wide" x-model="pf.lens" x-on:change="applyPanel()">
+                                            <option value="" locale="filter/anyLens">Any lens</option>
+                                            <template x-for="l in lensOptions()" :key="l.v">
+                                                <option :value="l.v" x-text="l.label + (l.c ? '  (' + l.c + ')' : '')" :selected="l.v === pf.lens"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+
+                                    <div class="pop-field">
+                                        <span class="pop-label" locale="filter/type">File type</span>
+                                        <div class="pf-chips">
+                                            <template x-for="t in typeOptions()" :key="t.v">
+                                                <button type="button" class="pf-chip" :class="{ 'on': pf.types.includes(t.v) }"
+                                                    x-on:click="togglePanelValue('types', t.v)" x-text="t.v.toUpperCase()"
+                                                    :title="t.c ? T('suggest/photos', '{n} photos', { n: t.c }) : ''"></button>
+                                            </template>
+                                            <span class="pf-empty" x-show="typeOptions().length === 0"
+                                                x-text="facetsLoading ? T('filter/loading', 'Loading…') : T('filter/notIndexed', 'Nothing indexed here yet')"></span>
+                                        </div>
+                                    </div>
+
+                                    <div class="pop-field">
+                                        <span class="pop-label" locale="filter/orientation">Orientation</span>
+                                        <div class="pf-chips">
+                                            <template x-for="o in ['landscape', 'portrait', 'square']" :key="o">
+                                                <button type="button" class="pf-chip" :class="{ 'on': pf.orient.includes(o) }"
+                                                    x-on:click="togglePanelValue('orient', o)" x-text="photoOrientationLabel(o)"></button>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <a class="pf-more" :class="{ 'open': showAdvanced }" x-on:click="showAdvanced = !showAdvanced">
+                                        <svg class="pf-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                                        <span locale="filter/more">Camera settings &amp; file details</span>
+                                    </a>
+                                    <div x-show="showAdvanced">
+                                        <div class="pf-grid">
+                                            <div class="pop-field">
+                                                <span class="pop-label">ISO</span>
+                                                <div class="pf-pair">
+                                                    <input type="number" min="0" step="1" class="pf-input" x-model="pf.isoMin" x-on:change="applyPanel()" :placeholder="T('filter/min', 'Min')">
+                                                    <span class="pf-dash">–</span>
+                                                    <input type="number" min="0" step="1" class="pf-input" x-model="pf.isoMax" x-on:change="applyPanel()" :placeholder="T('filter/max', 'Max')">
+                                                </div>
+                                                <div class="pf-hint" x-text="rangeHint('iso', v => Math.round(v))"></div>
+                                            </div>
+                                            <div class="pop-field">
+                                                <span class="pop-label" locale="filter/aperture">Aperture (f/)</span>
+                                                <div class="pf-pair">
+                                                    <input type="number" min="0" step="0.1" class="pf-input" x-model="pf.fMin" x-on:change="applyPanel()" :placeholder="T('filter/min', 'Min')">
+                                                    <span class="pf-dash">–</span>
+                                                    <input type="number" min="0" step="0.1" class="pf-input" x-model="pf.fMax" x-on:change="applyPanel()" :placeholder="T('filter/max', 'Max')">
+                                                </div>
+                                                <div class="pf-hint" x-text="rangeHint('aperture', v => 'f/' + (Math.round(v * 10) / 10))"></div>
+                                            </div>
+                                            <div class="pop-field">
+                                                <span class="pop-label" locale="filter/focal">Focal length (mm)</span>
+                                                <div class="pf-pair">
+                                                    <input type="number" min="0" step="1" class="pf-input" x-model="pf.focalMin" x-on:change="applyPanel()" :placeholder="T('filter/min', 'Min')">
+                                                    <span class="pf-dash">–</span>
+                                                    <input type="number" min="0" step="1" class="pf-input" x-model="pf.focalMax" x-on:change="applyPanel()" :placeholder="T('filter/max', 'Max')">
+                                                </div>
+                                                <div class="pf-hint" x-text="rangeHint('focal', v => Math.round(v) + ' mm')"></div>
+                                            </div>
+                                            <div class="pop-field">
+                                                <span class="pop-label" locale="filter/megapixels">Megapixels</span>
+                                                <div class="pf-pair">
+                                                    <input type="number" min="0" step="1" class="pf-input" x-model="pf.mpMin" x-on:change="applyPanel()" :placeholder="T('filter/atLeast', 'At least')">
+                                                    <span class="pf-unit">MP</span>
+                                                </div>
+                                                <div class="pf-hint" x-text="rangeHint('megapixels', v => (Math.round(v * 10) / 10) + ' MP')"></div>
+                                            </div>
+                                        </div>
+                                        <div class="pop-field">
+                                            <span class="pop-label" locale="filter/shutter">Shutter speed</span>
+                                            <select class="pop-select wide" x-model="pf.shutter" x-on:change="applyPanel()">
+                                                <option value="" locale="filter/any">Any</option>
+                                                <template x-for="p in PHOTO_SHUTTER_PRESETS" :key="p.v">
+                                                    <option :value="p.v" x-text="T(p.key, p.en)" :selected="p.v === pf.shutter"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                        <div class="pop-field">
+                                            <span class="pop-label" locale="filter/time">Time of day</span>
+                                            <select class="pop-select wide" x-model="pf.time" x-on:change="applyPanel()">
+                                                <option value="" locale="filter/any">Any</option>
+                                                <template x-for="p in PHOTO_TIME_PRESETS" :key="p.v">
+                                                    <option :value="p.v" x-text="T(p.key, p.en)" :selected="p.v === pf.time"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                        <div class="pop-field">
+                                            <span class="pop-label" locale="filter/size">File size (MB)</span>
+                                            <div class="pf-pair">
+                                                <input type="number" min="0" step="0.5" class="pf-input" x-model="pf.sizeMin" x-on:change="applyPanel()" :placeholder="T('filter/min', 'Min')">
+                                                <span class="pf-dash">–</span>
+                                                <input type="number" min="0" step="0.5" class="pf-input" x-model="pf.sizeMax" x-on:change="applyPanel()" :placeholder="T('filter/max', 'Max')">
+                                            </div>
+                                        </div>
+                                        <div class="pop-note" style="margin-top: 0.7em;" locale="filter/syntaxTip">Tip: type -word in the search box to leave matching photos out, e.g. -raw or -in:screenshots.</div>
+                                    </div>
+                                </div>
+                                <div class="pop-foot" x-show="searchMode" x-text="searchSummary()"></div>
+                            </div>
+                        </div>
+
+                        <div class="tb-anchor" x-on:click.outside="closeMenu('view')">
+                            <button type="button" class="tb-btn" :class="{ 'open': openMenu === 'view' }"
+                                x-on:click="toggleMenu('view')" :aria-expanded="openMenu === 'view'"
+                                :title="T('toolbar/view', 'View')" :aria-label="T('toolbar/view', 'View')">
+                                <svg class="tb-ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4.5" y="4.5" width="6.6" height="6.6" rx="1.8"/><rect x="12.9" y="4.5" width="6.6" height="6.6" rx="1.8"/><rect x="4.5" y="12.9" width="6.6" height="6.6" rx="1.8"/><rect x="12.9" y="12.9" width="6.6" height="6.6" rx="1.8"/></svg>
+                            </button>
+                            <div class="tb-pop view-pop" x-show="openMenu === 'view'" x-transition.opacity.duration.120ms>
+                                <div class="pop-row">
+                                    <span class="pop-label" locale="view/timeline">Timeline</span>
+                                    <div class="seg">
+                                        <template x-for="opt in timelineOptions()" :key="opt.v">
+                                            <button type="button" :class="{ 'on': timeline === opt.v }" x-on:click="setTimeline(opt.v)" x-text="opt.label"></button>
+                                        </template>
+                                    </div>
+                                </div>
+                                <div class="pop-sep"></div>
+                                <div class="pop-row">
+                                    <span class="pop-label" locale="view/layout">Layout</span>
+                                    <div class="seg">
+                                        <button type="button" :class="{ 'on': layout === 'grid' }" x-on:click="setLayout('grid')" locale="view/grid">Grid</button>
+                                        <button type="button" :class="{ 'on': layout === 'waterfall' }" x-on:click="setLayout('waterfall')" locale="view/waterfall">Waterfall</button>
+                                    </div>
+                                </div>
+                                <div class="pop-row">
+                                    <span class="pop-label" locale="view/zoom">Zoom</span>
+                                    <div class="zoom-slider" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="4"
+                                        :aria-valuenow="zoomLevel" :aria-label="T('view/zoom', 'Zoom')"
+                                        x-on:pointerdown.prevent="zoomPointer($event)" x-on:keydown="zoomKey($event)">
+                                        <div class="zs-track">
+                                            <template x-for="n in [0, 1, 2, 3, 4]" :key="n">
+                                                <span class="zs-dot" :style="{ left: (n * 25) + '%' }"></span>
+                                            </template>
+                                            <span class="zs-thumb" :style="{ left: (zoomLevel * 25) + '%' }"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="pop-hint" x-text="T('grid/perRow', '{n} per row', { n: columnCount() }) + ' · ' + T('view/zoomHint', 'Hold Ctrl / ⌘ and scroll to resize photos')"></div>
+                            </div>
+                        </div>
+
+                        <button type="button" class="tb-btn" x-on:click="openSettings()"
+                            :title="T('toolbar/settings', 'Settings')" :aria-label="T('toolbar/settings', 'Settings')">
+                            <svg class="tb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        </button>
+                    </div>
+                    </div>
+
                     <!-- Result count / indexing status -->
                     <div id="search-meta" x-show="searchMode || indexStatusText.length > 0">
-                        <span x-show="searchMode"
-                            x-text="searchTotal === 1 ? T('search/result', '{n} result', {n: searchTotal}) : T('search/results', '{n} results', {n: searchTotal})"></span>
+                        <span x-show="searchMode" x-text="searchSummary()"></span>
+                        <a class="search-clear-link" x-show="searchMode && scope === 'folder'" x-on:click="setScope('all')" locale="search/everywhere">Search all photos</a>
                         <a class="search-clear-link" x-show="searchMode" x-on:click="clearSearch()" locale="search/clear">Clear search</a>
                         <span id="index-chip" x-show="indexStatusText.length > 0">
                             <i class="loading spinner icon" x-show="indexing"></i>
@@ -1175,21 +1672,37 @@
                 </div>
                 <div id="viewboxContainer">
                     <div id="viewbox">
-                        <!-- Photos are split into Year / Month sections (Google-Photos style).
-                             When "Group by date" is off, groupedImages() returns one
-                             unlabelled group, so this renders as a single flat grid. -->
+                        <!-- Photos are split into Day / Month / Year sections by the
+                             timeline (one unlabelled section when it is off). Grid
+                             shows square tiles; waterfall keeps each photo's shape and
+                             deals it into the shortest column (layout.js). -->
                         <template x-for="group in groupedImages()" :key="group.key">
                             <div class="photo-date-group">
                                 <div class="photo-date-header" x-show="group.label !== ''" x-text="group.label"></div>
-                                <div class="ui six cards photo-date-cards">
-                                    <template x-for="image in group.images" :key="image.filepath">
-                                        <div class="imagecard" style="cursor: pointer;" x-on:click="showImage($el); ShowModal();" :style="{width: renderSize + 'px', height: renderSize + 'px'}" :filedata="encodeURIComponent(JSON.stringify({'filename':image.filepath.split('/').pop(),'filepath':image.filepath,'filesize':image.filesize}))">
-                                            <a class="image" x-init="updateImageSizes();">
-                                                <img :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image.filepath">
-                                            </a>
-                                        </div>
-                                    </template>
-                                </div>
+                                <template x-if="layout === 'grid'">
+                                    <div class="photo-grid" :style="gridStyle()">
+                                        <template x-for="image in group.images" :key="image.filepath">
+                                            <div class="imagecard" x-on:click="showImage($el); ShowModal();" :filedata="cardFiledata(image)">
+                                                <img :src="thumbUrl(image)" loading="lazy" alt="">
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="layout === 'waterfall'">
+                                    <div class="photo-masonry">
+                                        <template x-for="col in group.columns" :key="col.key">
+                                            <div class="photo-masonry-col">
+                                                <template x-for="image in col.items" :key="image.filepath">
+                                                    <div class="imagecard" x-on:click="showImage($el); ShowModal();"
+                                                        :style="{ aspectRatio: cardRatio(image) }" :filedata="cardFiledata(image)">
+                                                        <img :src="PhotoPreviews.url(image.filepath) || thumbUrl(image)" :data-thumb="thumbUrl(image)"
+                                                            x-init="PhotoPreviews.observe($el, image.filepath)" alt="">
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                     </div>
@@ -1203,6 +1716,79 @@
             </div>
 
         </div><!-- /#content-area -->
+
+        <!-- Settings (gear, top right) -->
+        <div class="photo-modal" x-show="settingsOpen" x-transition.opacity.duration.120ms x-on:click.self="settingsOpen = false">
+            <div class="photo-dialog" role="dialog" aria-modal="true" :aria-label="T('settings/title', 'Photo settings')">
+                <div class="pd-head">
+                    <span locale="settings/title">Photo settings</span>
+                    <button type="button" class="pd-close" x-on:click="settingsOpen = false" :aria-label="T('common/close', 'Close')"><i class="close icon"></i></button>
+                </div>
+                <div class="pd-body">
+                    <div class="pd-section">
+                        <div class="pd-title" locale="settings/previews">Waterfall previews</div>
+                        <div class="pd-desc" locale="settings/previewsDesc">The waterfall layout shows every photo in its own shape. Those previews are drawn on the server and can be kept, so they load quickly next time.</div>
+
+                        <div class="pd-option" role="radio" tabindex="0" :class="{ 'on': settings.mode === 'appdata' }" :aria-checked="settings.mode === 'appdata'"
+                            x-on:click="setPreviewMode('appdata')" x-on:keydown.enter.prevent="setPreviewMode('appdata')" x-on:keydown.space.prevent="setPreviewMode('appdata')">
+                            <span class="pd-radio"></span>
+                            <div class="pd-opt-main">
+                                <div class="pd-opt-title" locale="settings/modeAppdata">Keep them in my app data (recommended)</div>
+                                <div class="pd-opt-desc" x-text="settings.defaultDir"></div>
+                            </div>
+                        </div>
+                        <div class="pd-option" role="radio" tabindex="0" :class="{ 'on': settings.mode === 'custom' }" :aria-checked="settings.mode === 'custom'"
+                            x-on:click="setPreviewMode('custom')" x-on:keydown.enter.prevent="setPreviewMode('custom')" x-on:keydown.space.prevent="setPreviewMode('custom')">
+                            <span class="pd-radio"></span>
+                            <div class="pd-opt-main">
+                                <div class="pd-opt-title" locale="settings/modeCustom">Keep them in a folder I choose</div>
+                                <div class="pd-opt-desc" x-text="settings.path || T('settings/noFolder', 'No folder chosen yet')"></div>
+                            </div>
+                            <button type="button" class="pd-btn" x-on:click.stop="chooseCacheFolder()" :disabled="settings.busy" locale="settings/choose">Choose…</button>
+                        </div>
+                        <div class="pd-option" role="radio" tabindex="0" :class="{ 'on': settings.mode === 'realtime' }" :aria-checked="settings.mode === 'realtime'"
+                            x-on:click="setPreviewMode('realtime')" x-on:keydown.enter.prevent="setPreviewMode('realtime')" x-on:keydown.space.prevent="setPreviewMode('realtime')">
+                            <span class="pd-radio"></span>
+                            <div class="pd-opt-main">
+                                <div class="pd-opt-title" locale="settings/modeRealtime">Draw them every time</div>
+                                <div class="pd-opt-desc" locale="settings/modeRealtimeDesc">Uses no disk space, but every preview is drawn again each time it is shown.</div>
+                            </div>
+                        </div>
+
+                        <div class="pd-error" x-show="settings.error" x-text="settings.error"></div>
+                        <div class="pd-row" x-show="settings.loaded && settings.mode !== 'realtime'">
+                            <span class="pd-muted" x-text="cacheStatsText()"></span>
+                            <button type="button" class="pd-btn" x-on:click="clearPreviewCache()"
+                                :disabled="settings.busy || !settings.stats || settings.stats.files === 0" locale="settings/clearCache">Clear cache</button>
+                        </div>
+                        <div class="pd-desc" style="margin: 0.6em 0 0 0;" x-show="settings.mode === 'custom'" locale="settings/customNote">Previews are kept in sub folders named 00 to ff. Clearing the cache only removes those.</div>
+                    </div>
+
+                    <div class="pd-section">
+                        <div class="pd-title" locale="settings/index">Search index</div>
+                        <div class="pd-row">
+                            <span class="pd-muted" x-text="T('settings/indexStatus', '{n} photos indexed, last updated {time}', { n: settings.total, time: lastIndexedText() })"></span>
+                            <button type="button" class="pd-btn" x-on:click="rebuildIndex()" :disabled="indexing" locale="settings/rebuild">Rebuild index</button>
+                        </div>
+                        <div class="pd-muted" style="margin-top: 0.4em;" x-show="indexing" x-text="indexStatusText"></div>
+
+                        <div class="pd-subtitle" locale="settings/exclude">Excluded folders</div>
+                        <div class="pd-desc" locale="settings/excludeDesc">Photos in folders with these names are left out of the index, the search and the filters.</div>
+                        <div class="pd-tags">
+                            <template x-for="(f, i) in settings.exclude" :key="f">
+                                <span class="pd-tag"><span x-text="f"></span><i class="times icon" x-on:click="removeExclude(i)" :title="T('settings/remove', 'Remove')"></i></span>
+                            </template>
+                            <span class="pd-muted" x-show="settings.exclude.length === 0" locale="settings/noExclude">None</span>
+                        </div>
+                        <div class="pd-add">
+                            <input type="text" class="pf-input" x-model="settings.excludeInput" x-on:keydown.enter.prevent="addExclude()"
+                                :placeholder="T('settings/excludePlaceholder', 'Folder name, e.g. Screenshots')">
+                            <button type="button" class="pd-btn" x-on:click="addExclude()" locale="settings/add">Add</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div><!-- /#main -->
     <!-- Photo Viewer -->
     <div id="photo-viewer" class="photo-viewer">
