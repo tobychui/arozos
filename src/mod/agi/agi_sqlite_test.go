@@ -9,11 +9,12 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
-	_ "modernc.org/sqlite"
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
 	user "imuslab.com/arozos/mod/user"
+	_ "modernc.org/sqlite"
 )
 
 // ─── pure-Go helper tests ─────────────────────────────────────────────────────
@@ -609,6 +610,71 @@ func TestSQLiteDriver_TableListViaSchemaQuery(t *testing.T) {
 	}
 	if len(tables) != 3 {
 		t.Errorf("expected 3 user tables, got %v", tables)
+	}
+}
+
+// Requests that arrive together at a database that does not exist yet must all
+// get a connection: the switch to WAL ignores the busy timeout.
+func TestSQLitePing_NewDatabaseOpenedTogether(t *testing.T) {
+	for round := 0; round < 20; round++ {
+		dsn := sqliteBuildDSN(filepath.Join(t.TempDir(), "new.sqlite"))
+		start := make(chan struct{})
+		results := make(chan error, 6)
+		for i := 0; i < cap(results); i++ {
+			go func() {
+				<-start
+				db, err := sql.Open("sqlite", dsn)
+				if err != nil {
+					results <- err
+					return
+				}
+				defer db.Close()
+				results <- sqlitePing(db, sqliteBusyTimeoutMs*time.Millisecond)
+			}()
+		}
+		close(start)
+		for i := 0; i < cap(results); i++ {
+			if err := <-results; err != nil {
+				t.Fatalf("round %d: %v", round, err)
+			}
+		}
+	}
+}
+
+func TestSQLiteIsBusy(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "busy.sqlite")
+	holder, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer holder.Close()
+	holder.SetMaxOpenConns(1)
+	if _, err := holder.Exec(`CREATE TABLE t (v INTEGER); BEGIN EXCLUSIVE`); err != nil {
+		t.Fatalf("lock: %v", err)
+	}
+
+	//No busy timeout on this one, so it is turned away at once
+	other, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open second: %v", err)
+	}
+	defer other.Close()
+	_, busyErr := other.Exec(`INSERT INTO t VALUES (1)`)
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"locked database", busyErr, true},
+		{"wrapped", fmt.Errorf("opening: %w", busyErr), true},
+		{"no error", nil, false},
+		{"other error", fmt.Errorf("database is locked"), false},
+	}
+	for _, tt := range tests {
+		if got := sqliteIsBusy(tt.err); got != tt.want {
+			t.Errorf("%s: sqliteIsBusy(%v) = %v, want %v", tt.name, tt.err, got, tt.want)
+		}
 	}
 }
 

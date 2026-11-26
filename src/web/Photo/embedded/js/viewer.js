@@ -219,7 +219,7 @@
         V.index = index;
         var f = current();
         V.loaded = false;
-        ao_module_setWindowTitle("Photo - " + f.filename);
+        ao_module_setWindowTitle(T("app/title", "Photo") + " - " + f.filename);
         updateBars();
         openInfo(true);
         markStrip(true);
@@ -262,7 +262,7 @@
                 return;
             }
             spinner.classList.remove("on");
-            toast("This photo could not be opened");
+            toast(T("viewer/openFailed", "This photo could not be opened"));
         };
         loader.src = url;
     }
@@ -287,7 +287,8 @@
         }
         $("vName").textContent = f.filename;
         $("vDate").textContent = f.modtime ? formatDate(new Date(f.modtime * 1000), true) : "";
-        $("vCount").textContent = V.list.length > 1 ? (V.index + 1) + " of " + V.list.length : "";
+        $("vCount").textContent = V.list.length > 1
+            ? T("viewer/counter", "{n} of {total}", { n: V.index + 1, total: V.list.length }) : "";
         $("navPrev").classList.toggle("can", V.index > 0);
         $("navNext").classList.toggle("can", V.index < V.list.length - 1);
     }
@@ -328,11 +329,11 @@
     }
 
     function formatDate(d, withTime) {
-        var day = d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+        var day = d.toLocaleDateString(localeTag(), { weekday: "long", day: "numeric", month: "long", year: "numeric" });
         if (!withTime) {
             return day;
         }
-        return day + " \u00b7 " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+        return day + " \u00b7 " + d.toLocaleTimeString(localeTag(), { hour: "2-digit", minute: "2-digit" });
     }
 
     /* ---------- thumbnail strip ---------- */
@@ -720,11 +721,11 @@
         var hasExif = cells.some(function (c) { return c !== ""; });
 
         var html = '<div class="sgroup">' +
-            '<button type="button" class="iClose" title="Close">' + I.close + '</button>' +
+            '<button type="button" class="iClose" title="' + esc(T("common/close", "Close")) + '">' + I.close + '</button>' +
             '<div class="iHead"><div class="date">' + (taken ? esc(formatDate(taken, false)) : "&nbsp;") + '</div>' +
-            '<div class="file">' + esc(f.filename) + (taken ? " \u00b7 " + esc(taken.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })) : "") + '</div></div>' +
+            '<div class="file">' + esc(f.filename) + (taken ? " \u00b7 " + esc(taken.toLocaleTimeString(localeTag(), { hour: "2-digit", minute: "2-digit" })) : "") + '</div></div>' +
             '<div class="iCard">' +
-            '<div class="iRow"><span class="camera">' + esc(camera || "No camera information") + '</span><span class="iBadge">' + esc(ext) + '</span></div>' +
+            '<div class="iRow"><span class="camera">' + esc(camera || T("viewer/noCamera", "No camera information")) + '</span><span class="iBadge">' + esc(ext) + '</span></div>' +
             (lens ? '<div class="iRow"><span class="muted">' + esc(lens) + '</span></div>' : '') +
             '<div class="iRow"><span class="muted">' + [mp, w && h ? w + " \u00d7 " + h : "", humanSize(f.size)].filter(Boolean).map(esc).join(" \u00b7 ") + '</span></div>' +
             (hasExif ? '<div class="iExif">' + cells.map(function (c) { return "<div>" + (c || "&ndash;") + "</div>"; }).join("") + '</div>' : '') +
@@ -771,7 +772,7 @@
             return PhotoEditor.open(img, { name: f.filename });
         }).catch(function (err) {
             endEdit();
-            toast("Editing needs WebGL, which this browser does not offer");
+            toast(T("edit/needsWebGL", "Editing needs WebGL, which this browser does not offer"));
             console.error(err);
         });
     }
@@ -792,15 +793,18 @@
             return;
         }
         if (isDesktop()) {
-            showDialog('<div class="dhead">Discard your changes?</div>' +
-                '<div class="dtext">The edits to ' + esc(current().filename) + ' have not been saved and will be lost.</div>' +
+            showDialog('<div class="dhead">' + esc(T("edit/discardTitle", "Discard your changes?")) + '</div>' +
+                '<div class="dtext">' + esc(T("edit/discardText", "The edits to {name} have not been saved and will be lost.",
+                    { name: current().filename })) + '</div>' +
                 '<div class="dfoot"><span class="grow"></span>' +
-                '<button type="button" class="dbtn" id="discardNo">Keep Editing</button>' +
-                '<button type="button" class="dbtn danger" id="discardYes">Discard</button></div>');
+                '<button type="button" class="dbtn" id="discardNo">' + esc(T("edit/keep", "Keep Editing")) + '</button>' +
+                '<button type="button" class="dbtn danger" id="discardYes">' + esc(T("edit/discard", "Discard")) + '</button></div>');
         } else {
             $("actionSheet").innerHTML =
-                '<div class="sgroup"><button type="button" class="sbtn red" id="discardYes">Discard Changes</button></div>' +
-                '<div class="sgroup"><button type="button" class="sbtn bold" id="discardNo">Keep Editing</button></div>';
+                '<div class="sgroup"><button type="button" class="sbtn red" id="discardYes">' +
+                esc(T("edit/discardChanges", "Discard Changes")) + '</button></div>' +
+                '<div class="sgroup"><button type="button" class="sbtn bold" id="discardNo">' +
+                esc(T("edit/keep", "Keep Editing")) + '</button></div>';
             showSheet("actionSheet");
         }
         $("discardYes").onclick = endEdit;
@@ -864,11 +868,11 @@
         var full = PhotoEditor.outputSize();
         var longSide = Math.max(full.width, full.height);
         var presets = [
-            { id: "actual", name: "Actual", long: longSide },
-            { id: "large", name: "Large", long: 2048 },
-            { id: "medium", name: "Medium", long: 1280 },
-            { id: "small", name: "Small", long: 640 },
-            { id: "custom", name: "Custom" }
+            { id: "actual", name: T("save/actual", "Actual"), long: longSide },
+            { id: "large", name: T("save/large", "Large"), long: 2048 },
+            { id: "medium", name: T("save/medium", "Medium"), long: 1280 },
+            { id: "small", name: T("save/small", "Small"), long: 640 },
+            { id: "custom", name: T("save/custom", "Custom") }
         ];
         var size = { id: "actual", w: full.width, h: full.height, lock: true };
 
@@ -878,33 +882,37 @@
             return '<button type="button" data-id="' + p.id + '"' + (dis ? " disabled" : "") + '>' + p.name + '</button>';
         }).join("") + '</div>';
         var custom = '<div class="customSize" id="customSize">' +
-            '<input type="number" id="cw" min="1" max="16384" inputmode="numeric" aria-label="Width"> \u00d7 ' +
-            '<input type="number" id="chh" min="1" max="16384" inputmode="numeric" aria-label="Height">' +
-            '<button type="button" class="lock on" id="clock" title="Keep proportions">' + I.link + '</button></div>';
+            '<input type="number" id="cw" min="1" max="16384" inputmode="numeric" aria-label="' + esc(T("save/width", "Width")) + '"> \u00d7 ' +
+            '<input type="number" id="chh" min="1" max="16384" inputmode="numeric" aria-label="' + esc(T("save/height", "Height")) + '">' +
+            '<button type="button" class="lock on" id="clock" title="' + esc(T("save/keepRatio", "Keep proportions")) + '">' + I.link + '</button></div>';
         var html;
         if (desk) {
-            html = '<div class="dhead">Save edited photo</div>' +
-                '<div class="drow"><label>Size</label><div class="dfield">' + seg + custom +
+            html = '<div class="dhead">' + esc(T("save/title", "Save edited photo")) + '</div>' +
+                '<div class="drow"><label>' + esc(T("save/size", "Size")) + '</label><div class="dfield">' + seg + custom +
                 '<div class="sizeInfo" id="sizeInfo"></div></div></div>' +
-                '<div class="drow"><label for="copyName">Copy name</label><div class="dfield">' +
+                '<div class="drow"><label for="copyName">' + esc(T("save/copyName", "Copy name")) + '</label><div class="dfield">' +
                 '<input type="text" id="copyName" class="dinput" spellcheck="false" value="' + esc(copyName(f, fmt.ext)) + '">' +
-                '<div class="dhint">Saved in ' + esc(dirOf(f.filepath)) + '</div></div></div>' +
+                '<div class="dhint">' + esc(T("save/savedIn", "Saved in {dir}", { dir: dirOf(f.filepath) })) + '</div></div></div>' +
                 '<div class="dfoot">' +
-                '<button type="button" class="dbtn" id="saveDownload">' + I.download + ' Download</button>' +
+                '<button type="button" class="dbtn" id="saveDownload">' + I.download + ' ' + esc(T("common/download", "Download")) + '</button>' +
                 '<span class="grow"></span>' +
-                '<button type="button" class="dbtn" id="saveCancel">Cancel</button>' +
-                (fmt.replace ? '<button type="button" class="dbtn danger" id="saveReplace" title="Overwrite ' + esc(f.filename) + '">Replace Original</button>' : '') +
-                '<button type="button" class="dbtn primary" id="saveCopy">Save as Copy</button>' +
+                '<button type="button" class="dbtn" id="saveCancel">' + esc(T("common/cancel", "Cancel")) + '</button>' +
+                (fmt.replace ? '<button type="button" class="dbtn danger" id="saveReplace" title="' +
+                    esc(T("save/overwrite", "Overwrite {name}", { name: f.filename })) + '">' +
+                    esc(T("save/replace", "Replace Original")) + '</button>' : '') +
+                '<button type="button" class="dbtn primary" id="saveCopy">' + esc(T("save/copy", "Save as Copy")) + '</button>' +
                 '</div>';
         } else {
             html = '<div class="sgroup">' +
-                '<div class="stitle">Save the edited photo</div>' + seg + custom +
+                '<div class="stitle">' + esc(T("save/sheetTitle", "Save the edited photo")) + '</div>' + seg + custom +
                 '<div class="sizeInfo" id="sizeInfo"></div>' +
-                '<button type="button" class="sbtn" id="saveCopy">Save as Copy<span class="sub">' + esc(copyName(f, fmt.ext)) + '</span></button>' +
-                (fmt.replace ? '<button type="button" class="sbtn red" id="saveReplace">Replace Original<span class="sub">' + esc(f.filename) + '</span></button>' : '') +
-                '<button type="button" class="sbtn" id="saveDownload">Download</button>' +
+                '<button type="button" class="sbtn" id="saveCopy">' + esc(T("save/copy", "Save as Copy")) +
+                '<span class="sub">' + esc(copyName(f, fmt.ext)) + '</span></button>' +
+                (fmt.replace ? '<button type="button" class="sbtn red" id="saveReplace">' + esc(T("save/replace", "Replace Original")) +
+                    '<span class="sub">' + esc(f.filename) + '</span></button>' : '') +
+                '<button type="button" class="sbtn" id="saveDownload">' + esc(T("common/download", "Download")) + '</button>' +
                 '</div>' +
-                '<div class="sgroup"><button type="button" class="sbtn bold" id="saveCancel">Cancel</button></div>';
+                '<div class="sgroup"><button type="button" class="sbtn bold" id="saveCancel">' + esc(T("common/cancel", "Cancel")) + '</button></div>';
         }
         var sheet = desk ? $("dialog") : $("actionSheet");
         if (desk) {
@@ -922,7 +930,7 @@
             $("chh").value = size.h;
             $("clock").classList.toggle("on", size.lock);
             $("sizeInfo").textContent = size.w + " \u00d7 " + size.h + " \u00b7 " + fmt.label +
-                (fmt.replace ? "" : " (" + extOf(f.filename).toUpperCase() + " is saved as JPEG)");
+                (fmt.replace ? "" : " " + T("save/asJpeg", "({ext} is saved as JPEG)", { ext: extOf(f.filename).toUpperCase() }));
         }
         sheet.querySelectorAll("#sizeSeg button").forEach(function (b) {
             b.addEventListener("click", function () {
@@ -967,7 +975,8 @@
             var n = chosenName();
             if (n && nameTaken(withExt(n, fmt.ext))) {
                 $("copyName").classList.add("bad");
-                $("copyName").nextElementSibling.textContent = "A photo named " + withExt(n, fmt.ext) + " is already in this folder";
+                $("copyName").nextElementSibling.textContent = T("save/nameTaken", "A photo named {name} is already in this folder",
+                    { name: withExt(n, fmt.ext) });
                 $("copyName").focus();
                 return;
             }
@@ -997,7 +1006,7 @@
     function save(mode, fmt, size, name) {
         var f = current();
         hideSheets();
-        progress(true, mode === "download" ? "Preparing" : "Saving");
+        progress(true, mode === "download" ? T("save/preparing", "Preparing") : T("save/saving", "Saving"));
         //let the progress box paint before the GPU work blocks the page
         setTimeout(function () {
             PhotoEditor.exportImage({ width: size.w, height: size.h, mime: fmt.mime }).then(function (blob) {
@@ -1006,7 +1015,7 @@
                     //this browser cannot write the format (WebP on some)
                     if (mode === "replace") {
                         progress(false);
-                        toast("This browser cannot write " + fmt.label + " files. Save a copy instead.");
+                        toast(T("save/cannotWrite", "This browser cannot write {format} files. Save a copy instead.", { format: fmt.label }));
                         return;
                     }
                     ext = blob.type === "image/png" ? "png" : "jpg";
@@ -1026,7 +1035,7 @@
                     try { data = JSON.parse(resp); } catch (e) { data = null; }
                     if (data && data.error) {
                         progress(false);
-                        toast("Not saved: " + data.error);
+                        toast(T("save/failed", "Not saved: {error}", { error: data.error }));
                         return;
                     }
                     progress(false);
@@ -1036,12 +1045,12 @@
                         f.modtime = Math.floor(Date.now() / 1000);
                         f.size = blob.size;
                         V.exifCache[f.filepath] = undefined;
-                        toast("Saved");
+                        toast(T("save/saved", "Saved"));
                         show(V.index, 0);
                         var th = $("vStrip").children[V.index];
                         if (th) { loadThumb(th); }
                     } else {
-                        toast("Saved as " + name);
+                        toast(T("save/savedAs", "Saved as {name}", { name: name }));
                         var path = dir + name;
                         V.list.push({ filepath: path, filename: name, size: blob.size, modtime: Math.floor(Date.now() / 1000) });
                         show(V.list.length - 1, 0);
@@ -1049,11 +1058,11 @@
                     }
                 }, undefined, function (status) {
                     progress(false);
-                    toast("Not saved (error " + status + ")");
+                    toast(T("save/failedStatus", "Not saved (error {status})", { status: status }));
                 });
             }).catch(function (err) {
                 progress(false);
-                toast("Not saved: " + (err && err.message ? err.message : err));
+                toast(T("save/failed", "Not saved: {error}", { error: err && err.message ? err.message : err }));
             });
         }, 30);
     }
@@ -1101,15 +1110,22 @@
 
     /* ---------- start ---------- */
 
-    var input = ao_module_loadInputFiles();
-    if (!input || input.length === 0) {
-        stage.insertAdjacentHTML("beforeend", '<div class="empty">' + I.photo + '<div>No photo opened</div></div>');
-        $("vBottom").style.display = "none";
-        return;
-    }
-    var first = input[0];
-    first.filepath = first.filepath.split("\\").join("/");
-    V.list = [{ filepath: first.filepath, filename: first.filename || baseName(first.filepath) }];
-    show(0, 0);
-    loadList(first);
+    //the window is titled after the photo, not by the language file
+    window.applocaleKeepWindowTitle = true;
+
+    loadAppLocale(function () {
+        $("infoSheet").setAttribute("aria-label", T("viewer/photoInfo", "Photo information"));
+        var input = ao_module_loadInputFiles();
+        if (!input || input.length === 0) {
+            stage.insertAdjacentHTML("beforeend", '<div class="empty">' + I.photo + '<div>' +
+                esc(T("viewer/noPhoto", "No photo opened")) + '</div></div>');
+            $("vBottom").style.display = "none";
+            return;
+        }
+        var first = input[0];
+        first.filepath = first.filepath.split("\\").join("/");
+        V.list = [{ filepath: first.filepath, filename: first.filename || baseName(first.filepath) }];
+        show(0, 0);
+        loadList(first);
+    });
 })();

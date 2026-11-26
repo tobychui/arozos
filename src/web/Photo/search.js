@@ -69,6 +69,42 @@ function photoMonthNameToNum(s) {
     return null;
 }
 
+// Month name in the page's language, month 1-12 (the query keeps the number)
+function photoMonthName(month) {
+    return new Date(2000, month - 1, 1).toLocaleDateString(localeTag() || 'en-us', { month: 'long' });
+}
+
+// Label of an orientation filter; the query value stays the English word
+function photoOrientationLabel(value) {
+    var names = {
+        landscape: T('orient/landscape', 'Landscape'),
+        portrait: T('orient/portrait', 'Portrait'),
+        square: T('orient/square', 'Square')
+    };
+    return names[('' + value).toLowerCase()] || photoCap(value);
+}
+
+// searchSuggest.js answers with English labels and hints. Translate those that
+// are not data (camera, lens and file names stay as they are), never the value.
+function photoLocalizeSuggestion(s) {
+    var label = s.label, hint = s.hint, m;
+    if (s.type === 'filter' && (label === 'Landscape' || label === 'Portrait')) {
+        label = photoOrientationLabel(label);
+    } else if (s.type === 'rating' && (m = /^(\d)★ & up$/.exec(label))) {
+        label = T('suggest/andUp', '{n}★ & up', { n: m[1] });
+    } else if (s.type === 'date' && (m = /month:(\d+)$/.exec(s.value))) {
+        label = photoMonthName(parseInt(m[1], 10));
+    }
+    if (hint === 'orientation') {
+        hint = T('suggest/orientation', 'orientation');
+    } else if (hint === 'file name') {
+        hint = T('suggest/fileName', 'file name');
+    } else if ((m = /^(\d+) photos$/.exec(hint))) {
+        hint = T('suggest/photos', '{n} photos', { n: m[1] });
+    }
+    return { type: s.type, label: label, value: s.value, hint: hint };
+}
+
 // Turn a raw query token the user typed into a display tag {label, value, type}.
 // `value` is always a token that the backend query parser understands; `label`
 // is the friendly text shown on the chip; `type` drives the chip icon/colour.
@@ -86,10 +122,10 @@ function photoParseTagToken(token) {
     if (colon < 0 && fmm) return { label: fmm[1] + 'mm', value: fmm[1] + 'mm', type: 'filter' };
     if (colon < 0 && lower.charAt(0) === '.') return { label: lower, value: lower, type: 'type' };
     if (colon < 0 && (lower === 'landscape' || lower === 'portrait' || lower === 'square'))
-        return { label: photoCap(lower), value: lower, type: 'filter' };
+        return { label: photoOrientationLabel(lower), value: lower, type: 'filter' };
     if (colon < 0 && lower === 'raw') return { label: 'RAW', value: 'raw', type: 'type' };
     var mn = (colon < 0) ? photoMonthNameToNum(lower) : null;
-    if (colon < 0 && mn && /^[a-z]+$/.test(lower)) return { label: PHOTO_MONTHS[mn - 1], value: 'month:' + mn, type: 'date' };
+    if (colon < 0 && mn && /^[a-z]+$/.test(lower)) return { label: photoMonthName(mn), value: 'month:' + mn, type: 'date' };
     if (colon < 0 && /^\d{4}$/.test(lower)) return { label: lower, value: lower, type: 'date' };
 
     if (colon > 0) {
@@ -103,27 +139,27 @@ function photoParseTagToken(token) {
                 if (mge) { label = '★ ≥ ' + mge[1]; }
                 else if (mle) { label = '★ ≤ ' + mle[1]; }
                 else if (/^\d$/.test(rv)) { label = rv + '★'; }
-                else { label = 'Rating ' + rv; }
+                else { label = T('tag/rating', 'Rating {v}', { v: rv }); }
                 return { label: label, value: 'rating:' + rv, type: 'rating' };
             }
             case 'f': case 'aperture': case 'fnumber': return { label: 'f/' + val.replace(/^\//, ''), value: token, type: 'filter' };
             case 'focal': case 'fl': return { label: val.replace(/mm$/i, '') + 'mm', value: token, type: 'filter' };
             case 'mp': case 'megapixels': return { label: val + ' MP', value: token, type: 'filter' };
-            case 'width': case 'w': return { label: 'Width ' + val, value: token, type: 'filter' };
-            case 'height': case 'h': return { label: 'Height ' + val, value: token, type: 'filter' };
+            case 'width': case 'w': return { label: T('tag/width', 'Width {v}', { v: val }), value: token, type: 'filter' };
+            case 'height': case 'h': return { label: T('tag/height', 'Height {v}', { v: val }), value: token, type: 'filter' };
             case 'model': case 'camera': return { label: unq(val), value: token, type: 'camera' };
             case 'make': case 'brand': return { label: unq(val), value: token, type: 'camera' };
             case 'lens': return { label: unq(val), value: token, type: 'lens' };
             case 'ext': case 'type': return { label: '.' + unq(val).replace(/^\./, ''), value: token, type: 'type' };
             case 'name': case 'filename': return { label: unq(val), value: token, type: 'file' };
-            case 'orientation': return { label: photoCap(unq(val)), value: token, type: 'filter' };
+            case 'orientation': return { label: photoOrientationLabel(unq(val)), value: token, type: 'filter' };
             case 'month':
-                var ms = ('' + val).split(',').map(function (x) { var n = photoMonthNameToNum(x); return n ? PHOTO_MONTHS[n - 1] : x; });
+                var ms = ('' + val).split(',').map(function (x) { var n = photoMonthNameToNum(x); return n ? photoMonthName(n) : x; });
                 return { label: ms.join(', '), value: token, type: 'date' };
             case 'taken': case 'date': case 'year': return { label: unq(val), value: token, type: 'date' };
-            case 'modified': case 'mtime': return { label: 'Modified ' + unq(val), value: token, type: 'date' };
-            case 'before': return { label: 'Before ' + unq(val), value: token, type: 'date' };
-            case 'after': return { label: 'After ' + unq(val), value: token, type: 'date' };
+            case 'modified': case 'mtime': return { label: T('tag/modified', 'Modified {v}', { v: unq(val) }), value: token, type: 'date' };
+            case 'before': return { label: T('tag/before', 'Before {v}', { v: unq(val) }), value: token, type: 'date' };
+            case 'after': return { label: T('tag/after', 'After {v}', { v: unq(val) }), value: token, type: 'date' };
             default: return { label: token, value: token, type: 'search' };
         }
     }

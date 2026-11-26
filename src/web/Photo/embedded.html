@@ -6,11 +6,13 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#000000">
-    <title>Photo Viewer</title>
+    <title locale="viewer/pageTitle">Photo Viewer</title>
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="embedded/viewer.css">
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
+    <script src="../script/applocale.js"></script>
+    <script src="i18n.js"></script>
     <script src="constants.js"></script>
     <script src="embedded/js/icons.js"></script>
     <script src="embedded/js/geometry.js"></script>
@@ -53,7 +55,7 @@
             <div id="vBar">
                 <button type="button" id="btnShare" title="Download"><span class="ic"></span></button>
                 <button type="button" id="btnInfo" title="Info (I)"><span class="ic"></span></button>
-                <button type="button" id="btnEdit" title="Edit (E)"><span class="ic"></span><span class="tl">Edit</span></button>
+                <button type="button" id="btnEdit" title="Edit (E)"><span class="ic"></span><span class="tl" locale="viewer/edit">Edit</span></button>
             </div>
         </div>
 
@@ -64,13 +66,13 @@
             <div id="eRulerWrap"><div id="eRuler"></div></div>
         </div>
         <div id="eBar" class="echrome">
-            <button type="button" class="eText cancel" id="btnCancel">Cancel</button>
+            <button type="button" class="eText cancel" id="btnCancel" locale="common/cancel">Cancel</button>
             <div class="eTabs">
-                <button type="button" class="eTab" data-tab="adjust" title="Adjust"><span class="ic"></span><span class="tl">Adjust</span></button>
-                <button type="button" class="eTab" data-tab="filters" title="Filters"><span class="ic"></span><span class="tl">Filters</span></button>
-                <button type="button" class="eTab" data-tab="crop" title="Crop"><span class="ic"></span><span class="tl">Crop</span></button>
+                <button type="button" class="eTab" data-tab="adjust" title="Adjust"><span class="ic"></span><span class="tl" locale="viewer/adjust">Adjust</span></button>
+                <button type="button" class="eTab" data-tab="filters" title="Filters"><span class="ic"></span><span class="tl" locale="viewer/filters">Filters</span></button>
+                <button type="button" class="eTab" data-tab="crop" title="Crop"><span class="ic"></span><span class="tl" locale="viewer/crop">Crop</span></button>
             </div>
-            <button type="button" class="eText done" id="btnDone">Done</button>
+            <button type="button" class="eText done" id="btnDone" locale="viewer/done">Done</button>
         </div>
     </div>
 
@@ -79,7 +81,7 @@
     <div id="dialog" class="dlg" role="dialog" aria-modal="true"></div>
     <div id="actionSheet" class="sheet" role="dialog"></div>
     <div id="toast" role="status"></div>
-    <div id="progress"><div class="box"><div class="spinner"></div><span id="progressText">Saving</span></div></div>
+    <div id="progress"><div class="box"><div class="spinner"></div><span id="progressText" locale="save/saving">Saving</span></div></div>
 
     <script src="embedded/js/editor.js"></script>
     <script src="embedded/js/viewer.js"></script>

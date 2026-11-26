@@ -618,7 +618,7 @@ function preflightPlaylist(url, callback) {
             });
         })
         .catch(function () {
-            callback(false, "Transcode failed: could not reach the server");
+            callback(false, T("transcode/noServer", "Transcode failed: could not reach the server"));
         });
 }
 
@@ -632,9 +632,9 @@ function playlistErrorMessage(body, status) {
             if (parsed && parsed.error) { text = String(parsed.error); }
         } catch (e) { /* not JSON after all — show it as it came */ }
     }
-    if (!text) { text = "the transcode did not start (HTTP " + status + ")"; }
+    if (!text) { text = T("transcode/notStart", "the transcode did not start (HTTP {status})", { status: status }); }
     if (text.length > 120) { text = text.substring(0, 119) + "…"; }
-    return "Transcode failed: " + text;
+    return T("transcode/failed", "Transcode failed: {reason}", { reason: text });
 }
 
 // Point a <video> at a stream URL. HLS on a browser without native support is

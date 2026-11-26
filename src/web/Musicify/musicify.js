@@ -54,8 +54,10 @@ function musicifyApp() {
         loadingMsg: '',
 
         // ── Folder Browser ──────────────────────────────────────────────────
-        folderRoot: 'user:/Music',
-        folderPath: 'user:/Music',
+        // Library last picked in the Folders view switcher (per browser),
+        // checked against the real list by _checkRememberedLibrary()
+        folderRoot: localStorage.getItem('musicify_folderRoot') || 'user:/Music',
+        folderPath: localStorage.getItem('musicify_folderRoot') || 'user:/Music',
         folderStack: [],        // stack of previous paths for back navigation
         folderContents: { folders: [], songs: [] },
         musicLibraries: [],     // [ { label, root } ] from listRoots.js
@@ -371,6 +373,9 @@ function musicifyApp() {
                 window.history.replaceState(null, '', window.location.pathname);
                 this.view = 'folders';
                 this.folderStack = [];
+                // The linked folder may be on another drive than the remembered one
+                var _linkedRoot = _folder.split(':/')[0] + ':/Music';
+                if ((_folder + '/').indexOf(_linkedRoot + '/') === 0) this.folderRoot = _linkedRoot;
                 this.loadFolder(_folder);
             }
 
@@ -453,18 +458,30 @@ function musicifyApp() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({})
             }).then(r => r.json()).then(data => {
-                // Remove tmp:/ and trash:/ from the array 
-                data = Array.isArray(data) ? data.map(d => {
-                    if (d.root.startsWith('tmp:/') || d.root.startsWith('trash:/')) {
-                        return null;
-                    }
-                    return d;
-                }) : [];
-                self.musicLibraries = Array.isArray(data) ? data : [];
+                // Remove tmp:/ and trash:/ from the array
+                self.musicLibraries = Array.isArray(data) ? data.filter(d =>
+                    !d.root.startsWith('tmp:/') && !d.root.startsWith('trash:/')
+                ) : [];
+                self._checkRememberedLibrary();
             }).catch(() => {});
         },
 
+        // The remembered drive may be gone (unmounted, or no longer accessible):
+        // show the default library instead. The stored choice is kept so it
+        // comes back together with the drive.
+        _checkRememberedLibrary() {
+            var saved = localStorage.getItem('musicify_folderRoot');
+            if (!saved || this.folderRoot !== saved || this.musicLibraries.length === 0) return;
+            if (this.musicLibraries.some(lib => lib.root === saved)) return;
+            this.folderRoot = 'user:/Music';
+            this.folderPath = this.folderRoot;
+            this.folderStack = [];
+            this.folderContents = { folders: [], songs: [] };
+            if (this.view === 'folders') this.loadFolder(this.folderRoot);
+        },
+
         switchLibrary(root) {
+            localStorage.setItem('musicify_folderRoot', root);
             this.folderRoot = root;
             this.folderStack = [];
             this.folderContents = { folders: [], songs: [] };
@@ -476,7 +493,7 @@ function musicifyApp() {
         // ════════════════════════════════════════════════════════════════════
         loadFolder(path, showLoading = true) {
             if (showLoading) {
-                this.loadingMsg = 'Loading folder…';
+                this.loadingMsg = T('loading/folder', 'Loading folder…');
                 this.loading = true;
             }
             const self = this;
@@ -485,7 +502,7 @@ function musicifyApp() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ folder: path })
             }).then(r => r.json()).then(data => {
-                if (data.error) { self._showToast(data.error, 'error'); if (showLoading) self.loading = false; return; }
+                if (data.error) { self._showToast(self._serverError(data.error), 'error'); if (showLoading) self.loading = false; return; }
                 self.folderContents = data;
                 self.folderPath = path;
                 if (showLoading) {
@@ -498,8 +515,9 @@ function musicifyApp() {
 
         folderNavigate(path) {
             this.folderStack.push(this.folderPath);
+            // selectedArtist is left as it is: the detail view's bindings can
+            // still run while it is being removed, and would fail on null
             this.artistDetailOpen = false;
-            this.selectedArtist = null;
             this.loadFolder(path);
         },
 
@@ -558,11 +576,11 @@ function musicifyApp() {
             if (this.isFolderFavorited(path)) {
                 this.favoriteFolders = this.favoriteFolders.filter(f => f.path !== path);
                 this._saveFavoriteFolders();
-                this._showToast('Removed "' + name + '" from Favorites');
+                this._showToast(T('toast/favRemoved', 'Removed "{name}" from Favorites', { name: name }));
             } else {
                 this.favoriteFolders.push({ path: path, name: name, root: this.folderRoot });
                 this._saveFavoriteFolders();
-                this._showToast('Added "' + name + '" to Favorites');
+                this._showToast(T('toast/favAdded', 'Added "{name}" to Favorites', { name: name }));
             }
         },
 
@@ -571,7 +589,8 @@ function musicifyApp() {
             var fav = this.favoriteFolders.find(f => f.path === path);
             this.favoriteFolders = this.favoriteFolders.filter(f => f.path !== path);
             this._saveFavoriteFolders();
-            this._showToast('Removed "' + ((fav && fav.name) || 'folder') + '" from Favorites');
+            this._showToast(T('toast/favRemoved', 'Removed "{name}" from Favorites',
+                { name: (fav && fav.name) || T('common/folderWord', 'folder') }));
         },
 
         // Open the Folders view straight at a pinned folder. The ancestor paths
@@ -582,7 +601,6 @@ function musicifyApp() {
             this.view = 'folders';
             this.searchQuery = '';
             this.artistDetailOpen = false;
-            this.selectedArtist = null;
             if (window.innerWidth <= 768) this.sidebarOpen = false;
             if (this.showNowPlaying) this.closeNowPlaying();
 
@@ -715,7 +733,12 @@ function musicifyApp() {
                         break;
                     }
                 }
-                this.selectedArtist = matched;
+                if (matched) {
+                    this.selectedArtist = matched;
+                } else {
+                    // Gone since the last scan: back to the artist list
+                    this.artistDetailOpen = false;
+                }
             }
 
             this._finalizeArtistsFetch(reqId);
@@ -781,29 +804,30 @@ function musicifyApp() {
 
         artistsStatusText() {
             if (this.artistsRefreshing && this.artistsFromCache) {
-                return 'Showing cached artists while refreshing in background';
+                return T('artists/status/cachedRefreshing', 'Showing cached artists while refreshing in background');
             }
             if (this.artistsFromCache) {
-                return 'Showing cached artists';
+                return T('artists/status/cached', 'Showing cached artists');
             }
             if (this.artistsRefreshing) {
-                return 'Refreshing artist list';
+                return T('artists/status/refreshing', 'Refreshing artist list');
             }
             if (this._artistsUpdateFlash) {
-                return 'Artist list updated';
+                return T('artists/status/updated', 'Artist list updated');
             }
-            return 'Live artist list';
+            return T('artists/status/live', 'Live artist list');
         },
 
         artistsUpdatedTimeText() {
             if (!this.artistsCacheUpdatedAt) return '';
             var d = new Date(this.artistsCacheUpdatedAt);
-            return 'Updated at ' + d.toLocaleTimeString([], {
+            var time = d.toLocaleTimeString(localeTag() || [], {
                 hour: '2-digit',
                 minute: '2-digit',
                 timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 timeZoneName: 'short'
             });
+            return T('artists/updatedAt', 'Updated at {time}', { time: time });
         },
 
         _getSelectedArtistListContainer() {
@@ -933,7 +957,7 @@ function musicifyApp() {
         // ════════════════════════════════════════════════════════════════════
         _loadRecent() {
             this.loading = true;
-            this.loadingMsg = 'Loading recent tracks…';
+            this.loadingMsg = T('loading/recent', 'Loading recent tracks…');
             const self = this;
             fetch(ao_root + 'system/ajgi/interface?script=Musicify/backend/listRecent.js', {
                 method: 'POST', cache: 'no-cache',
@@ -961,7 +985,7 @@ function musicifyApp() {
 
         _loadPlaylistSongs(name) {
             this.loading = true;
-            this.loadingMsg = 'Loading playlist…';
+            this.loadingMsg = T('loading/playlist', 'Loading playlist…');
             const self = this;
             fetch(ao_root + 'system/ajgi/interface?script=Musicify/backend/playlist.js', {
                 method: 'POST', cache: 'no-cache',
@@ -982,16 +1006,16 @@ function musicifyApp() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ opr: 'create', name: n })
             }).then(r => r.json()).then(data => {
-                if (data.error) { self._showToast(data.error, 'error'); return; }
+                if (data.error) { self._showToast(self._serverError(data.error), 'error'); return; }
                 self.newPlaylistName = '';
                 self.showNewPlaylistModal = false;
                 self._loadPlaylists();
-                self._showToast('Playlist "' + n + '" created');
+                self._showToast(T('toast/playlistCreated', 'Playlist "{name}" created', { name: n }));
             });
         },
 
         deletePlaylist(name) {
-            if (!confirm('Delete playlist "' + name + '"?')) return;
+            if (!confirm(T('confirm/deletePlaylist', 'Delete playlist "{name}"?', { name: name }))) return;
             const self = this;
             fetch(ao_root + 'system/ajgi/interface?script=Musicify/backend/playlist.js', {
                 method: 'POST', cache: 'no-cache',
@@ -1000,7 +1024,7 @@ function musicifyApp() {
             }).then(() => {
                 if (self.currentPlaylistName === name) { self.currentPlaylistName = null; self.view = 'home'; }
                 self._loadPlaylists();
-                self._showToast('Playlist deleted');
+                self._showToast(T('toast/playlistDeleted', 'Playlist deleted'));
             });
         },
 
@@ -1021,9 +1045,9 @@ function musicifyApp() {
             }).then(r => r.json()).then(data => {
                 self.showAddToPlaylistModal = false;
                 self.addToPlaylistSong = null;
-                if (data.error) { self._showToast(data.error, 'error'); return; }
-                if (data.duplicate) { self._showToast('Already in playlist'); return; }
-                self._showToast('Added to "' + playlistName + '"');
+                if (data.error) { self._showToast(self._serverError(data.error), 'error'); return; }
+                if (data.duplicate) { self._showToast(T('toast/duplicate', 'Already in playlist')); return; }
+                self._showToast(T('toast/addedTo', 'Added to "{name}"', { name: playlistName }));
                 self._loadPlaylists();
                 if (self.currentPlaylistName === playlistName) self._loadPlaylistSongs(playlistName);
             });
@@ -1112,7 +1136,7 @@ function musicifyApp() {
             if (event) event.stopPropagation();
             this.queue.push(song);
             if (this.shuffle) this.shuffledQueue.push(song);
-            this._showToast('Added to queue');
+            this._showToast(T('toast/queued', 'Added to queue'));
         },
 
         playNext(song, event) {
@@ -1120,7 +1144,7 @@ function musicifyApp() {
             var insertAt = this.queueIndex + 1;
             this.queue.splice(insertAt, 0, song);
             if (this.shuffle) this.shuffledQueue.splice(this._effectiveIndex(this.queueIndex) + 1, 0, song);
-            this._showToast('Playing next');
+            this._showToast(T('toast/playNext', 'Playing next'));
         },
 
         removeFromQueue(index, event) {
@@ -1312,13 +1336,13 @@ function musicifyApp() {
         saveForceShowVolumeControl() {
             localStorage.setItem('musicify_forceShowVolumeControl', String(this.forceShowVolumeControl));
             if (this.forceShowVolumeControl) {
-                this._showToast('Volume slider shown on this device');
+                this._showToast(T('toast/sliderShown', 'Volume slider shown on this device'));
             } else if (this._isMobile()) {
                 this.volume = 100;
                 this.isMuted = false;
                 this._audio.volume = 1;
                 localStorage.setItem('musicify_volume', this.volume);
-                this._showToast('Using native volume control – volume set to max');
+                this._showToast(T('toast/nativeVolume', 'Using native volume control – volume set to max'));
             }
         },
 
@@ -1435,7 +1459,7 @@ function musicifyApp() {
                 if (!self.currentTrack || self.currentTrack.filepath !== _bufSong.filepath) return;
                 if (data.error || !data.path) {
                     if (MUSICIFY_DEBUG) console.warn('[Musicify FBM] server buffer failed:', data.error || '(no path returned)');
-                    self._showToast('Full buffer failed – streaming instead', 'error');
+                    self._showToast(T('toast/bufferFailed', 'Full buffer failed – streaming instead'), 'error');
                     self._playViaStream(_bufSong, resumeAt, wasPlaying);
                     return;
                 }
@@ -1461,7 +1485,7 @@ function musicifyApp() {
                 self._fullBufferLoading = false;
                 if (!self.currentTrack || self.currentTrack.filepath !== _bufSong.filepath) return;
                 if (MUSICIFY_DEBUG) console.warn('[Musicify FBM] network error contacting fullbuffer.js');
-                self._showToast('Full buffer error – streaming instead', 'error');
+                self._showToast(T('toast/bufferError', 'Full buffer error – streaming instead'), 'error');
                 self._playViaStream(_bufSong, resumeAt, wasPlaying);
             });
         },
@@ -1507,7 +1531,8 @@ function musicifyApp() {
 
         saveFullBufferMode() {
             localStorage.setItem('musicify_fullBufferMode', String(this.fullBufferMode));
-            this._showToast('Full Buffer Mode: ' + (this.fullBufferMode ? 'enabled' : 'disabled'));
+            this._showToast(this.fullBufferMode ? T('toast/fbmOn', 'Full Buffer Mode: enabled')
+                : T('toast/fbmOff', 'Full Buffer Mode: disabled'));
 
             // Reload the current track immediately so the change takes effect now
             // (not just on the next track). Preserves the current playback position.
@@ -1550,7 +1575,8 @@ function musicifyApp() {
                 }
             }
 
-            this._showToast('Transcode: ' + (this.transcodeMode === 'disabled' ? 'disabled' : this.transcodeMode + ' kHz'));
+            this._showToast(this.transcodeMode === 'disabled' ? T('toast/transcodeOff', 'Transcode: disabled')
+                : T('toast/transcodeRate', 'Transcode: {rate} kHz', { rate: this.transcodeMode }));
         },
 
         _onEnded() {
@@ -1596,7 +1622,7 @@ function musicifyApp() {
             var self = this;
             var failed = this.currentTrack;
             this._skipTrack = failed;
-            this._showToast('Playback error – skipping', 'error');
+            this._showToast(T('toast/playbackError', 'Playback error – skipping'), 'error');
             this._skipTimer = setTimeout(function() {
                 self._skipTimer = null;
                 self._skipTrack = null;
@@ -1647,7 +1673,7 @@ function musicifyApp() {
                     self.sleepCountdown = m + ':' + String(s).padStart(2, '0');
                 }
             }, 1000);
-            this._showToast('Sleep timer set for ' + this.sleepMinutes + ' min');
+            this._showToast(T('toast/sleepSet', 'Sleep timer set for {n} min', { n: this.sleepMinutes }));
         },
 
         cancelSleepTimer() {
@@ -1670,7 +1696,7 @@ function musicifyApp() {
                     audio.volume = originalVol;
                     self.isPlaying = false;
                     clearInterval(fadeInterval);
-                    self._showToast('Sleep timer: music stopped');
+                    self._showToast(T('toast/sleepStopped', 'Sleep timer: music stopped'));
                 }
             }, 150);
         },
@@ -1724,6 +1750,19 @@ function musicifyApp() {
         // ════════════════════════════════════════════════════════════════════
         //  HELPERS
         // ════════════════════════════════════════════════════════════════════
+        // The backend answers in English; translate the messages a user can
+        // meet and pass any other through
+        _serverError(message) {
+            if (message === 'Playlist already exists') {
+                return T('error/playlistExists', 'Playlist already exists');
+            }
+            var missing = /^File not found: (.*)$/.exec(message);
+            if (missing) {
+                return T('error/fileNotFound', 'File not found: {path}', { path: missing[1] });
+            }
+            return message;
+        },
+
         formatTime(s) {
             if (!s || isNaN(s)) return '0:00';
             s = Math.floor(s);
@@ -1780,10 +1819,10 @@ function musicifyApp() {
                 if (this._audioCtx && this._audioCtx.state === 'suspended') this._audioCtx.resume().catch(() => {});
                 this._updateVizColor(this.currentTrack);
                 this._syncVizLoop();
-                this._showToast('Privacy Mode: album art hidden');
+                this._showToast(T('toast/privacyHidden', 'Privacy Mode: album art hidden'));
             } else {
                 this._syncVizLoop();
-                this._showToast('Privacy Mode: album art shown');
+                this._showToast(T('toast/privacyShown', 'Privacy Mode: album art shown'));
             }
         },
 
@@ -2223,9 +2262,9 @@ function musicifyApp() {
         },
 
         repeatTitle() {
-            if (this.repeat === 'none') return 'Repeat: off';
-            if (this.repeat === 'all') return 'Repeat: all';
-            return 'Repeat: one';
+            if (this.repeat === 'none') return T('repeat/off', 'Repeat: off');
+            if (this.repeat === 'all') return T('repeat/all', 'Repeat: all');
+            return T('repeat/one', 'Repeat: one');
         },
 
         // ════════════════════════════════════════════════════════════════════
@@ -2334,8 +2373,8 @@ function musicifyApp() {
             var text = song.name;
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(text)
-                    .then(() => { this._showToast('Title copied!'); })
-                    .catch(() => { this._showToast('Failed to copy', 'error'); });
+                    .then(() => { this._showToast(T('toast/titleCopied', 'Title copied!')); })
+                    .catch(() => { this._showToast(T('toast/copyFailed', 'Failed to copy'), 'error'); });
             } else {
                 var el = document.createElement('textarea');
                 el.value = text;
@@ -2343,7 +2382,7 @@ function musicifyApp() {
                 el.select();
                 document.execCommand('copy');
                 document.body.removeChild(el);
-                this._showToast('Title copied!');
+                this._showToast(T('toast/titleCopied', 'Title copied!'));
             }
         },
 
@@ -2399,7 +2438,7 @@ function musicifyApp() {
         connectToCast() {
             var code = this.castCodeInput.trim();
             if (!/^\d{4}$/.test(code)) {
-                this.castError = 'Enter a valid 4-digit code.';
+                this.castError = T('cast/errCode', 'Enter a valid 4-digit code.');
                 return;
             }
             this.castError = '';
@@ -2411,14 +2450,14 @@ function musicifyApp() {
                 .then(function(data) {
                     if (!data.exists) {
                         self.castConnecting = false;
-                        self.castError = 'Room not found. Check the code and try again.';
+                        self.castError = T('cast/errRoom', 'Room not found. Check the code and try again.');
                         return;
                     }
                     self._castOpen(code);
                 })
                 .catch(function() {
                     self.castConnecting = false;
-                    self.castError = 'Connection failed. Is Arozcast running?';
+                    self.castError = T('cast/errConnect', 'Connection failed. Is Arozcast running?');
                 });
         },
 
@@ -2479,7 +2518,7 @@ function musicifyApp() {
                     }
                 }, 4000);
 
-                self._showToast('Connected to Arozcast');
+                self._showToast(T('cast/connected', 'Connected to Arozcast'));
             };
 
             ws.onclose = function() {
@@ -2497,7 +2536,7 @@ function musicifyApp() {
 
             ws.onerror = function() {
                 self.castConnecting = false;
-                self.castError = 'WebSocket error. Check your connection.';
+                self.castError = T('cast/errSocket', 'WebSocket error. Check your connection.');
             };
 
             ws.onmessage = function(evt) {
@@ -2540,7 +2579,7 @@ function musicifyApp() {
                             }, { once: true });
                         }
                         this.isPlaying = false;
-                        this._showToast('Arozcast: reconnect failed — resuming locally', 'error');
+                        this._showToast(T('cast/reconnectFailed', 'Arozcast: reconnect failed — resuming locally'), 'error');
                     }
                 }
                 this._castReconnectCount = 0; this._castPendingCode = null;
@@ -2553,7 +2592,7 @@ function musicifyApp() {
                 self._castReconnectTimer = null;
                 self._attemptCastReconnect();
             }, delay);
-            this._showToast('Arozcast disconnected — reconnecting…');
+            this._showToast(T('cast/reconnecting', 'Arozcast disconnected — reconnecting…'));
         },
 
         _attemptCastReconnect() {
@@ -2612,7 +2651,7 @@ function musicifyApp() {
             this._castWatchTimer = setInterval(function() {
                 if (Date.now() - self._castLastSeen > 12000 && self._castWs) self._castWs.close();
             }, 4000);
-            this._showToast('Arozcast reconnected');
+            this._showToast(T('cast/reconnected', 'Arozcast reconnected'));
         },
 
         disconnectCast() {
@@ -2667,7 +2706,7 @@ function musicifyApp() {
                     this._audio.play().catch(function() {});
                 }
             }
-            this._showToast('Disconnected from Arozcast');
+            this._showToast(T('cast/disconnected', 'Disconnected from Arozcast'));
         },
 
         _castSend(topic, payload) {

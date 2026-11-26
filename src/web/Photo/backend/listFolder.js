@@ -128,18 +128,24 @@ function main(){
     // last-modified time. The per-user photo index (imagedb.js) already stores
     // taken_date = EXIF DateTimeOriginal for every indexed photo, so resolve it
     // with one folder-scoped query instead of decoding EXIF per file per request.
+    // The index only refines the dates: if it cannot be read (busy, damaged),
+    // list the folder anyway and let mtime stand in.
     var takenMap = {};
-    var db = openIndexDB();
-    if (db != null) {
-        // `folder` is the request wildcard ("user:/Photo/*"); its dirname is the
-        // folder being listed, which is exactly how the index keys its rows.
-        var rows = db.query("SELECT filepath, taken_date FROM photos WHERE folder = ?", [dirname(folder)]);
-        for (var ri = 0; ri < rows.length; ri++) {
-            if (rows[ri].taken_date) {
-                takenMap[rows[ri].filepath] = rows[ri].taken_date;
+    try {
+        var db = openIndexDB();
+        if (db != null) {
+            // `folder` is the request wildcard ("user:/Photo/*"); its dirname is
+            // the folder being listed, which is exactly how the index keys its rows.
+            var rows = db.query("SELECT filepath, taken_date FROM photos WHERE folder = ?", [dirname(folder)]);
+            for (var ri = 0; ri < rows.length; ri++) {
+                if (rows[ri].taken_date) {
+                    takenMap[rows[ri].filepath] = rows[ri].taken_date;
+                }
             }
+            db.close();
         }
-        db.close();
+    } catch (e) {
+        console.log("Photo index not read: " + e);
     }
 
     // Add filesize + dates to each file. taken_date (unix seconds, from EXIF)

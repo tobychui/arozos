@@ -58,6 +58,12 @@
     var MAX_EXPORT_AREA = 16777216; //canvas area limit of mobile Safari
 
     function $(id) { return document.getElementById(id); }
+    //Names of the tools, ratios and filters in the page's language; the tables
+    //above keep the English ones as fallbacks
+    function adjustName(t) { return T("adjust/" + t.id, t.name); }
+    function cropName(t) { return T("crop/" + t.id, t.name); }
+    function ratioName(r) { return r.r === undefined || r.id === "square" ? T("ratio/" + r.id, r.name) : r.name; }
+    function filterName(f) { return T("filter/" + f.id, f.name); }
     function dpr() { return Math.min(window.devicePixelRatio || 1, 3); }
     function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
@@ -284,27 +290,27 @@
         if (this.tab === "crop") {
             if (left.dataset.mode !== "crop") {
                 left.dataset.mode = "crop";
-                left.innerHTML = '<button class="eIcon" id="eFlip" type="button" title="Flip">' + I.flip + '</button>' +
-                    '<button class="eIcon" id="eRotate" type="button" title="Rotate">' + I.rotate + '</button>';
-                right.innerHTML = '<button class="eIcon" id="eAspect" type="button" title="Aspect ratio">' + I.aspect + '</button>';
+                left.innerHTML = '<button class="eIcon" id="eFlip" type="button" title="' + T("editor/flip", "Flip") + '">' + I.flip + '</button>' +
+                    '<button class="eIcon" id="eRotate" type="button" title="' + T("editor/rotate", "Rotate") + '">' + I.rotate + '</button>';
+                right.innerHTML = '<button class="eIcon" id="eAspect" type="button" title="' + T("editor/aspect", "Aspect ratio") + '">' + I.aspect + '</button>';
                 $("eFlip").onclick = function () { self.flip(); };
                 $("eRotate").onclick = function () { self.rotate(); };
                 $("eAspect").onclick = function () { self.toggleAspect(); };
             }
             $("eAspect").classList.toggle("on", this.aspectOpen || this.aspect.id !== "freeform");
             var changed = !G.isIdentity(this.st.geo);
-            pill.textContent = "RESET";
+            pill.textContent = T("editor/reset", "RESET");
             pill.className = "ePill" + (changed ? " on accent" : "");
         } else {
             if (left.dataset.mode !== "edit") {
                 left.dataset.mode = "edit";
-                left.innerHTML = '<button class="eIcon" id="eUndo" type="button" title="Undo">' + I.undo + '</button>' +
-                    '<button class="eIcon" id="eRedo" type="button" title="Redo">' + I.redo + '</button>';
+                left.innerHTML = '<button class="eIcon" id="eUndo" type="button" title="' + T("editor/undo", "Undo") + '">' + I.undo + '</button>' +
+                    '<button class="eIcon" id="eRedo" type="button" title="' + T("editor/redo", "Redo") + '">' + I.redo + '</button>';
                 right.innerHTML = "";
                 $("eUndo").onclick = function () { self.undo(); };
                 $("eRedo").onclick = function () { self.redo(); };
             }
-            pill.textContent = this.comparing ? "ORIGINAL" : "";
+            pill.textContent = this.comparing ? T("editor/original", "ORIGINAL") : "";
             pill.className = "ePill" + (this.comparing ? " on" : "");
         }
         var undo = $("eUndo"), redo = $("eRedo");
@@ -360,7 +366,7 @@
                 b.type = "button";
                 b.className = "tool";
                 b.dataset.id = t.id;
-                b.title = t.name;
+                b.title = adjustName(t);
                 b.innerHTML = ringSVG(22) + '<span class="glyph">' + I[t.id] + '</span><span class="num"></span>';
                 b.addEventListener("click", function () { self.selectAdjust(t.id, true); });
                 car.appendChild(b);
@@ -372,7 +378,7 @@
                 b.type = "button";
                 b.className = "fthumb";
                 b.dataset.id = f.id;
-                b.title = f.name;
+                b.title = filterName(f);
                 b.innerHTML = "<canvas></canvas>";
                 b.addEventListener("click", function () { self.selectFilter(f.id, true); });
                 car.appendChild(b);
@@ -386,8 +392,8 @@
             $("eRulerWrap").style.display = "none";
             var row = document.createElement("div");
             row.className = "orientRow";
-            row.innerHTML = '<button type="button" data-o="p" title="Portrait">' + I.portrait + '</button>' +
-                '<button type="button" data-o="l" title="Landscape">' + I.landscape + '</button>';
+            row.innerHTML = '<button type="button" data-o="p" title="' + T("orient/portrait", "Portrait") + '">' + I.portrait + '</button>' +
+                '<button type="button" data-o="l" title="' + T("orient/landscape", "Landscape") + '">' + I.landscape + '</button>';
             panel.insertBefore(row, car);
             panel.classList.add("withOrient");
             row.querySelectorAll("button").forEach(function (b) {
@@ -398,7 +404,7 @@
                 b.type = "button";
                 b.className = "topt";
                 b.dataset.id = r.id;
-                b.textContent = r.name;
+                b.textContent = ratioName(r);
                 b.addEventListener("click", function () { self.setAspect(r.id); });
                 car.appendChild(b);
             });
@@ -409,7 +415,7 @@
                 b.type = "button";
                 b.className = "tool small";
                 b.dataset.id = t.id;
-                b.title = t.name;
+                b.title = cropName(t);
                 b.innerHTML = ringSVG(18) + '<span class="glyph">' + I[t.icon] + '</span><span class="num"></span>';
                 b.addEventListener("click", function () { self.selectCrop(t.id, true); });
                 car.appendChild(b);
@@ -525,7 +531,7 @@
         });
         this.updateRings();
         var label = $("eLabel");
-        label.textContent = t.name;
+        label.textContent = adjustName(t);
         label.className = (this.st.adj[id] || 0) !== 0 ? "accent" : "";
         this.updateLabelValue();
         this.ruler.setRange({ min: t.min === undefined ? -100 : t.min, max: t.max === undefined ? 100 : t.max,
@@ -572,7 +578,7 @@
         });
         var f = PhotoFilters.filter(function (x) { return x.id === id; })[0] || PhotoFilters[0];
         var label = $("eLabel");
-        label.textContent = f.name;
+        label.textContent = filterName(f);
         label.className = id !== "original" ? "accent" : "";
         this.updateLabelValue();
         $("eRulerWrap").style.visibility = id === "original" ? "hidden" : "";
@@ -593,7 +599,7 @@
         });
         var t = CROP_TOOLS.filter(function (x) { return x.id === id; })[0];
         var label = $("eLabel");
-        label.textContent = t.name;
+        label.textContent = cropName(t);
         label.className = (this.st.geo[id] || 0) !== 0 ? "accent" : "";
         this.updateLabelValue();
         $("eRulerWrap").style.visibility = "";
@@ -1109,7 +1115,7 @@
             }
             cur.toBlob(function (blob) {
                 if (!blob) {
-                    reject(new Error("The picture could not be encoded"));
+                    reject(new Error(T("save/encodeFailed", "The picture could not be encoded")));
                     return;
                 }
                 resolve(blob);

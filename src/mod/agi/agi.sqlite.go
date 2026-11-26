@@ -5,6 +5,7 @@ package agi
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -12,11 +13,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
-	_ "modernc.org/sqlite"
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/info/logger"
+	moderncsqlite "modernc.org/sqlite"
+	sqlitelib "modernc.org/sqlite/lib"
 )
 
 /*
@@ -132,7 +135,7 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 		db.SetMaxIdleConns(1)
 		db.SetConnMaxLifetime(0)
 
-		if err := db.Ping(); err != nil {
+		if err := sqlitePing(db, sqliteBusyTimeoutMs*time.Millisecond); err != nil {
 			db.Close()
 			panic(vm.MakeCustomError("SQLiteError", err.Error()))
 		}
@@ -407,6 +410,32 @@ sqlite.open = function(path) {
 // per-user database at the same time (e.g. a background indexer writing while the
 // UI reads).
 const sqliteBusyTimeoutMs = 5000
+
+// sqliteBusyRetryInterval is the pause between two attempts of sqlitePing
+const sqliteBusyRetryInterval = 10 * time.Millisecond
+
+// sqlitePing opens the first connection of db, waiting up to wait for it.
+//
+// The busy timeout does not cover this one step: switching a new database to
+// WAL reports SQLITE_BUSY at once when another connection is doing the same, so
+// requests arriving together at a database that does not exist yet would all
+// fail but one. A failed Ping discards the connection; the next one starts over.
+func sqlitePing(db *sql.DB, wait time.Duration) error {
+	deadline := time.Now().Add(wait)
+	for {
+		err := db.Ping()
+		if err == nil || !sqliteIsBusy(err) || time.Now().After(deadline) {
+			return err
+		}
+		time.Sleep(sqliteBusyRetryInterval)
+	}
+}
+
+// sqliteIsBusy reports whether err is SQLITE_BUSY or one of its extended codes
+func sqliteIsBusy(err error) bool {
+	var sqliteErr *moderncsqlite.Error
+	return errors.As(err, &sqliteErr) && sqliteErr.Code()&0xff == sqlitelib.SQLITE_BUSY
+}
 
 // sqliteBuildDSN turns a real file path into a driver DSN carrying the pragmas
 // every ArozOS database needs. The modernc.org/sqlite driver treats everything

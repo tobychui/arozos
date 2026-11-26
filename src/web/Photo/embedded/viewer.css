@@ -855,7 +855,8 @@ button[disabled] { opacity: 0.3; cursor: default; }
 .dinput:focus { outline: none; border-color: var(--pv-blue); }
 .dinput.bad { border-color: var(--pv-red); }
 .dhint { font-size: 12px; color: var(--pv-dim); margin-top: 5px; word-break: break-all; }
-.dfoot { display: flex; align-items: center; gap: 8px; margin-top: 20px; }
+/* Wraps because translated button labels can be wider than the dialog */
+.dfoot { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 20px; }
 .dfoot .grow { flex: 1; }
 .dbtn {
     height: 32px;

@@ -65,7 +65,7 @@ function generateHistogram(imageElement, canvas) {
             ctx.fillStyle = '#666';
             ctx.font = '12px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('No histogram data', canvasWidth / 2, canvasHeight / 2);
+            ctx.fillText(T('histogram/noData', 'No histogram data'), canvasWidth / 2, canvasHeight / 2);
             console.log('No histogram data to display');
             return;
         }
@@ -103,7 +103,7 @@ function generateHistogram(imageElement, canvas) {
         ctx.fillStyle = '#666';
         ctx.font = '12px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('Histogram unavailable', canvasWidth / 2, canvasHeight / 2);
+        ctx.fillText(T('histogram/unavailable', 'Histogram unavailable'), canvasWidth / 2, canvasHeight / 2);
     }
 }
 
@@ -195,21 +195,21 @@ function get_tone_type(brightness, contrast, shadowRatio, highlightRatio) {
     // Classify based on brightness (Key)
     let key;
     if (b > 65) {
-        key = "High Key";
+        key = T('tone/highKey', 'High Key');
     } else if (b < 35) {
-        key = "Low Key";
+        key = T('tone/lowKey', 'Low Key');
     } else {
-        key = "Middle Key";
+        key = T('tone/middleKey', 'Middle Key');
     }
 
     // Classify based on contrast (Scale)
     let scale;
     if (c > 70) {
-        scale = "Long Scale";
+        scale = T('tone/longScale', 'Long Scale');
     } else if (c < 30) {
-        scale = "Short Scale";
+        scale = T('tone/shortScale', 'Short Scale');
     } else {
-        scale = "Middle Scale";
+        scale = T('tone/middleScale', 'Middle Scale');
     }
 
     return key + " " + scale;

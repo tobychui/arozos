@@ -17,9 +17,10 @@
     <title>Musicify</title>
     <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
     <link rel="stylesheet" href="../script/semantic/semantic.min.css">
-    <script src="../script/alpine.min.js" defer></script>
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
+    <script src="../script/applocale.js"></script>
+    <script src="i18n.js"></script>
     <script src="musicify.js"></script>
     <style>
         /* ── Reset & Variables ─────────────────────────────────────────── */
@@ -56,6 +57,8 @@
         }
 
         /* ── App Layout ────────────────────────────────────────────────── */
+        /* Nothing shows until Alpine has started (see the end of the page) */
+        [x-cloak] { visibility: hidden; }
         #app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
         .app-body {
@@ -1072,7 +1075,7 @@
     </script>
 </head>
 <body>
-<div id="app" x-data="musicifyApp()" x-init="init()" :class="{ 'np-open': showNowPlaying, 'mobile-landscape': isMobileLandscape, 'queue-open': showQueue }">
+<div id="app" x-cloak x-data="musicifyApp()" :class="{ 'np-open': showNowPlaying, 'mobile-landscape': isMobileLandscape, 'queue-open': showQueue }">
 
     <!-- Hidden audio element -->
     <audio id="musicPlayer" preload="metadata"></audio>
@@ -1118,23 +1121,23 @@
             </div>
 
             <div class="sidebar-nav">
-                <div class="sidebar-section-label">Library</div>
+                <div class="sidebar-section-label" locale="nav/library">Library</div>
                 <a class="nav-item" :class="{active: view==='home'}"    x-on:click="navigateTo('home')">
-                    <i class="ui home icon"></i> Home
+                    <i class="ui home icon"></i> <span locale="nav/home">Home</span>
                 </a>
                 <a class="nav-item" :class="{active: view==='folders'}" x-on:click="navigateTo('folders')">
-                    <i class="ui folder open icon"></i> Folders
+                    <i class="ui folder open icon"></i> <span locale="nav/folders">Folders</span>
                 </a>
                 <a class="nav-item" :class="{active: view==='artists'}" x-on:click="navigateTo('artists')">
-                    <i class="ui user icon"></i> Artists
+                    <i class="ui user icon"></i> <span locale="nav/artists">Artists</span>
                 </a>
                 <a class="nav-item" :class="{active: view==='recent'}"  x-on:click="navigateTo('recent')">
-                    <i class="ui history icon"></i> Recently Added
+                    <i class="ui history icon"></i> <span locale="nav/recent">Recently Added</span>
                 </a>
 
                 <template x-if="favoriteFolders.length > 0">
                     <div>
-                        <div class="sidebar-section-label" style="margin-top:8px;">Favorites</div>
+                        <div class="sidebar-section-label" style="margin-top:8px;" x-text="T('nav/favorites', 'Favorites')">Favorites</div>
                         <template x-for="fav in favoriteFolders" :key="fav.path">
                             <div class="playlist-item" :class="{active: view==='folders' && folderPath===fav.path}"
                                  x-on:click="openFavoriteFolder(fav)" :title="fav.path">
@@ -1146,7 +1149,7 @@
                     </div>
                 </template>
 
-                <div class="sidebar-section-label" style="margin-top:8px;">Playlists</div>
+                <div class="sidebar-section-label" style="margin-top:8px;" locale="nav/playlists">Playlists</div>
 
                 <template x-for="pl in playlists" :key="pl.name">
                     <div class="playlist-item" :class="{active: currentPlaylistName===pl.name && view==='playlist'}"
@@ -1159,10 +1162,10 @@
 
                 <div class="new-playlist-btn" x-on:click="showNewPlaylistModal = true">
                     <i class="ui plus circle icon"></i>
-                    <span>New Playlist</span>
+                    <span locale="nav/newPlaylist">New Playlist</span>
                 </div>
 
-                <div class="sidebar-section-label" style="margin-top:8px;">App</div>
+                <div class="sidebar-section-label" style="margin-top:8px;" locale="nav/app">App</div>
                 <a class="nav-item" :class="{active: view==='equalizer'}" x-show="eqSupported" x-on:click="navigateTo('equalizer')">
                     <svg class="nav-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
                         <path d="M3 2v12M8 2v12M13 2v12"/>
@@ -1170,10 +1173,10 @@
                         <rect x="6.2" y="3.7" width="3.6" height="2.6" rx="1" fill="currentColor"/>
                         <rect x="11.2" y="10.2" width="3.6" height="2.6" rx="1" fill="currentColor"/>
                     </svg>
-                    Equalizer
+                    <span locale="nav/equalizer">Equalizer</span>
                 </a>
                 <a class="nav-item" :class="{active: view==='settings'}" x-on:click="navigateTo('settings')">
-                    <i class="ui sliders horizontal icon"></i> Settings
+                    <i class="ui sliders horizontal icon"></i> <span locale="nav/settings">Settings</span>
                 </a>
             </div>
         </nav>
@@ -1187,39 +1190,39 @@
             <!-- Loading overlay -->
             <div x-show="loading" class="loading-overlay">
                 <div class="loading-spinner"></div>
-                <span x-text="loadingMsg || 'Loading…'" style="color:var(--text2);font-size:13px;"></span>
+                <span x-text="loadingMsg || T('common/loading', 'Loading…')" style="color:var(--text2);font-size:13px;"></span>
             </div>
 
             <!-- ── HOME ─────────────────────────────────────────────────── -->
             <div x-show="view === 'home' && !loading">
-                <div class="content-header"><h1>Music & Playlist</h1></div>
+                <div class="content-header"><h1 locale="home/title">Music & Playlist</h1></div>
                 <div class="content-body">
 
                     <!-- Quick access -->
-                    <div class="section-title">Jump back in</div>
+                    <div class="section-title" locale="home/jumpBack">Jump back in</div>
                     <div class="quick-grid">
                         <div class="quick-card" x-on:click="navigateTo('folders')">
                             <span class="quick-card-icon"><img src="img/folder.svg" style="width:22px;height:22px;vertical-align:middle;"></span>
-                            <span class="quick-card-label">Browse Folders</span>
+                            <span class="quick-card-label" locale="home/browseFolders">Browse Folders</span>
                         </div>
                         <div class="quick-card" x-on:click="navigateTo('artists')">
                             <span class="quick-card-icon"><img src="img/artist.svg" style="width:22px;height:22px;vertical-align:middle;"></span>
-                            <span class="quick-card-label">Artists</span>
+                            <span class="quick-card-label" locale="nav/artists">Artists</span>
                         </div>
                         <div class="quick-card" x-on:click="navigateTo('recent')">
                             <span class="quick-card-icon"><img src="img/history.svg" style="width:22px;height:22px;vertical-align:middle;"></span>
-                            <span class="quick-card-label">Recently Added</span>
+                            <span class="quick-card-label" locale="nav/recent">Recently Added</span>
                         </div>
                         <div class="quick-card" x-on:click="showNewPlaylistModal = true">
                             <span class="quick-card-icon"><img src="img/playlist_add.svg" style="width:22px;height:22px;vertical-align:middle;"></span>
-                            <span class="quick-card-label">New Playlist</span>
+                            <span class="quick-card-label" locale="nav/newPlaylist">New Playlist</span>
                         </div>
                     </div>
 
                     <!-- Recently played -->
                     <template x-if="recentlyPlayed.length > 0">
                         <div>
-                            <div class="section-title">Recently Played</div>
+                            <div class="section-title" x-text="T('home/recentlyPlayed', 'Recently Played')">Recently Played</div>
                             <div class="recent-grid">
                                 <template x-for="song in recentlyPlayed" :key="song.filepath">
                                     <div class="recent-card" x-on:click="playSong(song, recentlyPlayed)">
@@ -1239,13 +1242,13 @@
                     <!-- Playlists -->
                     <template x-if="playlists.length > 0">
                         <div>
-                            <div class="section-title">Your Playlists</div>
+                            <div class="section-title" x-text="T('home/yourPlaylists', 'Your Playlists')">Your Playlists</div>
                             <div class="playlist-grid">
                                 <template x-for="pl in playlists" :key="pl.name">
                                     <div class="playlist-card" x-on:click="openPlaylistView(pl.name)">
                                         <div class="playlist-card-icon"><img src="img/headphones.svg" style="width:32px;height:32px;"></div>
                                         <div class="playlist-card-name"  x-text="pl.name"></div>
-                                        <div class="playlist-card-count" x-text="pl.count + ' tracks'"></div>
+                                        <div class="playlist-card-count" x-text="T('common/tracks', '{n} tracks', {n: pl.count})"></div>
                                     </div>
                                 </template>
                             </div>
@@ -1258,22 +1261,22 @@
             <!-- ── SEARCH ────────────────────────────────────────────────── -->
             <div x-show="view === 'search' && !loading">
                 <div class="content-header">
-                    <h2>Search results for "<span x-text="searchQuery"></span>"</h2>
+                    <h2 x-text="T('search/resultsFor', 'Search results for &quot;{q}&quot;', {q: searchQuery})"></h2>
                 </div>
                 <div class="content-body">
                     <template x-if="searchResults.length === 0">
                         <div class="empty-state">
                             <i class="ui search icon"></i>
-                            <h3>No results found</h3>
-                            <p>Try a different search term, or browse folders to load more music.</p>
+                            <h3 x-text="T('search/noResults', 'No results found')">No results found</h3>
+                            <p x-text="T('search/tryAgain', 'Try a different search term, or browse folders to load more music.')">Try a different search term, or browse folders to load more music.</p>
                         </div>
                     </template>
                     <template x-if="searchResults.length > 0">
                         <div>
-                            <p class="search-results-label" x-text="searchResults.length + ' result(s)'"></p>
+                            <p class="search-results-label" x-text="T('search/count', '{n} result(s)', {n: searchResults.length})"></p>
                             <div class="song-list" id="artist-selected-content-body" x-on:scroll="onSelectedArtistListScroll($event)">
                                 <div class="song-list-header">
-                                    <span></span><span></span><span>Title</span><span>Artist</span><span class="song-list-size-col">Size</span><span></span>
+                                    <span></span><span></span><span x-text="T('col/title', 'Title')">Title</span><span x-text="T('col/artist', 'Artist')">Artist</span><span class="song-list-size-col" x-text="T('col/size', 'Size')">Size</span><span></span>
                                 </div>
                                 <template x-for="(song, idx) in searchResults" :key="song.filepath">
                                     <div class="song-row" :class="{active: isCurrentTrack(song)}"
@@ -1301,11 +1304,11 @@
             <div x-show="view === 'folders' && !loading">
                 <div class="content-header">
                     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;min-height:28px;">
-                        <h2 style="margin:0;">Folders</h2>
+                        <h2 style="margin:0;" locale="nav/folders">Folders</h2>
                         <!-- Library source picker (only shown when multiple storage roots exist) -->
                         <template x-if="musicLibraries.length > 1">
                             <div style="display:flex;align-items:center;gap:6px;">
-                                <span style="font-size:12px;color:var(--text2);">Library:</span>
+                                <span style="font-size:12px;color:var(--text2);" x-text="T('folders/library', 'Library:')">Library:</span>
                                 <select style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:12px;outline:none;cursor:pointer;transition:border-color .15s;"
                                         x-on:focus="$event.target.style.borderColor='var(--accent)'"
                                         x-on:blur="$event.target.style.borderColor='var(--border)'"
@@ -1332,17 +1335,17 @@
                     <template x-if="folderStack.length > 0 || (canFavoriteCurrentFolder() && !(folderContents.songs && folderContents.songs.length))">
                         <div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
                             <button class="btn btn-secondary" x-show="folderStack.length > 0" x-on:click="folderBack()">
-                                <i class="ui arrow left icon"></i> Back
+                                <i class="ui arrow left icon"></i> <span x-text="T('common/back', 'Back')">Back</span>
                             </button>
                             <template x-if="!(folderContents.songs && folderContents.songs.length)">
                                 <span style="margin-left:auto;">
                                     <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px;"
                                     :class="isFolderFavorited(folderPath) ? 'fav-active' : ''"
                                     x-show="canFavoriteCurrentFolder()"
-                                    :title="isFolderFavorited(folderPath) ? 'Remove this folder from Favorites' : 'Pin this folder to the Favorites list'"
+                                    :title="isFolderFavorited(folderPath) ? T('folders/unfavoriteTip', 'Remove this folder from Favorites') : T('folders/favoriteTip', 'Pin this folder to the Favorites list')"
                                     x-on:click="toggleFavoriteFolder()">
                                     <i class="ui icon" :class="isFolderFavorited(folderPath) ? 'heart' : 'heart outline'"></i>
-                                    <span x-text="isFolderFavorited(folderPath) ? 'Favorited' : 'Mark as Favorite'"></span>
+                                    <span x-text="isFolderFavorited(folderPath) ? T('folders/favorited', 'Favorited') : T('folders/markFavorite', 'Mark as Favorite')"></span>
                                 </button>
                                 </span>
                             </template>
@@ -1352,7 +1355,7 @@
                     <!-- Subfolders -->
                     <template x-if="folderContents.folders && folderContents.folders.length > 0">
                         <div>
-                            <div class="section-title" style="font-size:13px;margin-bottom:8px;">Folders</div>
+                            <div class="section-title" style="font-size:13px;margin-bottom:8px;" x-text="T('nav/folders', 'Folders')">Folders</div>
                             <div class="folder-grid">
                                 <template x-for="folder in folderContents.folders" :key="folder">
                                     <div class="folder-card" x-on:click="folderNavigate(folder)">
@@ -1369,26 +1372,26 @@
                         <div>
                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                                 <div class="section-title" style="font-size:13px;margin-bottom:0;">
-                                    <span x-text="folderContents.songs.length"></span> tracks
+                                    <span x-text="T('common/tracks', '{n} tracks', {n: folderContents.songs.length})"></span>
                                 </div>
                                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                                 <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px;"
                                     :class="isFolderFavorited(folderPath) ? 'fav-active' : ''"
                                     x-show="canFavoriteCurrentFolder()"
-                                    :title="isFolderFavorited(folderPath) ? 'Remove this folder from Favorites' : 'Pin this folder to the Favorites list'"
+                                    :title="isFolderFavorited(folderPath) ? T('folders/unfavoriteTip', 'Remove this folder from Favorites') : T('folders/favoriteTip', 'Pin this folder to the Favorites list')"
                                     x-on:click="toggleFavoriteFolder()">
                                     <i class="ui icon" :class="isFolderFavorited(folderPath) ? 'heart' : 'heart outline'"></i>
-                                    <span x-text="isFolderFavorited(folderPath) ? 'Favorited' : 'Mark as Favorite'"></span>
+                                    <span x-text="isFolderFavorited(folderPath) ? T('folders/favorited', 'Favorited') : T('folders/markFavorite', 'Mark as Favorite')"></span>
                                 </button>
                                 <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;"
                                     x-on:click="playList(folderContents.songs, 0)">
-                                    <i class="ui play icon"></i> Play all
+                                    <i class="ui play icon"></i> <span x-text="T('common/playAll', 'Play all')">Play all</span>
                                 </button>
                                 </div>
                             </div>
                             <div class="song-list">
                                 <div class="song-list-header">
-                                    <span>#</span><span></span><span>Title</span><span></span><span class="song-list-size-col">Size</span><span></span>
+                                    <span>#</span><span></span><span x-text="T('col/title', 'Title')">Title</span><span></span><span class="song-list-size-col" x-text="T('col/size', 'Size')">Size</span><span></span>
                                 </div>
                                 <template x-for="(song, idx) in folderContents.songs" :key="song.filepath">
                                     <div class="song-row" :class="{active: isCurrentTrack(song)}"
@@ -1413,8 +1416,8 @@
                     <template x-if="(!folderContents.songs || folderContents.songs.length === 0) && (!folderContents.folders || folderContents.folders.length === 0)">
                         <div class="empty-state">
                             <i class="ui folder open icon"></i>
-                            <h3>Empty folder</h3>
-                            <p>No music files found. Add .mp3, .flac, or other audio files to your Music folder.</p>
+                            <h3 x-text="T('folders/empty', 'Empty folder')">Empty folder</h3>
+                            <p x-text="T('folders/emptyDesc', 'No music files found. Add .mp3, .flac, or other audio files to your Music folder.')">No music files found. Add .mp3, .flac, or other audio files to your Music folder.</p>
                         </div>
                     </template>
                 </div>
@@ -1423,14 +1426,14 @@
             <!-- ── ARTISTS ───────────────────────────────────────────────── -->
             <div x-show="view === 'artists' && !loading">
                 <div class="content-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                    <h2 style="margin:0;">Artists</h2>
+                    <h2 style="margin:0;" locale="nav/artists">Artists</h2>
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                         <span style="font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.16);"
-                              x-show="artistsFromCache && !artistsRefreshing">Cached</span>
+                              x-show="artistsFromCache && !artistsRefreshing" locale="artists/cached">Cached</span>
                         <span style="font-size:11px;padding:3px 8px;border-radius:999px;background:rgba(59,130,246,.2);border:1px solid rgba(59,130,246,.45);"
-                              x-show="artistsRefreshing">Refreshing</span>
+                              x-show="artistsRefreshing" locale="artists/refreshing">Refreshing</span>
                         <span style="font-size:11px;padding:3px 8px;border-radius:999px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);"
-                              x-show="!artistsFromCache && !artistsRefreshing && artists.length > 0">Live</span>
+                              x-show="!artistsFromCache && !artistsRefreshing && artists.length > 0" locale="artists/live">Live</span>
                         <span style="font-size:12px;color:var(--text2);" x-text="artistsStatusText()"></span>
                         <span style="font-size:12px;color:var(--text2);" x-show="artistsCacheUpdatedAt" x-text="artistsUpdatedTimeText()"></span>
                         <button class="ctrl-btn" title="Refresh artists" x-on:click="_loadArtists({ forceNetwork: true })">
@@ -1441,15 +1444,15 @@
                 <div class="content-body">
                     <template x-if="artists.length === 0 && artistsRefreshing">
                         <div class="empty-state">
-                            <h3>Loading artists</h3>
-                            <p>Fetching your artist list in the background…</p>
+                            <h3 x-text="T('artists/loading', 'Loading artists')">Loading artists</h3>
+                            <p x-text="T('artists/fetching', 'Fetching your artist list in the background…')">Fetching your artist list in the background…</p>
                         </div>
                     </template>
                     <template x-if="artists.length === 0 && !artistsRefreshing">
                         <div class="empty-state">
                             <i class="ui user icon"></i>
-                            <h3>No artists found</h3>
-                            <p>Organise your music into sub-folders under your Music directory to see artists here.</p>
+                            <h3 x-text="T('artists/none', 'No artists found')">No artists found</h3>
+                            <p x-text="T('artists/noneDesc', 'Organise your music into sub-folders under your Music directory to see artists here.')">Organise your music into sub-folders under your Music directory to see artists here.</p>
                         </div>
                     </template>
                    
@@ -1460,7 +1463,7 @@
                                     <div class="artist-avatar" x-text="artist.name.charAt(0)"></div>
                                     <div class="artist-info">
                                         <div class="artist-name"  x-text="artist.name"></div>
-                                        <div class="artist-count" x-text="artist.songCount + ' tracks'"></div>
+                                        <div class="artist-count" x-text="T('common/tracks', '{n} tracks', {n: artist.songCount})"></div>
                                     </div>
                                     <button class="ctrl-btn" style="margin-right:4px;" x-on:click.stop="playList(artist.songs, 0)">
                                         <i class="ui play icon" style="margin:0;"></i>
@@ -1476,25 +1479,25 @@
                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px;flex-wrap:wrap;">
                                 <div style="display:flex;align-items:center;gap:10px;min-width:0;">
                                     <button class="btn btn-secondary" x-on:click="backToArtistList()">
-                                        <i class="ui arrow left icon"></i> Back
+                                        <i class="ui arrow left icon"></i> <span x-text="T('common/back', 'Back')">Back</span>
                                     </button>
                                     <div style="display:flex;align-items:center;gap:10px;min-width:0;">
                                         <!-- <div class="artist-avatar" x-text="selectedArtist.name.charAt(0)"></div> -->
                                         <div style="min-width:0;">
                                             <div class="artist-name" x-text="selectedArtist.name"></div>
-                                            <div class="artist-count" x-text="selectedArtist.songCount + ' tracks'"></div>
+                                            <div class="artist-count" x-text="T('common/tracks', '{n} tracks', {n: selectedArtist.songCount})"></div>
                                         </div>
                                     </div>
                                 </div>
                                 <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;"
                                     x-on:click="playList(selectedArtist.songs, 0)">
-                                    <i class="ui play icon"></i> Play all
+                                    <i class="ui play icon"></i> <span x-text="T('common/playAll', 'Play all')">Play all</span>
                                 </button>
                             </div>
 
                             <div class="song-list">
                                 <div class="song-list-header">
-                                    <span>#</span><span></span><span>Title</span><span></span><span class="song-list-size-col">Size</span><span></span>
+                                    <span>#</span><span></span><span x-text="T('col/title', 'Title')">Title</span><span></span><span class="song-list-size-col" x-text="T('col/size', 'Size')">Size</span><span></span>
                                 </div>
                                 <template x-for="(song, idx) in selectedArtist.songs" :key="song.filepath">
                                     <div class="song-row" :class="{active: isCurrentTrack(song)}"
@@ -1520,26 +1523,26 @@
 
             <!-- ── RECENT ────────────────────────────────────────────────── -->
             <div x-show="view === 'recent' && !loading">
-                <div class="content-header"><h2>Recently Added</h2></div>
+                <div class="content-header"><h2 locale="nav/recent">Recently Added</h2></div>
                 <div class="content-body">
                     <template x-if="recentSongs.length === 0">
                         <div class="empty-state">
                             <i class="ui history icon"></i>
-                            <h3>Nothing here yet</h3>
+                            <h3 x-text="T('recent/nothing', 'Nothing here yet')">Nothing here yet</h3>
                         </div>
                     </template>
                     <template x-if="recentSongs.length > 0">
                         <div>
                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                                <span style="color:var(--text2);font-size:13px;" x-text="recentSongs.length + ' tracks'"></span>
+                                <span style="color:var(--text2);font-size:13px;" x-text="T('common/tracks', '{n} tracks', {n: recentSongs.length})"></span>
                                 <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;"
                                     x-on:click="playList(recentSongs, 0)">
-                                    <i class="ui play icon"></i> Play all
+                                    <i class="ui play icon"></i> <span x-text="T('common/playAll', 'Play all')">Play all</span>
                                 </button>
                             </div>
                             <div class="song-list">
                                 <div class="song-list-header">
-                                    <span>#</span><span></span><span>Title</span><span>Artist</span><span class="song-list-size-col">Size</span><span></span>
+                                    <span>#</span><span></span><span x-text="T('col/title', 'Title')">Title</span><span x-text="T('col/artist', 'Artist')">Artist</span><span class="song-list-size-col" x-text="T('col/size', 'Size')">Size</span><span></span>
                                 </div>
                                 <template x-for="(song, idx) in recentSongs" :key="song.filepath">
                                     <div class="song-row" :class="{active: isCurrentTrack(song)}"
@@ -1570,7 +1573,7 @@
                         <div style="width:64px;height:64px;border-radius:10px;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;flex-shrink:0;"><img src="img/headphones.svg" style="width:34px;height:34px;"></div>
                         <div>
                             <h2 x-text="currentPlaylistName"></h2>
-                            <p x-text="currentPlaylistSongs.length + ' tracks'"></p>
+                            <p x-text="T('common/tracks', '{n} tracks', {n: currentPlaylistSongs.length})"></p>
                         </div>
                     </div>
                 </div>
@@ -1578,23 +1581,23 @@
                     <template x-if="currentPlaylistSongs.length === 0">
                         <div class="empty-state">
                             <i class="ui music icon"></i>
-                            <h3>Playlist is empty</h3>
-                            <p>Browse your music and click ⋮ on any track to add it here.</p>
+                            <h3 x-text="T('playlist/empty', 'Playlist is empty')">Playlist is empty</h3>
+                            <p x-text="T('playlist/emptyDesc', 'Browse your music and click ⋮ on any track to add it here.')">Browse your music and click ⋮ on any track to add it here.</p>
                         </div>
                     </template>
                     <template x-if="currentPlaylistSongs.length > 0">
                         <div>
                             <div style="display:flex;gap:10px;margin-bottom:16px;">
                                 <button class="btn btn-primary" x-on:click="playList(currentPlaylistSongs, 0)">
-                                    <i class="ui play icon"></i> Play all
+                                    <i class="ui play icon"></i> <span x-text="T('common/playAll', 'Play all')">Play all</span>
                                 </button>
                                 <button class="btn btn-secondary" x-on:click="shuffle=true;playList(currentPlaylistSongs,0)">
-                                    <i class="ui random icon"></i> Shuffle
+                                    <i class="ui random icon"></i> <span x-text="T('common/shuffle', 'Shuffle')">Shuffle</span>
                                 </button>
                             </div>
                             <div class="song-list">
                                 <div class="song-list-header">
-                                    <span>#</span><span></span><span>Title</span><span>Artist</span><span class="song-list-size-col">Size</span><span></span>
+                                    <span>#</span><span></span><span x-text="T('col/title', 'Title')">Title</span><span x-text="T('col/artist', 'Artist')">Artist</span><span class="song-list-size-col" x-text="T('col/size', 'Size')">Size</span><span></span>
                                 </div>
                                 <template x-for="(song, idx) in currentPlaylistSongs" :key="song.filepath + idx">
                                     <div class="song-row" :class="{active: isCurrentTrack(song)}"
@@ -1608,7 +1611,7 @@
                                         </div>
                                         <span class="song-size"  x-text="song.hsize"></span>
                                         <span class="song-menu" x-on:click.stop="removeFromCurrentPlaylist(idx, $event)"
-                                              title="Remove from playlist">
+                                              :title="T('playlist/removeTip', 'Remove from playlist')">
                                             <i class="ui trash alternate icon" style="margin:0;font-size:13px;padding-bottom: 25px; color:#f87171;"></i>
                                         </span>
                                     </div>
@@ -1621,13 +1624,13 @@
 
             <!-- ── EQUALIZER ─────────────────────────────────────────────────── -->
             <div x-show="view === 'equalizer' && eqSupported && !loading">
-                <div class="content-header"><h1>Equalizer</h1></div>
+                <div class="content-header"><h1 locale="nav/equalizer">Equalizer</h1></div>
                 <div class="content-body">
                     <div class="settings-section">
                         <div class="settings-toggle-row">
                             <div>
-                                <div class="settings-toggle-label">Enable Equalizer</div>
-                                <div class="settings-toggle-desc" x-text="eqEnabled ? 'Active – playback on this device is shaped by the bands below' : 'Inactive – playback is not altered'"></div>
+                                <div class="settings-toggle-label" locale="eq/enable">Enable Equalizer</div>
+                                <div class="settings-toggle-desc" x-text="eqEnabled ? T('eq/active', 'Active – playback on this device is shaped by the bands below') : T('eq/inactive', 'Inactive – playback is not altered')"></div>
                             </div>
                             <label class="toggle-switch">
                                 <input type="checkbox" x-model="eqEnabled" x-on:change="saveEq()">
@@ -1637,14 +1640,14 @@
                     </div>
 
                     <div class="settings-section">
-                        <div class="settings-section-title">Presets</div>
-                        <div class="settings-section-desc">Pick a starting point, then fine-tune the bands. Settings are kept on this device only.</div>
+                        <div class="settings-section-title" locale="eq/presets">Presets</div>
+                        <div class="settings-section-desc" locale="eq/presetsDesc">Pick a starting point, then fine-tune the bands. Settings are kept on this device only.</div>
                         <div class="eq-presets">
                             <template x-for="p in eqPresetList()" :key="p.id">
                                 <button class="eq-preset" :class="{selected: eqPreset === p.id}"
-                                        x-on:click="applyEqPreset(p.id)" x-text="p.name"></button>
+                                        x-on:click="applyEqPreset(p.id)" x-text="T('eq/preset/' + p.id, p.name)"></button>
                             </template>
-                            <span class="eq-preset custom selected" x-show="eqPreset === 'custom'">Custom</span>
+                            <span class="eq-preset custom selected" x-show="eqPreset === 'custom'" locale="eq/custom">Custom</span>
                         </div>
 
                         <svg class="eq-curve" viewBox="0 0 600 90" preserveAspectRatio="none" aria-hidden="true">
@@ -1662,7 +1665,7 @@
                                        :value="eqPreamp" :style="eqSliderStyle(eqPreamp)"
                                        x-on:input="setEqPreamp($event.target.value)"
                                        x-on:dblclick="setEqPreamp(0)" title="Pre-amp (double-click to reset)">
-                                <span class="eq-freq">Pre</span>
+                                <span class="eq-freq" locale="eq/pre">Pre</span>
                             </div>
                             <template x-for="(band, i) in eqBands" :key="band.freq">
                                 <div class="eq-band">
@@ -1670,7 +1673,7 @@
                                     <input type="range" class="eq-slider" min="-12" max="12" step="0.5"
                                            :value="eqGains[i]" :style="eqSliderStyle(eqGains[i])"
                                            x-on:input="setEqGain(i, $event.target.value)"
-                                           x-on:dblclick="setEqGain(i, 0)" :title="band.label + ' Hz (double-click to reset)'">
+                                           x-on:dblclick="setEqGain(i, 0)" :title="T('eq/bandTip', '{band} Hz (double-click to reset)', {band: band.label})">
                                     <span class="eq-freq" x-text="band.label"></span>
                                 </div>
                             </template>
@@ -1678,7 +1681,7 @@
 
                         <div class="eq-actions">
                             <button class="eq-reset" x-on:click="applyEqPreset('flat')">
-                                <i class="ui undo icon"></i> Reset to Flat
+                                <i class="ui undo icon"></i> <span locale="eq/reset">Reset to Flat</span>
                             </button>
                         </div>
                     </div>
@@ -1686,7 +1689,7 @@
                     <div style="padding:10px 12px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);">
                         <span style="font-size:12px;color:var(--text3);">
                             <i class="ui info circle icon" style="color:var(--accent);"></i>
-                            The equalizer only shapes playback in this browser. It does not apply while casting to Arozcast. Lower the pre-amp when boosting bands to avoid distortion.
+                            <span locale="eq/note">The equalizer only shapes playback in this browser. It does not apply while casting to Arozcast. Lower the pre-amp when boosting bands to avoid distortion.</span>
                         </span>
                     </div>
                 </div>
@@ -1694,21 +1697,21 @@
 
             <!-- ── SETTINGS ──────────────────────────────────────────────────── -->
             <div x-show="view === 'settings' && !loading">
-                <div class="content-header"><h1>Settings</h1></div>
+                <div class="content-header"><h1 locale="nav/settings">Settings</h1></div>
                 <div class="content-body">
 
                     <!-- Transcode subsection -->
                     <div class="settings-section">
-                        <div class="settings-section-title">Transcode</div>
-                        <div class="settings-section-desc">
+                        <div class="settings-section-title" locale="settings/transcode">Transcode</div>
+                        <div class="settings-section-desc" locale="settings/transcodeDesc">
                             Automatically transcode audio formats not supported by your browser (FLAC, OGG, WMA, Opus, WebM) to MP3 using the server's FFmpeg. Recommended for mobile users.
                         </div>
 
                         <label class="transcode-option" :class="{selected: transcodeMode==='disabled'}">
                             <input type="radio" name="transcodeMode" value="disabled" x-model="transcodeMode" x-on:change="saveTranscodeMode()">
                             <div class="transcode-option-label">
-                                <strong>Disabled</strong>
-                                <span>Use browser's native audio decoder (default on desktop)</span>
+                                <strong locale="settings/disabled">Disabled</strong>
+                                <span locale="settings/disabledDesc">Use browser's native audio decoder (default on desktop)</span>
                             </div>
                         </label>
 
@@ -1716,7 +1719,7 @@
                             <input type="radio" name="transcodeMode" value="16" x-model="transcodeMode" x-on:change="saveTranscodeMode()">
                             <div class="transcode-option-label">
                                 <strong>16 kHz MP3</strong>
-                                <span>Low quality · lowest bandwidth · voice / podcasts</span>
+                                <span locale="settings/q16">Low quality · lowest bandwidth · voice / podcasts</span>
                             </div>
                         </label>
 
@@ -1724,7 +1727,7 @@
                             <input type="radio" name="transcodeMode" value="24" x-model="transcodeMode" x-on:change="saveTranscodeMode()">
                             <div class="transcode-option-label">
                                 <strong>24 kHz MP3</strong>
-                                <span>Medium quality · balanced bandwidth</span>
+                                <span locale="settings/q24">Medium quality · balanced bandwidth</span>
                             </div>
                         </label>
 
@@ -1732,28 +1735,28 @@
                             <input type="radio" name="transcodeMode" value="48" x-model="transcodeMode" x-on:change="saveTranscodeMode()">
                             <div class="transcode-option-label">
                                 <strong>48 kHz MP3</strong>
-                                <span>Best quality · recommended for music · default</span>
+                                <span locale="settings/q48">Best quality · recommended for music · default</span>
                             </div>
                         </label>
 
                         <div style="margin-top:14px;padding:10px 12px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);">
                             <span style="font-size:12px;color:var(--text3);">
                                 <i class="ui info circle icon" style="color:var(--accent);"></i>
-                                Transcoding requires FFmpeg on the server. Seeking on transcoded tracks restarts the stream from the new position.
+                                <span locale="settings/transcodeNote">Transcoding requires FFmpeg on the server. Seeking on transcoded tracks restarts the stream from the new position.</span>
                             </span>
                         </div>
                     </div>
 
                     <!-- Full Buffer Mode subsection -->
                     <div class="settings-section">
-                        <div class="settings-section-title">Full Buffer Mode</div>
-                        <div class="settings-section-desc">
+                        <div class="settings-section-title" locale="settings/fbm">Full Buffer Mode</div>
+                        <div class="settings-section-desc" locale="settings/fbmDesc">
                             Buffer the entire track on the server before playback begins. This prevents iOS from resetting the audio stream mid-track, at the cost of a short wait before the song starts. Enabled automatically on iPhone and iPad.
                         </div>
                         <div class="settings-toggle-row">
                             <div>
-                                <div class="settings-toggle-label">Enable Full Buffer Mode</div>
-                                <div class="settings-toggle-desc" x-text="fullBufferMode ? 'Active – tracks will be fully transcoded before playback' : 'Inactive – using streaming transcode'"></div>
+                                <div class="settings-toggle-label" locale="settings/fbmEnable">Enable Full Buffer Mode</div>
+                                <div class="settings-toggle-desc" x-text="fullBufferMode ? T('settings/fbmActive', 'Active – tracks will be fully transcoded before playback') : T('settings/fbmInactive', 'Inactive – using streaming transcode')"></div>
                             </div>
                             <label class="toggle-switch">
                                 <input type="checkbox" x-model="fullBufferMode" x-on:change="saveFullBufferMode()">
@@ -1763,21 +1766,21 @@
                         <div style="margin-top:12px;padding:10px 12px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);">
                             <span style="font-size:12px;color:var(--text3);">
                                 <i class="ui info circle icon" style="color:var(--accent);"></i>
-                                Only applies when Transcode is enabled. The buffered file is cached for 24 hours so repeated listens are instant.
+                                <span locale="settings/fbmNote">Only applies when Transcode is enabled. The buffered file is cached for 24 hours so repeated listens are instant.</span>
                             </span>
                         </div>
                     </div>
 
                     <!-- Privacy subsection -->
                     <div class="settings-section">
-                        <div class="settings-section-title">Privacy</div>
-                        <div class="settings-section-desc">
+                        <div class="settings-section-title" locale="settings/privacy">Privacy</div>
+                        <div class="settings-section-desc" locale="settings/privacyDesc">
                             Hide album art from onlookers by replacing the cover thumbnail with a live audio visualizer that reacts to the music instead.
                         </div>
                         <div class="settings-toggle-row">
                             <div>
-                                <div class="settings-toggle-label">Audio Visualizer Mode</div>
-                                <div class="settings-toggle-desc" x-text="privacyVisualizerMode ? 'Active – album art is replaced with a visualizer' : 'Inactive – album art is shown as usual'"></div>
+                                <div class="settings-toggle-label" locale="settings/visualizer">Audio Visualizer Mode</div>
+                                <div class="settings-toggle-desc" x-text="privacyVisualizerMode ? T('settings/visActive', 'Active – album art is replaced with a visualizer') : T('settings/visInactive', 'Inactive – album art is shown as usual')"></div>
                             </div>
                             <label class="toggle-switch">
                                 <input type="checkbox" x-model="privacyVisualizerMode" x-on:change="savePrivacyVisualizerMode()">
@@ -1787,21 +1790,21 @@
                         <div x-show="_isIOS()" style="margin-top:12px;padding:10px 12px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);">
                             <span style="font-size:12px;color:var(--text3);">
                                 <i class="ui info circle icon" style="color:var(--accent);"></i>
-                                On iPhone &amp; iPad the bars use a simulated animation rather than true audio analysis. This is intentional: analysing the live audio signal would route playback through Web Audio, which iOS stops when the screen locks. The simulated animation keeps background playback working while still hiding the album art.
+                                <span locale="settings/iosNote">On iPhone &amp; iPad the bars use a simulated animation rather than true audio analysis. This is intentional: analysing the live audio signal would route playback through Web Audio, which iOS stops when the screen locks. The simulated animation keeps background playback working while still hiding the album art.</span>
                             </span>
                         </div>
                     </div>
 
                     <!-- Display subsection -->
                     <div class="settings-section">
-                        <div class="settings-section-title">Display</div>
-                        <div class="settings-section-desc">
+                        <div class="settings-section-title" locale="settings/display">Display</div>
+                        <div class="settings-section-desc" locale="settings/displayDesc">
                             How the Now Playing view shows the current track.
                         </div>
                         <div class="settings-toggle-row">
                             <div>
-                                <div class="settings-toggle-label">Scroll Long Titles</div>
-                                <div class="settings-toggle-desc" x-text="scrollLongTitles ? 'Active – a title too long for one line scrolls slowly in a loop' : 'Inactive – long titles are cut off with …'"></div>
+                                <div class="settings-toggle-label" locale="settings/scrollTitles">Scroll Long Titles</div>
+                                <div class="settings-toggle-desc" x-text="scrollLongTitles ? T('settings/scrollActive', 'Active – a title too long for one line scrolls slowly in a loop') : T('settings/scrollInactive', 'Inactive – long titles are cut off with …')"></div>
                             </div>
                             <label class="toggle-switch">
                                 <input type="checkbox" x-model="scrollLongTitles" x-on:change="saveScrollLongTitles()">
@@ -1812,14 +1815,14 @@
 
                     <!-- Mobile Volume subsection -->
                     <div class="settings-section">
-                        <div class="settings-section-title">Mobile Volume</div>
-                        <div class="settings-section-desc">
+                        <div class="settings-section-title" locale="settings/mobileVolume">Mobile Volume</div>
+                        <div class="settings-section-desc" locale="settings/mobileVolumeDesc">
                             Safari/iOS and most Android browsers expect volume to be controlled with the device's physical buttons rather than an in-app slider. By default, Musicify hides the in-app volume bar and sets playback to full volume on mobile devices so the hardware buttons have full range.
                         </div>
                         <div class="settings-toggle-row">
                             <div>
-                                <div class="settings-toggle-label">Show In-App Volume Slider on Mobile</div>
-                                <div class="settings-toggle-desc" x-text="!_isMobile() ? 'This device is not detected as mobile – this setting has no effect here' : (forceShowVolumeControl ? 'Active – volume slider is shown on this device' : 'Inactive – use your device volume buttons; volume is fixed at max')"></div>
+                                <div class="settings-toggle-label" locale="settings/showSlider">Show In-App Volume Slider on Mobile</div>
+                                <div class="settings-toggle-desc" x-text="!_isMobile() ? T('settings/volNotMobile', 'This device is not detected as mobile – this setting has no effect here') : (forceShowVolumeControl ? T('settings/volActive', 'Active – volume slider is shown on this device') : T('settings/volInactive', 'Inactive – use your device volume buttons; volume is fixed at max'))"></div>
                             </div>
                             <label class="toggle-switch">
                                 <input type="checkbox" x-model="forceShowVolumeControl" x-on:change="saveForceShowVolumeControl()">
@@ -1848,7 +1851,7 @@
                         <button class="ctrl-btn" x-on:click="closeNowPlaying()" title="Close">
                             <i class="ui chevron down icon" style="margin:0;"></i>
                         </button>
-                        <span class="np-header-title">Now Playing</span>
+                        <span class="np-header-title" locale="np/title">Now Playing</span>
                         <button class="ctrl-btn" :class="{active: showTrackInfo}" x-on:click="toggleTrackInfo()" title="Song info">
                             <i class="ui info circle icon" style="margin:0;"></i>
                         </button>
@@ -1880,7 +1883,7 @@
                     <!-- Seek bar -->
                     <div class="np-seek">
                         <input type="range" class="np-range" min="0" :max="Math.floor(duration) || 100"
-                            aria-label="Seek"
+                            :aria-label="T('np/seek', 'Seek')"
                             :value="Math.floor(currentTime)"
                             :style="'--progress:' + progressPercent() + '%'"
                             x-on:mousedown="beginSeek()"
@@ -1904,7 +1907,7 @@
                         <button class="np-btn" x-on:click="prevTrack()" title="Previous">
                             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM19 5.5v13l-9.5-6.5z"/></svg>
                         </button>
-                        <button class="np-btn np-play" x-on:click="togglePlay()" :title="isPlaying ? 'Pause' : 'Play'">
+                        <button class="np-btn np-play" x-on:click="togglePlay()" :title="isPlaying ? T('common/pause', 'Pause') : T('common/play', 'Play')">
                             <!-- One SVG with a bound path: two x-show siblings could both stay visible when isPlaying flips false->true quickly at track end -->
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="isPlaying ? 'M9 6v12M15 6v12' : 'M8 5.5v13l10-6.5z'" d="M8 5.5v13l10-6.5z"/></svg>
                         </button>
@@ -1916,7 +1919,7 @@
                         </button>
                     </div>
 
-                    <div class="np-hint">Swipe left / right to change track</div>
+                    <div class="np-hint" locale="np/swipeHint">Swipe left / right to change track</div>
 
                     <!-- Song info (revealed by the info button; scrolls into view) -->
                     <div class="np-info" x-show="showTrackInfo">
@@ -1924,15 +1927,15 @@
                         <!-- Metadata table -->
                         <div class="track-info-meta">
                             <div class="track-meta-row">
-                                <span class="track-meta-label">Format</span>
+                                <span class="track-meta-label" locale="np/format">Format</span>
                                 <span class="track-meta-value" x-text="trackInfoSong && trackInfoSong.ext ? trackInfoSong.ext.toUpperCase() : '—'"></span>
                             </div>
                             <div class="track-meta-row">
-                                <span class="track-meta-label">Size</span>
+                                <span class="track-meta-label" locale="col/size">Size</span>
                                 <span class="track-meta-value" x-text="trackInfoSong ? trackInfoSong.hsize : '—'"></span>
                             </div>
                             <div class="track-meta-row">
-                                <span class="track-meta-label">Path</span>
+                                <span class="track-meta-label" locale="np/path">Path</span>
                                 <span class="track-meta-value track-meta-path" x-text="trackInfoSong ? trackInfoSong.filepath : ''"></span>
                             </div>
                         </div>
@@ -1940,23 +1943,23 @@
                         <div class="track-info-actions">
                             <button class="track-action-btn" x-on:click="downloadSong(trackInfoSong)">
                                 <i class="ui download icon"></i>
-                                <span>Download to Local Device</span>
+                                <span locale="np/download">Download to Local Device</span>
                             </button>
                             <button class="track-action-btn" x-on:click="searchOnYoutube(trackInfoSong)">
                                 <i class="ui youtube icon"></i>
-                                <span>Search on YouTube</span>
+                                <span locale="np/youtube">Search on YouTube</span>
                             </button>
                             <button class="track-action-btn" x-on:click="copyTrackTitle(trackInfoSong)">
                                 <i class="ui copy outline icon"></i>
-                                <span>Copy Song Title</span>
+                                <span locale="np/copyTitle">Copy Song Title</span>
                             </button>
                             <button class="track-action-btn" x-on:click="openInFileManager(trackInfoSong)">
                                 <i class="ui folder open icon"></i>
-                                <span>Open in File Manager</span>
+                                <span locale="np/openFm">Open in File Manager</span>
                             </button>
                             <button id="open-in-embedded" class="track-action-btn" x-on:click="openInEmbedded(trackInfoSong)">
                                 <i class="ui compress alternate icon"></i>
-                                <span>Open in Player View</span>
+                                <span locale="np/openPlayer">Open in Player View</span>
                             </button>
                         </div>
                     </div>
@@ -1967,7 +1970,7 @@
         <!-- ═══ QUEUE PANEL ════════════════════════════════════════════════ -->
         <aside id="queue-panel" class="queue-panel" x-show="showQueue">
             <div class="queue-header">
-                <span>Queue <span style="color:var(--text3);font-size:12px;" x-text="'(' + queue.length + ')'"></span></span>
+                <span><span locale="queue/title">Queue</span> <span style="color:var(--text3);font-size:12px;" x-text="'(' + queue.length + ')'"></span></span>
                 <button class="ctrl-btn" style="width:26px;height:26px;font-size:13px;" x-on:click="showQueue=false">
                     <i class="ui times icon" style="margin:0;"></i>
                 </button>
@@ -1975,7 +1978,7 @@
             <template x-if="queue.length === 0">
                 <div class="empty-state" style="padding:30px 0;">
                     <i class="ui music icon" style="font-size:28px;"></i>
-                    <p>Queue is empty</p>
+                    <p x-text="T('queue/empty', 'Queue is empty')">Queue is empty</p>
                 </div>
             </template>
             <template x-for="(song, idx) in queue" :key="song.filepath + idx">
@@ -2019,7 +2022,7 @@
                 </div>
                 <div class="player-track-artist" x-text="currentTrack ? getArtistLabel(currentTrack) : ''"></div>
             </div>
-            <div x-show="!currentTrack" style="color:var(--text3);font-size:13px;">No track playing</div>
+            <div x-show="!currentTrack" style="color:var(--text3);font-size:13px;" locale="player/none">No track playing</div>
         </div>
 
         <!-- Center: Controls + seek -->
@@ -2034,7 +2037,7 @@
                     <i class="ui step backward icon" style="margin:0;"></i>
                 </button>
                 <!-- Play / Pause -->
-                <button class="ctrl-btn play-btn" x-on:click="togglePlay()" :title="isPlaying ? 'Pause' : 'Play'">
+                <button class="ctrl-btn play-btn" x-on:click="togglePlay()" :title="isPlaying ? T('common/pause', 'Pause') : T('common/play', 'Play')">
                     <i :class="isPlaying ? 'pause' : 'play'" class="ui icon" style="margin:0;"></i>
                 </button>
                 <!-- Next -->
@@ -2079,7 +2082,7 @@
             </button>
 
             <!-- Volume -->
-            <button class="ctrl-btn" x-on:click="toggleMute()" :title="isMuted ? 'Unmute' : 'Mute'">
+            <button class="ctrl-btn" x-on:click="toggleMute()" :title="isMuted ? T('common/unmute', 'Unmute') : T('common/mute', 'Mute')">
                 <i :class="volumeIcon()" class="ui icon" style="margin:0;"></i>
             </button>
             <input type="range" class="volume-bar" min="0" max="100"
@@ -2128,15 +2131,15 @@
     <!-- ═══ MODAL: New Playlist ══════════════════════════════════════════ -->
     <div class="modal-backdrop" x-show="showNewPlaylistModal" x-on:click.self="showNewPlaylistModal=false">
         <div class="modal-box">
-            <div class="modal-title">New Playlist</div>
-            <div class="modal-label">Playlist name</div>
+            <div class="modal-title" locale="nav/newPlaylist">New Playlist</div>
+            <div class="modal-label" locale="modal/playlistName">Playlist name</div>
             <input class="modal-input" type="text" placeholder="e.g. Workout Mix"
                 x-model="newPlaylistName"
                 x-on:keydown.enter="createPlaylist()"
                 autofocus>
             <div class="modal-row">
-                <button class="btn btn-secondary" x-on:click="showNewPlaylistModal=false">Cancel</button>
-                <button class="btn btn-primary"   x-on:click="createPlaylist()">Create</button>
+                <button class="btn btn-secondary" x-on:click="showNewPlaylistModal=false" locale="common/cancel">Cancel</button>
+                <button class="btn btn-primary"   x-on:click="createPlaylist()" locale="common/create">Create</button>
             </div>
         </div>
     </div>
@@ -2144,24 +2147,24 @@
     <!-- ═══ MODAL: Add to Playlist ═══════════════════════════════════════ -->
     <div class="modal-backdrop" x-show="showAddToPlaylistModal && addToPlaylistSong" x-on:click.self="showAddToPlaylistModal=false;addToPlaylistSong=null">
         <div class="modal-box">
-            <div class="modal-title">Add to Playlist</div>
+            <div class="modal-title" locale="modal/addTo">Add to Playlist</div>
             <p style="font-size:12px;color:var(--text2);margin-bottom:12px;" x-text="addToPlaylistSong ? addToPlaylistSong.name : ''"></p>
             <div class="pl-picker-list">
                 <template x-if="playlists.length === 0">
-                    <p style="color:var(--text3);font-size:13px;padding:12px 0;">No playlists yet. Create one first.</p>
+                    <p style="color:var(--text3);font-size:13px;padding:12px 0;" x-text="T('modal/noPlaylists', 'No playlists yet. Create one first.')">No playlists yet. Create one first.</p>
                 </template>
                 <template x-for="pl in playlists" :key="pl.name">
                     <div class="pl-picker-item" x-on:click="addSongToPlaylist(pl.name)">
                         <i class="ui list ul icon"></i>
                         <span x-text="pl.name"></span>
-                        <span style="margin-left:auto;color:var(--text3);font-size:11px;" x-text="pl.count + ' tracks'"></span>
+                        <span style="margin-left:auto;color:var(--text3);font-size:11px;" x-text="T('common/tracks', '{n} tracks', {n: pl.count})"></span>
                     </div>
                 </template>
             </div>
             <div class="modal-row">
-                <button class="btn btn-secondary" x-on:click="showAddToPlaylistModal=false;addToPlaylistSong=null">Cancel</button>
+                <button class="btn btn-secondary" x-on:click="showAddToPlaylistModal=false;addToPlaylistSong=null" locale="common/cancel">Cancel</button>
                 <button class="btn btn-secondary" x-on:click="showNewPlaylistModal=true;showAddToPlaylistModal=false">
-                    <i class="ui plus icon"></i> New playlist
+                    <i class="ui plus icon"></i> <span locale="modal/newPlaylist">New playlist</span>
                 </button>
             </div>
         </div>
@@ -2172,13 +2175,13 @@
         <div class="modal-box">
             <div class="modal-title" style="display:flex;align-items:center;gap:8px;">
                 <img src="img/cast.svg" style="width:20px;height:20px;">
-                Cast to Arozcast
+                <span locale="cast/title">Cast to Arozcast</span>
             </div>
 
             <!-- ─ Not yet connected ─ -->
             <template x-if="!castConnected">
                 <div>
-                    <div class="modal-label">Enter the 4-digit code shown on your Arozcast screen</div>
+                    <div class="modal-label" x-text="T('cast/enterCode', 'Enter the 4-digit code shown on your Arozcast screen')">Enter the 4-digit code shown on your Arozcast screen</div>
                     <input class="cast-code-inp" type="text" inputmode="numeric"
                         maxlength="4" placeholder="_ _ _ _"
                         x-model="castCodeInput"
@@ -2188,10 +2191,10 @@
                         <p style="color:#f87171;font-size:12px;margin-top:8px;" x-text="castError"></p>
                     </template>
                     <div class="modal-row">
-                        <button class="btn btn-secondary" x-on:click="showCastModal=false;castCodeInput='';castError=''">Cancel</button>
+                        <button class="btn btn-secondary" x-on:click="showCastModal=false;castCodeInput='';castError=''" x-text="T('common/cancel', 'Cancel')">Cancel</button>
                         <button class="btn btn-primary" x-on:click="connectToCast()" :disabled="castConnecting">
-                            <span x-show="!castConnecting">Connect</span>
-                            <span x-show="castConnecting">Connecting...</span>
+                            <span x-show="!castConnecting" x-text="T('cast/connect', 'Connect')">Connect</span>
+                            <span x-show="castConnecting" x-text="T('cast/connecting', 'Connecting...')">Connecting...</span>
                         </button>
                     </div>
                 </div>
@@ -2203,16 +2206,17 @@
                     <div class="cast-status-box">
                         <div class="cast-indicator" style="display:inline-flex;margin-bottom:10px;">
                             <span class="cast-dot"></span>
-                            Casting on code&nbsp;<strong x-text="castCode"></strong>
+                            <span><span x-text="T('cast/castingOn', 'Casting on code')">Casting on code</span>&nbsp;<strong x-text="castCode"></strong></span>
                         </div>
-                        <p style="font-size:13px;color:var(--text2);margin-top:6px;">
+                        <p style="font-size:13px;color:var(--text2);margin-top:6px;"
+                           x-text="T('cast/remoteDesc', 'Playback is controlled on the remote Arozcast screen. Volume, seek, and play/pause operate remotely.')">
                             Playback is controlled on the remote Arozcast screen.
                             Volume, seek, and play/pause operate remotely.
                         </p>
                     </div>
                     <div class="modal-row">
-                        <button class="btn btn-secondary" x-on:click="showCastModal=false">Close</button>
-                        <button class="btn btn-danger" x-on:click="disconnectCast()">Disconnect</button>
+                        <button class="btn btn-secondary" x-on:click="showCastModal=false" x-text="T('common/close', 'Close')">Close</button>
+                        <button class="btn btn-danger" x-on:click="disconnectCast()" x-text="T('cast/disconnect', 'Disconnect')">Disconnect</button>
                     </div>
                 </div>
             </template>
@@ -2222,32 +2226,32 @@
     <!-- ═══ MODAL: Sleep Timer ════════════════════════════════════════════ -->
     <div class="modal-backdrop" x-show="showSleepModal" x-on:click.self="showSleepModal=false">
         <div class="modal-box">
-            <div class="modal-title">⏱ Sleep Timer</div>
+            <div class="modal-title"><i class="clock outline icon"></i> <span locale="sleep/title">Sleep Timer</span></div>
             <template x-if="sleepActive">
                 <div style="background:var(--accent-glow);border-radius:8px;padding:12px;margin-bottom:16px;text-align:center;">
                     <div style="font-size:28px;font-weight:800;color:var(--accent);" x-text="sleepCountdown"></div>
-                    <div style="font-size:12px;color:var(--text2);">Music will stop when timer ends</div>
+                    <div style="font-size:12px;color:var(--text2);" x-text="T('sleep/willStop', 'Music will stop when timer ends')">Music will stop when timer ends</div>
                 </div>
             </template>
             <div class="sleep-options">
-                <div class="sleep-opt" :class="{selected: sleepMinutes===15}" x-on:click="sleepMinutes=15">15 min</div>
-                <div class="sleep-opt" :class="{selected: sleepMinutes===30}" x-on:click="sleepMinutes=30">30 min</div>
-                <div class="sleep-opt" :class="{selected: sleepMinutes===45}" x-on:click="sleepMinutes=45">45 min</div>
-                <div class="sleep-opt" :class="{selected: sleepMinutes===60}" x-on:click="sleepMinutes=60">1 hour</div>
-                <div class="sleep-opt" :class="{selected: sleepMinutes===90}" x-on:click="sleepMinutes=90">90 min</div>
-                <div class="sleep-opt" :class="{selected: sleepMinutes===120}" x-on:click="sleepMinutes=120">2 hours</div>
+                <div class="sleep-opt" :class="{selected: sleepMinutes===15}" x-on:click="sleepMinutes=15" x-text="T('sleep/minutes', '{n} min', {n: 15})">15 min</div>
+                <div class="sleep-opt" :class="{selected: sleepMinutes===30}" x-on:click="sleepMinutes=30" x-text="T('sleep/minutes', '{n} min', {n: 30})">30 min</div>
+                <div class="sleep-opt" :class="{selected: sleepMinutes===45}" x-on:click="sleepMinutes=45" x-text="T('sleep/minutes', '{n} min', {n: 45})">45 min</div>
+                <div class="sleep-opt" :class="{selected: sleepMinutes===60}" x-on:click="sleepMinutes=60" x-text="T('sleep/hour1', '1 hour')">1 hour</div>
+                <div class="sleep-opt" :class="{selected: sleepMinutes===90}" x-on:click="sleepMinutes=90" x-text="T('sleep/minutes', '{n} min', {n: 90})">90 min</div>
+                <div class="sleep-opt" :class="{selected: sleepMinutes===120}" x-on:click="sleepMinutes=120" x-text="T('sleep/hours2', '2 hours')">2 hours</div>
             </div>
             <div class="sleep-custom">
-                <div class="modal-label" style="margin:0;white-space:nowrap;">Custom (min):</div>
+                <div class="modal-label" style="margin:0;white-space:nowrap;" locale="sleep/custom">Custom (min):</div>
                 <input class="modal-input" type="number" min="1" max="480" x-model="sleepMinutes" style="width:80px;">
             </div>
             <div class="modal-row">
-                <button class="btn btn-secondary" x-on:click="showSleepModal=false">Close</button>
+                <button class="btn btn-secondary" x-on:click="showSleepModal=false" locale="common/close">Close</button>
                 <template x-if="sleepActive">
-                    <button class="btn btn-danger" x-on:click="cancelSleepTimer();showSleepModal=false">Cancel timer</button>
+                    <button class="btn btn-danger" x-on:click="cancelSleepTimer();showSleepModal=false" x-text="T('sleep/cancelTimer', 'Cancel timer')">Cancel timer</button>
                 </template>
                 <button class="btn btn-primary" x-on:click="startSleepTimer()">
-                    <i class="ui clock icon"></i> Start timer
+                    <i class="ui clock icon"></i> <span locale="sleep/start">Start timer</span>
                 </button>
             </div>
         </div>
@@ -2265,6 +2269,14 @@
             regs.forEach(function(r) { r.unregister(); });
         });
     }
+
+    // Alpine starts once the language file is in, so its first render is
+    // already translated
+    loadAppLocale(function () {
+        var alpine = document.createElement('script');
+        alpine.src = '../script/alpine.min.js';
+        document.body.appendChild(alpine);
+    });
 </script>
 </body>
 </html>

@@ -10,6 +10,8 @@
 	<script src="../script/jquery.min.js"></script>
 	<script src="../script/semantic/semantic.min.js"></script>
 	<script src="../script/ao_module.js"></script>
+	<script src="../script/applocale.js"></script>
+	<script src="i18n.js"></script>
 	<style>
 		*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 		/* Colours follow the Drive music player: a dark blue-grey stage under
@@ -220,7 +222,7 @@
 				<img id="coverArt" src="img/placeholder.png" alt="cover"
 				     onerror="this.src='img/placeholder.png';this.onerror=null;">
 				<div class="meta-col">
-					<div id="songTitle">Loading…</div>
+					<div id="songTitle" locale="common/loading">Loading…</div>
 					<div id="artistLabel"></div>
 					<div id="fileSize"></div>
 				</div>
@@ -259,7 +261,7 @@
 			<!-- Action row -->
 			<div class="action-row">
 				<button class="act-btn" onclick="openInMusicify()" title="Open folder in Musicify">
-					<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg><span>Open in Musicify</span>
+					<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg><span locale="emb/openInMusicify">Open in Musicify</span>
 				</button>
 				<button class="act-btn" id="listToggleBtn" onclick="toggleList()">
 					<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor" stroke="none"/></svg><span id="listBtnLabel">Show List</span>
@@ -400,7 +402,6 @@
 		player.volume = Math.max(0, Math.min(1, isNaN(initVol) ? 0.6 : initVol));
 		setVolumeUI(player.volume);
 		syncPlayIcon();
-		updateRepeatUI();
 
 		// Restore prefs from server (cross-device sync)
 		ao_module_storage.loadStorage("Musicify", "emb_repeat", function(val) {
@@ -416,12 +417,22 @@
 		var inputFiles  = ao_module_loadInputFiles();
 		var playingFile = inputFiles ? inputFiles[0] : null;
 
-		if (!playingFile || !playingFile.filepath) {
-			document.getElementById('songTitle').textContent = 'No file selected';
-			document.getElementById('songList').innerHTML = '';
-		} else {
+		if (playingFile && playingFile.filepath) {
 			// Set src immediately for fast startup
 			setSource(playingFile.filepath, true);
+		}
+
+		// Everything that shows text waits for the language file
+		loadAppLocale(function() {
+			document.getElementById('volBar').setAttribute('aria-label', T('emb/volume', 'Volume'));
+			updateRepeatUI();
+			updateListVisibility();
+
+			if (!playingFile || !playingFile.filepath) {
+				document.getElementById('songTitle').textContent = T('emb/noFile', 'No file selected');
+				document.getElementById('songList').innerHTML = '';
+				return;
+			}
 			var displayName = playingFile.filename || playingFile.filepath.split('/').pop();
 			ao_module_setWindowTitle(displayName);
 			document.getElementById('songTitle').textContent = displayName;
@@ -429,9 +440,7 @@
 			// Load folder listing via Musicify backend
 			var folderPath = playingFile.filepath.split('/').slice(0, -1).join('/');
 			loadFolder(folderPath, playingFile.filepath);
-		}
-
-		updateListVisibility();
+		});
 
 		// ── Folder / song-list loading ────────────────────────────────────
 		function loadFolder(folder, targetFilepath) {
@@ -704,8 +713,8 @@
 			var btn   = document.getElementById('repeatBtn');
 			btn.classList.toggle('active', repeatMode !== 'none');
 			btn.innerHTML = repeatIconSVG(repeatMode);
-			btn.title = repeatMode === 'none' ? 'Repeat: off' :
-			            repeatMode === 'all'  ? 'Repeat: all' : 'Repeat: one';
+			btn.title = repeatMode === 'none' ? T('repeat/off', 'Repeat: off') :
+			            repeatMode === 'all'  ? T('repeat/all', 'Repeat: all') : T('repeat/one', 'Repeat: one');
 		}
 
 		// ── Song list toggle ──────────────────────────────────────────────
@@ -720,7 +729,7 @@
 		function updateListVisibility() {
 			document.getElementById('songList').style.display = listShown ? '' : 'none';
 			document.getElementById('listBtnLabel').textContent =
-				listShown ? 'Hide List' : 'Show List';
+				listShown ? T('emb/hideList', 'Hide List') : T('emb/showList', 'Show List');
 		}
 
 		// In standalone mode (non-virtualDesktop) the list is always visible

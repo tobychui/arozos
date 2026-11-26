@@ -81,7 +81,7 @@ let _gridZoomHintTimer = null;
 function showGridZoomHint(cols){
     const el = document.getElementById('grid-zoom-snackbar');
     if (!el) return;
-    el.textContent = cols + ' per row';
+    el.textContent = T('grid/perRow', '{n} per row', { n: cols });
     el.classList.add('visible');
     clearTimeout(_gridZoomHintTimer);
     _gridZoomHintTimer = setTimeout(function(){ el.classList.remove('visible'); }, 1100);
@@ -99,12 +99,12 @@ function photoImageDateUnix(img){
     return null;
 }
 
-// "June 2023" style header for a unix-second timestamp (PHOTO_MONTHS: search.js).
+// "June 2023" style header for a unix-second timestamp, in the page's language.
 function photoGroupLabel(unixSec){
-    if (!unixSec) return 'Undated';
+    if (!unixSec) return T('grid/undated', 'Undated');
     var d = new Date(unixSec * 1000);
-    if (isNaN(d.getTime())) return 'Undated';
-    return PHOTO_MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+    if (isNaN(d.getTime())) return T('grid/undated', 'Undated');
+    return d.toLocaleDateString(localeTag() || 'en-us', { year: 'numeric', month: 'long' });
 }
 
 // Newest-first ordering so each Year/Month section is contiguous regardless of
@@ -371,7 +371,7 @@ function photoListObject() {
                     label = photoGroupLabel(d);
                 } else {
                     key = 'undated';
-                    label = 'Undated';
+                    label = T('grid/undated', 'Undated');
                 }
                 if (!cur || cur.key !== key) {
                     cur = { key: key, label: label, images: [] };
@@ -443,7 +443,7 @@ function photoListObject() {
 
         fetchSuggestions(q) {
             aoPhotoBackend("Photo/backend/searchSuggest.js", { q: q }).then(data => {
-                this.suggestions = (data && data.suggestions) ? data.suggestions : [];
+                this.suggestions = (data && data.suggestions) ? data.suggestions.map(photoLocalizeSuggestion) : [];
                 this.showSuggestions = this.suggestions.length > 0;
             }).catch(() => {
                 this.suggestions = [];
@@ -596,11 +596,11 @@ function photoListObject() {
                     const total = (data && data.total) ? data.total : 0;
                     indexedThisRun += (data && data.indexed) ? data.indexed : 0;
                     if (data && data.hasMore) {
-                        this.indexStatusText = 'Indexing… ' + total + ' photos';
+                        this.indexStatusText = T('index/progress', 'Indexing… {n} photos', { n: total });
                         setTimeout(step, 50);
                     } else {
                         this.indexing = false;
-                        this.indexStatusText = total ? (total + ' photos indexed') : '';
+                        this.indexStatusText = total ? T('index/done', '{n} photos indexed', { n: total }) : '';
                         // Newly indexed photos may carry EXIF shoot times the
                         // current grid grouped without (mtime fallback) — reload
                         // the view so the Year/Month sections use them.
@@ -620,17 +620,17 @@ function photoListObject() {
         rebuildIndex() {
             if (this.indexing) return;
             this.indexing = true;
-            this.indexStatusText = 'Rebuilding index…';
+            this.indexStatusText = T('index/rebuilding', 'Rebuilding index…');
             const step = (mode) => {
                 aoPhotoBackend("Photo/backend/indexPhotos.js", { mode: mode }).then(data => {
                     if (data && data.error) { this.indexing = false; this.indexStatusText = ''; return; }
                     const total = (data && data.total) ? data.total : 0;
                     if (data && data.hasMore) {
-                        this.indexStatusText = 'Rebuilding… ' + total + ' photos';
+                        this.indexStatusText = T('index/rebuildProgress', 'Rebuilding… {n} photos', { n: total });
                         setTimeout(() => step('incremental'), 50);
                     } else {
                         this.indexing = false;
-                        this.indexStatusText = total ? (total + ' photos indexed') : '';
+                        this.indexStatusText = total ? T('index/done', '{n} photos indexed', { n: total }) : '';
                         if (this.searchMode) { this.runSearch(); }
                         else if (this.groupByDate) { this.getFolderInfo(); } // refresh EXIF shoot times
                         setTimeout(() => { if (!this.indexing) this.indexStatusText = ''; }, 4000);
@@ -660,7 +660,7 @@ function closeViewer(){
         // to prevent iframe refresh
         window.location.hash = '';
     }
-    ao_module_setWindowTitle("Photo");
+    ao_module_setWindowTitle(T('app/title', 'Photo'));
 
     setTimeout(function(){
         $("#fullImage").attr("src","img/loading.png");
@@ -668,7 +668,7 @@ function closeViewer(){
         $("#bg-image").attr("src","");
         $("#info-filename").text("");
         $("#info-filepath").text("");
-        $("#info-dimensions").text("Loading...");
+        $("#info-dimensions").text(T('info/loading', 'Loading...'));
 
         // Reset EXIF data display
         $('#basic-info-section').hide();
@@ -712,7 +712,7 @@ function showImage(object){
     currentPhotoFilepath = fd.filepath;
     fetchPhotoRating(fd.filepath);
     if (_photoCastConnected()) _photoCastSendPhoto(fd.filepath);
-    $("#info-dimensions").text("Calculating...");
+    $("#info-dimensions").text(T('info/calculating', 'Calculating...'));
     // Check if we should use compression (only for JPG/PNG > 5MB)
     const useCompression = shouldUseCompression(fd.filepath, fd.filesize);
 
@@ -730,7 +730,7 @@ function showImage(object){
         const compressedImg = document.getElementById('compressedImage');
         const fullImg = document.getElementById('fullImage');
         const bgImg = document.getElementById('bg-image');
-        $("#loading-progress").html(`<i class="loading spinner icon"></i> Loading`);
+        $("#loading-progress").html('<i class="loading spinner icon"></i> ' + T('viewer/loading', 'Loading'));
         if (useCompression) {
             // Use compressed version for large JPG/PNG files
             console.log('Large JPG/PNG detected (' + (fd.filesize / 1024 / 1024).toFixed(2) + 'MB), loading compressed version first');
@@ -746,7 +746,7 @@ function showImage(object){
                 })
             }).then(resp => {
                 resp.text().then(dataURL => {
-                    $("#loading-progress").html(`<i class="loading spinner icon"></i> Optimizing Resolution`);
+                    $("#loading-progress").html('<i class="loading spinner icon"></i> ' + T('viewer/optimizing', 'Optimizing Resolution'));
                     compressedImageLoaded = true;
 
                     // Only show compressed image if full-size hasn't loaded yet
@@ -831,7 +831,7 @@ function showImage(object){
             updateNavigationButtons();
         }
 
-        ao_module_setWindowTitle("Photo - " + fd.filename);
+        ao_module_setWindowTitle(T('app/title', 'Photo') + ' - ' + fd.filename);
         if (!ao_module_virtualDesktop){
             window.location.hash = encodeURIComponent(JSON.stringify({filename: fd.filename, filepath: fd.filepath}));
         }
@@ -893,7 +893,7 @@ function renderPhotoRating(rating) {
         }
     }
     var label = document.getElementById('photo-rating-label');
-    if (label) label.textContent = currentPhotoRating ? (currentPhotoRating + ' / 5') : 'Rate';
+    if (label) label.textContent = currentPhotoRating ? (currentPhotoRating + ' / 5') : T('info/rate', 'Rate');
 }
 
 // Persist a new rating for the open photo (tapping the current value clears it).
@@ -1041,7 +1041,7 @@ function formatExifData(exif, fileData) {
 
     if (exif.ColorSpace !== undefined) {
         exif.ColorSpace = JSON.parse(exif.ColorSpace);
-        let colorSpace = exif.ColorSpace === 1 ? "sRGB" : exif.ColorSpace === 65535 ? "Uncalibrated" : "Unknown";
+        let colorSpace = exif.ColorSpace === 1 ? "sRGB" : exif.ColorSpace === 65535 ? T('value/uncalibrated', 'Uncalibrated') : T('value/unknown', 'Unknown');
         $('#color-space-value').text(colorSpace);
         $('#color-space-row').show();
         basicInfoShown = true;
@@ -1186,8 +1186,17 @@ function formatExifData(exif, fileData) {
     // Section 5: Shooting Mode
     let shootingModeShown = false;
     if (exif.ExposureProgram !== undefined) {
-        let programs = ["Not defined", "Manual", "Normal program", "Aperture priority", "Shutter priority", "Creative program", "Action program", "Portrait mode", "Landscape mode"];
-        let program = programs[exif.ExposureProgram] || "Unknown";
+        let programs = [
+            T('value/notDefined', 'Not defined'),
+            T('value/manual', 'Manual'),
+            T('value/normalProgram', 'Normal program'),
+            T('value/aperturePriority', 'Aperture priority'),
+            T('value/shutterPriority', 'Shutter priority'),
+            T('value/creativeProgram', 'Creative program'),
+            T('value/actionProgram', 'Action program'),
+            T('value/portraitMode', 'Portrait mode'),
+            T('value/landscapeMode', 'Landscape mode')];
+        let program = programs[exif.ExposureProgram] || T('value/unknown', 'Unknown');
         $('#exposure-program-value').text(program);
         $('#exposure-program-row').show();
         shootingModeShown = true;
@@ -1196,8 +1205,11 @@ function formatExifData(exif, fileData) {
     }
 
     if (exif.ExposureMode !== undefined) {
-        let modes = ["Auto exposure", "Manual exposure", "Auto bracket"];
-        let mode = modes[exif.ExposureMode] || "Unknown";
+        let modes = [
+            T('value/autoExposure', 'Auto exposure'),
+            T('value/manualExposure', 'Manual exposure'),
+            T('value/autoBracket', 'Auto bracket')];
+        let mode = modes[exif.ExposureMode] || T('value/unknown', 'Unknown');
         $('#exposure-mode-value').text(mode);
         $('#exposure-mode-row').show();
         shootingModeShown = true;
@@ -1206,8 +1218,15 @@ function formatExifData(exif, fileData) {
     }
 
     if (exif.MeteringMode !== undefined) {
-        let metering = ["Unknown", "Average", "Center-weighted average", "Spot", "Multi-spot", "Pattern", "Partial"];
-        let meter = metering[exif.MeteringMode] || "Unknown";
+        let metering = [
+            T('value/unknown', 'Unknown'),
+            T('value/average', 'Average'),
+            T('value/centerWeighted', 'Center-weighted average'),
+            T('value/spot', 'Spot'),
+            T('value/multiSpot', 'Multi-spot'),
+            T('value/pattern', 'Pattern'),
+            T('value/partial', 'Partial')];
+        let meter = metering[exif.MeteringMode] || T('value/unknown', 'Unknown');
         $('#metering-mode-value').text(meter);
         $('#metering-mode-row').show();
         shootingModeShown = true;
@@ -1216,7 +1235,7 @@ function formatExifData(exif, fileData) {
     }
 
     if (exif.WhiteBalance !== undefined) {
-        let wb = exif.WhiteBalance === 0 ? "Auto" : "Manual";
+        let wb = exif.WhiteBalance === 0 ? T('value/auto', 'Auto') : T('value/manual', 'Manual');
         $('#white-balance-value').text(wb);
         $('#white-balance-row').show();
         shootingModeShown = true;
@@ -1225,7 +1244,7 @@ function formatExifData(exif, fileData) {
     }
 
     if (exif.Flash !== undefined) {
-        let flash = (exif.Flash & 1) ? "On" : "Off";
+        let flash = (exif.Flash & 1) ? T('value/on', 'On') : T('value/off', 'Off');
         $('#flash-value').text(flash);
         $('#flash-row').show();
         shootingModeShown = true;
@@ -1234,8 +1253,12 @@ function formatExifData(exif, fileData) {
     }
 
     if (exif.SceneCaptureType !== undefined) {
-        let scenes = ["Standard", "Landscape", "Portrait", "Night scene"];
-        let scene = scenes[exif.SceneCaptureType] || "Unknown";
+        let scenes = [
+            T('value/standard', 'Standard'),
+            T('value/landscape', 'Landscape'),
+            T('value/portrait', 'Portrait'),
+            T('value/night', 'Night scene')];
+        let scene = scenes[exif.SceneCaptureType] || T('value/unknown', 'Unknown');
         $('#scene-capture-value').text(scene);
         $('#scene-capture-row').show();
         shootingModeShown = true;
@@ -1317,8 +1340,9 @@ function restoreFromHash() {
     }
 }
 
-// Modify the window onload event to ensure folder and thumbnails are loaded first
-window.addEventListener('load', () => {
+// Restore the photo named in the address once the gallery is running (Alpine
+// starts after the language file, which may be later than the load event)
+document.addEventListener('alpine:initialized', () => {
     setTimeout(function(){
         if (window.location.hash) {
             const hashData = decodeURIComponent(window.location.hash.substring(1));
@@ -1377,7 +1401,7 @@ function openPhotoCastDialog() {
     if (_photoCastConnected()) {
         inp.style.display = 'none';
         stat.style.display = 'block';
-        stat.textContent = 'Connected to room ' + _photoCastCode;
+        stat.textContent = T('cast/connected', 'Connected to room {code}', { code: _photoCastCode });
         connBtn.style.display = 'none';
         discBtn.style.display = '';
     } else {
@@ -1399,13 +1423,13 @@ function connectPhotoCast() {
     const inp  = document.getElementById('cast-photo-code');
     const err  = document.getElementById('cast-photo-error');
     const code = inp.value.trim();
-    if (code.length !== 4) { err.textContent = 'Enter a 4-digit room code.'; return; }
+    if (code.length !== 4) { err.textContent = T('cast/enterCode', 'Enter a 4-digit room code.'); return; }
     err.textContent = '';
 
     fetch(ao_root + 'api/arozcast/ping?code=' + code)
         .then(r => r.json())
         .then(data => {
-            if (!data.exists) { err.textContent = 'Room not found. Is Arozcast running?'; return; }
+            if (!data.exists) { err.textContent = T('cast/noRoom', 'Room not found. Is Arozcast running?'); return; }
 
             // Disconnect any existing photo cast session
             if (_photoCastWs) {
@@ -1440,7 +1464,7 @@ function connectPhotoCast() {
                 }, 4000);
                 // Update modal to connected state
                 document.getElementById('cast-photo-status').style.display = 'block';
-                document.getElementById('cast-photo-status').textContent = 'Connected to room ' + code;
+                document.getElementById('cast-photo-status').textContent = T('cast/connected', 'Connected to room {code}', { code: code });
                 document.getElementById('cast-photo-code').style.display = 'none';
                 document.getElementById('cast-photo-conn-btn').style.display = 'none';
                 document.getElementById('cast-photo-disc-btn').style.display = '';
@@ -1459,11 +1483,11 @@ function connectPhotoCast() {
                 _startPhotoCastReconnect(savedCode);
             };
 
-            ws.onerror = function() { err.textContent = 'Connection error.'; };
+            ws.onerror = function() { err.textContent = T('cast/connError', 'Connection error.'); };
 
             closePhotoCastDialog();
         })
-        .catch(function() { err.textContent = 'Network error.'; });
+        .catch(function() { err.textContent = T('cast/netError', 'Network error.'); });
 }
 
 function disconnectPhotoCast() {
@@ -1547,7 +1571,7 @@ function _photoCastDidReconnect(ws, code) {
     }, 4000);
     document.getElementById('cast-photo-btn').classList.add('casting');
     var stat = document.getElementById('cast-photo-status');
-    if (stat) { stat.style.display = 'block'; stat.textContent = 'Reconnected to room ' + code; }
+    if (stat) { stat.style.display = 'block'; stat.textContent = T('cast/reconnected', 'Reconnected to room {code}', { code: code }); }
 }
 
 // When the user returns to this tab after the phone was asleep, reconnect immediately

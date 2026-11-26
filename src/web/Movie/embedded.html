@@ -7,6 +7,8 @@
     <meta name="theme-color" content="#000000">
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
+    <script src="../script/applocale.js"></script>
+    <script src="script/i18n.js"></script>
     <!-- HLS via Media Source, so browsers without native HLS (Firefox,
          Chrome) can play the transcoded playlist without hls.js -->
     <script src="../script/hlsmse.js"></script>
@@ -540,7 +542,7 @@
     <div id="seek-spinner">
         <div class="seek-spinner-box">
             <div class="spinner"></div>
-            <span>Buffering…</span>
+            <span locale="player/buffering">Buffering…</span>
         </div>
     </div>
 
@@ -557,54 +559,54 @@
 
     <!-- Resume popup -->
     <div id="resume-popup">
-        <div id="resume-popup-title">Resume playback?</div>
+        <div id="resume-popup-title" locale="resume/title">Resume playback?</div>
         <div id="resume-popup-sub"></div>
         <div id="resume-popup-btns">
-            <button class="resume-btn" id="resume-btn-continue">Resume</button>
-            <button class="resume-btn" id="resume-btn-restart">Start over</button>
+            <button class="resume-btn" id="resume-btn-continue" locale="resume/resume">Resume</button>
+            <button class="resume-btn" id="resume-btn-restart" locale="resume/restart">Start over</button>
         </div>
     </div>
 
     <!-- Context menu -->
     <div id="player-ctx">
-        <div class="ctx-item" id="ctx-play"><img class="ctx-icon" src="img/icons/play_white.svg" alt="">Play</div>
-        <div class="ctx-item" id="ctx-pause"><img class="ctx-icon" src="img/icons/pause_white.svg" alt="">Pause</div>
+        <div class="ctx-item" id="ctx-play"><img class="ctx-icon" src="img/icons/play_white.svg" alt=""><span locale="common/play">Play</span></div>
+        <div class="ctx-item" id="ctx-pause"><img class="ctx-icon" src="img/icons/pause_white.svg" alt=""><span locale="common/pause">Pause</span></div>
         <div class="ctx-divider"></div>
-        <div class="ctx-item" id="ctx-repeat"><img class="ctx-icon" src="img/icons/repeat_white.svg" alt="">Repeat: Off</div>
+        <div class="ctx-item" id="ctx-repeat"><img class="ctx-icon" src="img/icons/repeat_white.svg" alt=""><span locale="ctx/repeatOff">Repeat: Off</span></div>
         <div class="ctx-divider"></div>
         <div class="ctx-item ctx-has-sub" id="ctx-subtitle-parent">
-            <span>Subtitles</span>
+            <span locale="sub/subtitles">Subtitles</span>
             <i class="ctx-sub-arrow">›</i>
             <div id="ctx-subtitle-sub">
-                <div class="ctx-item ctx-active" id="ctx-sub-disable"><i class="ctx-icon">✓</i>Disable</div>
+                <div class="ctx-item ctx-active" id="ctx-sub-disable"><i class="ctx-icon">✓</i><span locale="sub/disable">Disable</span></div>
                 <div class="ctx-divider"></div>
-                <div class="ctx-item" id="ctx-sub-load"><i class="ctx-icon">+</i>Load SRT file…</div>
+                <div class="ctx-item" id="ctx-sub-load"><i class="ctx-icon">+</i><span locale="sub/load">Load SRT file…</span></div>
             </div>
         </div>
         <div class="ctx-divider"></div>
-        <div class="ctx-item" id="ctx-subtitle-settings"><img class="ctx-icon" src="img/icons/settings_white.svg" alt="">Subtitle Settings</div>
-        <div class="ctx-item" id="ctx-props">Video Properties</div>
+        <div class="ctx-item" id="ctx-subtitle-settings"><img class="ctx-icon" src="img/icons/settings_white.svg" alt=""><span locale="sub/settings">Subtitle Settings</span></div>
+        <div class="ctx-item" id="ctx-props" locale="props/title">Video Properties</div>
     </div>
 
     <!-- Subtitle settings modal -->
     <div id="subtitle-settings-modal">
-        <h3>Subtitle Settings<button id="sset-close" title="Close"><img src="img/icons/close_white.svg" alt=""></button></h3>
+        <h3><span locale="sub/settings">Subtitle Settings</span><button id="sset-close" title="Close"><img src="img/icons/close_white.svg" alt=""></button></h3>
         <div class="sset-row">
-            <span class="sset-label">Position</span>
+            <span class="sset-label" locale="sset/position">Position</span>
             <div class="sset-seg">
-                <button class="sset-seg-btn active" data-val="bottom">Bottom</button>
-                <button class="sset-seg-btn"        data-val="top">Top</button>
+                <button class="sset-seg-btn active" data-val="bottom" locale="sset/bottom">Bottom</button>
+                <button class="sset-seg-btn"        data-val="top" locale="sset/top">Top</button>
             </div>
         </div>
         <div class="sset-row">
-            <span class="sset-label">Size</span>
+            <span class="sset-label" locale="sset/size">Size</span>
             <input type="range" id="sset-size" min="14" max="52" step="1" value="22">
             <span id="sset-size-val">22px</span>
         </div>
         <div class="sset-row">
-            <span class="sset-label">Font</span>
+            <span class="sset-label" locale="sset/font">Font</span>
             <select id="sset-font">
-                <option value="system-ui, sans-serif">System Default</option>
+                <option value="system-ui, sans-serif" locale="sset/systemFont">System Default</option>
                 <option value="Arial, sans-serif">Arial</option>
                 <option value="'Helvetica Neue', Helvetica, sans-serif">Helvetica</option>
                 <option value="Georgia, serif">Georgia</option>
@@ -616,7 +618,7 @@
             </select>
         </div>
         <div class="sset-row">
-            <span class="sset-label">Color</span>
+            <span class="sset-label" locale="sset/color">Color</span>
             <div class="sset-colors">
                 <button class="sset-color active" data-color="#ffffff" style="background:#ffffff" title="White"></button>
                 <button class="sset-color"        data-color="#ffff00" style="background:#ffff00" title="Yellow"></button>
@@ -626,15 +628,15 @@
                 <input  type="color" id="sset-color-custom" value="#ffffff" title="Custom color">
             </div>
         </div>
-        <div id="sset-preview">Sample subtitle text</div>
+        <div id="sset-preview" locale="sset/preview">Sample subtitle text</div>
     </div>
 
     <!-- Video info / stats modal -->
     <div id="video-info-modal">
-        <h3><span id="video-info-title">Video Properties</span><button id="video-info-close" title="Close" onclick="closeVideoInfo()"><img src="img/icons/close_white.svg" alt=""></button></h3>
+        <h3><span id="video-info-title" locale="props/title">Video Properties</span><button id="video-info-close" title="Close" onclick="closeVideoInfo()"><img src="img/icons/close_white.svg" alt=""></button></h3>
         <div id="video-info-tabs">
-            <div class="info-tab active" onclick="showInfoTab('props')">Properties</div>
-            <div class="info-tab"        onclick="showInfoTab('stats')">Stats</div>
+            <div class="info-tab active" onclick="showInfoTab('props')" locale="props/tab">Properties</div>
+            <div class="info-tab"        onclick="showInfoTab('stats')" locale="props/statsTab">Stats</div>
         </div>
         <div id="video-info-body"></div>
     </div>
@@ -642,14 +644,14 @@
     <!-- Playback settings popup -->
     <div id="settings-popup">
         <div class="set-section">
-            <div class="set-head"><img src="img/icons/repeat_white.svg" alt="">Repeat</div>
+            <div class="set-head"><img src="img/icons/repeat_white.svg" alt=""><span locale="set/repeat">Repeat</span></div>
             <div class="set-seg" id="set-repeat-seg">
-                <button class="set-seg-btn active" data-repeat="off">Off</button>
-                <button class="set-seg-btn"        data-repeat="one">Repeat one</button>
+                <button class="set-seg-btn active" data-repeat="off" locale="set/off">Off</button>
+                <button class="set-seg-btn"        data-repeat="one" locale="set/repeatOne">Repeat one</button>
             </div>
         </div>
         <div class="set-section">
-            <div class="set-head"><img src="img/icons/play_white.svg" alt="">Playback speed</div>
+            <div class="set-head"><img src="img/icons/play_white.svg" alt=""><span locale="set/speed">Playback speed</span></div>
             <div class="speed-grid" id="set-speed-grid">
                 <button class="speed-btn" data-speed="0.5">0.5&times;</button>
                 <button class="speed-btn active" data-speed="1">1&times;</button>
@@ -659,25 +661,25 @@
             </div>
         </div>
         <div class="set-section">
-            <div class="set-head"><img src="img/icons/volume_white.svg" alt="">Volume bar</div>
+            <div class="set-head"><img src="img/icons/volume_white.svg" alt=""><span locale="set/volumeBar">Volume bar</span></div>
             <div class="set-seg" id="set-volbar-seg">
-                <button class="set-seg-btn active" data-volbar="auto">Auto</button>
-                <button class="set-seg-btn"        data-volbar="always">Always show</button>
+                <button class="set-seg-btn active" data-volbar="auto" locale="set/auto">Auto</button>
+                <button class="set-seg-btn"        data-volbar="always" locale="set/alwaysShow">Always show</button>
             </div>
         </div>
         <div class="set-section">
-            <div class="set-head"><img src="img/icons/movie_white.svg" alt="">Streaming mode</div>
+            <div class="set-head"><img src="img/icons/movie_white.svg" alt=""><span locale="set/streamMode">Streaming mode</span></div>
             <div class="set-seg" id="set-stream-seg">
-                <button class="set-seg-btn active" data-stream="auto">Auto</button>
+                <button class="set-seg-btn active" data-stream="auto" locale="set/auto">Auto</button>
                 <button class="set-seg-btn"        data-stream="mp4">MP4</button>
                 <button class="set-seg-btn"        data-stream="hls">HLS</button>
             </div>
         </div>
         <div class="set-section">
-            <div class="set-head"><img src="img/icons/quality_white.svg" alt="">Quality<span class="set-head-note" id="set-quality-note"></span></div>
+            <div class="set-head"><img src="img/icons/quality_white.svg" alt=""><span locale="set/quality">Quality</span><span class="set-head-note" id="set-quality-note"></span></div>
             <div class="quality-grid" id="set-quality-grid">
-                <button class="speed-btn" data-quality="auto">Auto</button>
-                <button class="speed-btn active" data-quality="original">Original</button>
+                <button class="speed-btn" data-quality="auto" locale="set/auto">Auto</button>
+                <button class="speed-btn active" data-quality="original" locale="set/original">Original</button>
                 <button class="speed-btn" data-quality="1080p">1080p</button>
                 <button class="speed-btn" data-quality="720p">720p</button>
                 <button class="speed-btn" data-quality="480p">480p</button>
@@ -686,19 +688,19 @@
         </div>
         <div class="set-section" style="padding-left:0;padding-right:0;padding-bottom:2px;">
             <div class="set-link" id="set-video-props">
-                <img src="img/icons/menu_white.svg" alt="">Video properties
+                <img src="img/icons/menu_white.svg" alt=""><span locale="props/link">Video properties</span>
             </div>
         </div>
     </div>
 
     <!-- Subtitle popup (dedicated CC button) -->
     <div id="subtitle-popup">
-        <div class="ctx-item ctx-active" id="sub-pop-disable"><i class="ctx-icon">✓</i>Disable</div>
+        <div class="ctx-item ctx-active" id="sub-pop-disable"><i class="ctx-icon">✓</i><span locale="sub/disable">Disable</span></div>
         <div class="ctx-divider"></div>
-        <div class="ctx-item" id="sub-pop-load"><i class="ctx-icon">+</i>Load SRT file…</div>
+        <div class="ctx-item" id="sub-pop-load"><i class="ctx-icon">+</i><span locale="sub/load">Load SRT file…</span></div>
         <div class="ctx-divider"></div>
         <div class="set-link" id="sub-pop-settings">
-            <img src="img/icons/settings_white.svg" alt="">Subtitle settings
+            <img src="img/icons/settings_white.svg" alt=""><span locale="sub/settingsLink">Subtitle settings</span>
         </div>
     </div>
 
@@ -827,9 +829,10 @@ function playVideo(v) {
                 return;
             }
             if (err && err.name === 'NotSupportedError') {
-                showToast('This browser cannot play this transcoded format. Try Chrome or Firefox.');
+                showToast(T('play/unsupported', 'This browser cannot play this transcoded format. Try Chrome or Firefox.'));
             } else {
-                showToast('Playback failed: ' + ((err && err.message) || 'unknown error'));
+                showToast(T('play/failed', 'Playback failed: {reason}',
+                    { reason: (err && err.message) || T('play/unknownError', 'unknown error') }));
             }
         });
     }
@@ -844,7 +847,12 @@ if (files && files.length > 0) {
         filepath: files[0].filepath,
         ext:      files[0].filename.split('.').pop().toLowerCase()
     };
-    ao_module_setWindowTitle('Movie – ' + currentFile.name);
+}
+
+// Start the file ArozOS handed us, once the page can show text
+function startOpenedFile() {
+    if (!currentFile) { return; }
+    ao_module_setWindowTitle(T('app/title', 'Movie') + ' – ' + currentFile.name);
 
     vid.autoplay = true;
 
@@ -872,12 +880,12 @@ function beginFileStream(directPlay) {
         vid.load();
         // Last resort: a browser without the platform decoder the probe assumed
         onDirectPlaybackFailure(vid, function () {
-            showToast('This browser cannot decode that file — switching to a transcode');
+            showToast(T('play/decodeFallback', 'This browser cannot decode that file — switching to a transcode'));
             beginFileStream(false);
         });
     } else if (!attachTranscodeStream(vid, transcodeStreamURL(currentFile.filepath, 0),
                                       function (reason) { showToast(reason); })) {
-        showToast('This browser cannot play the transcoded stream. Switch streaming mode to MP4 in settings.');
+        showToast(T('play/noTranscodeStream', 'This browser cannot play the transcoded stream. Switch streaming mode to MP4 in settings.'));
         return;
     }
 
@@ -1083,7 +1091,7 @@ function transcodeSeekTo(seconds) {
             function (reason) { hideSeekFreeze(); showToast(reason); },
             function () { playVideo(vid); })) {
         hideSeekFreeze();
-        showToast('This browser cannot play the HLS stream. Switch streaming mode to MP4 in settings.');
+        showToast(T('play/noHlsSwitch', 'This browser cannot play the HLS stream. Switch streaming mode to MP4 in settings.'));
     }
 }
 
@@ -1399,7 +1407,8 @@ function initVideoControls() {
         hideSeekFreeze();
         if (recoverTranscodeStream()) { return; }
         var detail = (e.originalEvent && e.originalEvent.detail) || {};
-        showToast(detail.reason || 'The HLS stream stopped and could not be reopened.');
+        showToast(detail.reason ? streamLostReason(detail.reason)
+            : T('play/hlsStopped', 'The HLS stream stopped and could not be reopened.'));
     });
 
     // Auto-hide controls on mouse movement
@@ -1466,9 +1475,8 @@ function clearWatchPosition() {
 function showResumePopup(savedPos, duration) {
     vid.pause();
     pendingResumePos = savedPos;
-    $('#resume-popup-sub').text(
-        'Last position: ' + formatTime(savedPos) + ' of ' + formatTime(duration)
-    );
+    $('#resume-popup-sub').text(T('resume/position', 'Last position: {pos} of {duration}',
+        { pos: formatTime(savedPos), duration: formatTime(duration) }));
     $('#resume-popup').addClass('active');
     showControls();
 
@@ -1501,7 +1509,7 @@ function initContextMenu() {
             .toggleClass('ctx-active', repeatSingle)
             .html('<img class="ctx-icon" src="img/icons/'
                 + (repeatSingle ? 'repeat_one_white.svg' : 'repeat_white.svg')
-                + '" alt="">Repeat: ' + (repeatSingle ? 'On' : 'Off'));
+                + '" alt=""><span>' + escapeHtml(repeatLabel(repeatSingle)) + '</span>');
         $('#ctx-subtitle-sub').hide();
         closeSettingsPopup();
         closeSubtitlePopup();
@@ -1585,7 +1593,7 @@ function applyStreamMode(mode, reloadCurrent) {
     if (!attachTranscodeStream(vid, transcodeStreamURL(currentFile.filepath, startAt),
             function (reason) { showToast(reason); },
             function () { settlePlayState(resume); })) {
-        showToast('This browser cannot play the HLS stream.');
+        showToast(T('play/noHls', 'This browser cannot play the HLS stream.'));
     }
 }
 
@@ -1604,7 +1612,7 @@ function renderStreamQuality() {
                .toggleClass('active', id === active);
     });
     var note = (chosen === 'auto' && currentFile) ? streamQualityStep(effectiveStreamQuality(currentFile.filepath)) : null;
-    $('#set-quality-note').text(note ? note.label : '');
+    $('#set-quality-note').text(note ? qualityLabel(note) : '');
 }
 
 // Apply a quality step. Changing it mid-playback re-opens the file at the new
@@ -1653,7 +1661,7 @@ function reopenCurrentStream(resume) {
             vid.src = MEDIA_API + '?file=' + encodeURIComponent(file.filepath);
             $(vid).one('loadedmetadata.quality', function () { vid.currentTime = startAt; });
             onDirectPlaybackFailure(vid, function () {
-                showToast('This browser cannot decode that file — switching to a transcode');
+                showToast(T('play/decodeFallback', 'This browser cannot decode that file — switching to a transcode'));
                 beginFileStream(false);
             });
             settlePlayState(resume);
@@ -1674,7 +1682,7 @@ function reopenCurrentStream(resume) {
                 function (reason) { hideSeekFreeze(); showToast(reason); },
                 function () { settlePlayState(resume); })) {
             hideSeekFreeze();
-            showToast('This browser cannot play the transcoded stream. Switch streaming mode to MP4 in settings.');
+            showToast(T('play/noTranscodeStream', 'This browser cannot play the transcoded stream. Switch streaming mode to MP4 in settings.'));
         }
     });
 }
@@ -1684,9 +1692,9 @@ function reopenCurrentStream(resume) {
 function warnIfStreamModeUnplayable() {
     var mode = getStreamMode();
     if (mode === 'mp4' && isWebKitClient()) {
-        showToast('This browser cannot play the MP4 stream. Use Auto or HLS.');
+        showToast(T('play/noMp4', 'This browser cannot play the MP4 stream. Use Auto or HLS.'));
     } else if (mode === 'hls' && !hlsPlaybackSupported(playerVideoElement())) {
-        showToast('This browser has no HLS support (needs Media Source Extensions).');
+        showToast(T('play/noMse', 'This browser has no HLS support (needs Media Source Extensions).'));
     }
 }
 
@@ -1820,7 +1828,7 @@ function openVideoInfo(tab) {
     currentInfoTab = tab || 'props';
     $('#video-info-modal').show();
     $('.info-tab').removeClass('active').eq(currentInfoTab === 'props' ? 0 : 1).addClass('active');
-    $('#video-info-title').text(currentInfoTab === 'props' ? 'Video Properties' : 'Streaming Stats');
+    $('#video-info-title').text(currentInfoTab === 'props' ? T('props/title', 'Video Properties') : T('props/stats', 'Streaming Stats'));
     renderInfoContent();
     if (infoRefreshTimer) { clearInterval(infoRefreshTimer); infoRefreshTimer = null; }
     if (currentInfoTab === 'stats') {
@@ -1836,7 +1844,7 @@ function closeVideoInfo() {
 function showInfoTab(tab) {
     currentInfoTab = tab;
     $('.info-tab').removeClass('active').eq(tab === 'props' ? 0 : 1).addClass('active');
-    $('#video-info-title').text(tab === 'props' ? 'Video Properties' : 'Streaming Stats');
+    $('#video-info-title').text(tab === 'props' ? T('props/title', 'Video Properties') : T('props/stats', 'Streaming Stats'));
     if (infoRefreshTimer) { clearInterval(infoRefreshTimer); infoRefreshTimer = null; }
     if (tab === 'stats') { infoRefreshTimer = setInterval(renderInfoContent, 1000); }
     renderInfoContent();
@@ -1850,21 +1858,28 @@ function infoRow(label, value) {
 function renderInfoContent() {
     var html = '';
     if (currentInfoTab === 'props') {
-        html += infoRow('Title',          currentFile ? currentFile.name : '–');
-        html += infoRow('Resolution',     (vid.videoWidth && vid.videoHeight)
+        html += infoRow(T('prop/title', 'Title'), currentFile ? currentFile.name : '–');
+        html += infoRow(T('prop/resolution', 'Resolution'), (vid.videoWidth && vid.videoHeight)
             ? vid.videoWidth + ' × ' + vid.videoHeight : '–');
         var infoDuration = isTranscodedVideo ? transcodeDuration : vid.duration;
         var infoPosition = isTranscodedVideo ? (vid.currentTime + transcodeSeekOffset) : vid.currentTime;
-        html += infoRow('Duration',       infoDuration ? formatTime(infoDuration) : '–');
-        html += infoRow('Position',       infoPosition ? formatTime(infoPosition) : '–');
-        html += infoRow('Playback speed', vid.playbackRate + '×');
-        html += infoRow('Volume',         vid.muted ? 'Muted' : Math.round(vid.volume * 100) + '%');
-        if (currentFile) { html += infoRow('File path', currentFile.filepath || '–'); }
+        html += infoRow(T('prop/duration', 'Duration'), infoDuration ? formatTime(infoDuration) : '–');
+        html += infoRow(T('prop/position', 'Position'), infoPosition ? formatTime(infoPosition) : '–');
+        html += infoRow(T('set/speed', 'Playback speed'), vid.playbackRate + '×');
+        html += infoRow(T('prop/volume', 'Volume'), vid.muted ? T('prop/muted', 'Muted') : Math.round(vid.volume * 100) + '%');
+        if (currentFile) { html += infoRow(T('prop/path', 'File path'), currentFile.filepath || '–'); }
     } else {
-        var rsLabels = ['No info', 'Metadata only', 'Have current data', 'Have future data', 'Enough data'];
-        var nsLabels = ['Empty', 'Idle', 'Loading', 'No source'];
-        html += infoRow('Ready state',   rsLabels[vid.readyState]  || vid.readyState);
-        html += infoRow('Network state', nsLabels[vid.networkState] || vid.networkState);
+        var rsLabels = [T('ready/noInfo', 'No info'),
+            T('ready/metadata', 'Metadata only'),
+            T('ready/current', 'Have current data'),
+            T('ready/future', 'Have future data'),
+            T('ready/enough', 'Enough data')];
+        var nsLabels = [T('network/empty', 'Empty'),
+            T('network/idle', 'Idle'),
+            T('network/loading', 'Loading'),
+            T('network/noSource', 'No source')];
+        html += infoRow(T('stats/ready', 'Ready state'), rsLabels[vid.readyState]  || vid.readyState);
+        html += infoRow(T('stats/network', 'Network state'), nsLabels[vid.networkState] || vid.networkState);
         var bufEnd = 0;
         if (vid.buffered && vid.buffered.length > 0) {
             for (var i = 0; i < vid.buffered.length; i++) {
@@ -1873,15 +1888,15 @@ function renderInfoContent() {
                 }
             }
         }
-        html += infoRow('Buffer ahead',   Math.max(0, bufEnd - vid.currentTime).toFixed(1) + 's');
-        html += infoRow('Total buffered', vid.buffered.length > 0
+        html += infoRow(T('stats/bufferAhead', 'Buffer ahead'),   Math.max(0, bufEnd - vid.currentTime).toFixed(1) + 's');
+        html += infoRow(T('stats/totalBuffered', 'Total buffered'), vid.buffered.length > 0
             ? formatTime(vid.buffered.end(vid.buffered.length - 1)) : '–');
         if (vid.getVideoPlaybackQuality) {
             var q = vid.getVideoPlaybackQuality();
-            html += infoRow('Frames decoded',  q.totalVideoFrames   || 0);
-            html += infoRow('Frames dropped',  q.droppedVideoFrames || 0);
+            html += infoRow(T('stats/decoded', 'Frames decoded'), q.totalVideoFrames   || 0);
+            html += infoRow(T('stats/dropped', 'Frames dropped'), q.droppedVideoFrames || 0);
         }
-        html += infoRow('Stalled / ended', vid.ended ? 'Ended' : (vid.readyState < 3 ? 'Yes' : 'No'));
+        html += infoRow(T('stats/stalled', 'Stalled / ended'), vid.ended ? T('stats/ended', 'Ended') : (vid.readyState < 3 ? T('common/yes', 'Yes') : T('common/no', 'No')));
     }
     $('#video-info-body').html(html);
 }
@@ -2007,11 +2022,11 @@ window.movieEmbOnSubtitleFile = function (raw) {
                 loadedSubtitleFiles.push({ path: filePath, name: name, cues: cues });
                 activeSubtitleIndex = loadedSubtitleFiles.length - 1;
             }
-            showToast('Subtitle loaded: ' + name);
+            showToast(T('sub/loaded', 'Subtitle loaded: {name}', { name: name }));
             applyActiveSubtitle();   // a sidecar file replaces any styled track
             updateSubtitleSubmenu();
         },
-        error: function () { showToast('Failed to load subtitle file'); }
+        error: function () { showToast(T('sub/loadFailed', 'Failed to load subtitle file')); }
     });
 };
 
@@ -2120,10 +2135,10 @@ function loadEmbeddedTrackList(filepath) {
 
 function embeddedTrackLabel(track, position) {
     var label = track.title || '';
-    if (!label) { label = 'Track ' + (position + 1); }
+    if (!label) { label = T('sub/track', 'Track {n}', { n: position + 1 }); }
     if (track.language) { label += ' [' + track.language + ']'; }
-    if (track.forced)   { label += ' (forced)'; }
-    if (!track.textual) { label += ' — image based'; }
+    if (track.forced)   { label += ' ' + T('sub/forced', '(forced)'); }
+    if (!track.textual) { label += ' — ' + T('sub/imageBased', 'image based'); }
     return label;
 }
 
@@ -2131,7 +2146,7 @@ function embeddedTrackLabel(track, position) {
 // large file. Results are kept in loadedSubtitleFiles, making reselection free.
 function selectEmbeddedSubtitle(track, position) {
     if (!track.textual) {
-        showToast('That track is image based and cannot be displayed');
+        showToast(T('sub/imageCannot', 'That track is image based and cannot be displayed'));
         return;
     }
 
@@ -2152,7 +2167,7 @@ function selectEmbeddedSubtitle(track, position) {
     var url = SUBTITLE_API + '?file=' + encodeURIComponent(mediaPath) + '&track=' + track.index
             + (styled ? '&format=ass' : '');
 
-    showToast('Extracting subtitle track…');
+    showToast(T('sub/extracting', 'Extracting subtitle track…'));
     $.ajax({
         url: url,
         dataType: 'text',
@@ -2162,7 +2177,7 @@ function selectEmbeddedSubtitle(track, position) {
             if (styled) {
                 var parsed = ASS.parse(content);
                 if (!parsed.events.length) {
-                    showToast('That track contained no readable text');
+                    showToast(T('sub/noText', 'That track contained no readable text'));
                     return;
                 }
                 loadedSubtitleFiles.push({
@@ -2174,13 +2189,13 @@ function selectEmbeddedSubtitle(track, position) {
                 activeSubtitleIndex = loadedSubtitleFiles.length - 1;
                 applyActiveSubtitle();
                 updateSubtitleSubmenu();
-                showToast('Subtitle loaded · ' + parsed.events.length + ' styled lines');
+                showToast(T('sub/loadedStyled', 'Subtitle loaded · {n} styled lines', { n: parsed.events.length }));
                 return;
             }
 
             var cues = parseSrt(content);
             if (cues.length === 0) {
-                showToast('That track contained no readable text');
+                showToast(T('sub/noText', 'That track contained no readable text'));
                 return;
             }
             loadedSubtitleFiles.push({
@@ -2191,9 +2206,9 @@ function selectEmbeddedSubtitle(track, position) {
             activeSubtitleIndex = loadedSubtitleFiles.length - 1;
             applyActiveSubtitle();
             updateSubtitleSubmenu();
-            showToast('Subtitle loaded · ' + cues.length + ' lines');
+            showToast(T('sub/loadedLines', 'Subtitle loaded · {n} lines', { n: cues.length }));
         },
-        error: function () { showToast('Could not extract that subtitle track'); }
+        error: function () { showToast(T('sub/extractFailed', 'Could not extract that subtitle track')); }
     });
 }
 
@@ -2323,11 +2338,12 @@ function refreshEmbeddedFontOptions() {
     $select.find('optgroup.embedded-fonts').remove();
 
     if (embeddedFonts.length > 0) {
-        var $group = $('<optgroup label="Embedded in this video" class="embedded-fonts"></optgroup>');
+        var $group = $('<optgroup class="embedded-fonts"></optgroup>')
+            .attr('label', T('sub/embeddedGroup', 'Embedded in this video'));
         embeddedFonts.forEach(function (font) {
             $group.append($('<option></option>')
                 .attr('value', embeddedFontFamily(font))
-                .text(font.filename || ('Font ' + (font.index + 1))));
+                .text(font.filename || T('sub/fontN', 'Font {n}', { n: font.index + 1 })));
         });
         $select.append($group);
     }
@@ -2556,7 +2572,7 @@ function initKeyboard() {
             case 'R':
                 e.preventDefault();
                 setRepeatSingle(!repeatSingle);
-                showToast('Repeat: ' + (repeatSingle ? 'On' : 'Off')); break;
+                showToast(repeatLabel(repeatSingle)); break;
 
             case 's':
             case 'S':
@@ -2578,6 +2594,7 @@ function initKeyboard() {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 function initMain(){
+    startOpenedFile();
     initVideoControls();
     initContextMenu();
     initSettingsPopup();
@@ -2594,7 +2611,12 @@ function initMain(){
     initKeyboard();
 }
 
-$(document).ready(function () {
+// The window is titled after the file, not by the language file
+window.applocaleKeepWindowTitle = true;
+
+$(document).ready(function () { loadAppLocale(startPage); });
+
+function startPage() {
       //Check if there are another instant running. If yes, replace that another instance URL
     if (ao_module_virtualDesktop){
         //If in ao_module mode, try to make this windows the only instance
@@ -2604,7 +2626,7 @@ $(document).ready(function () {
     }else{
         initMain();
     }
-});
+}
 </script>
 </body>
 </html>

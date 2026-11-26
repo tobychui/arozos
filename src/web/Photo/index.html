@@ -9,15 +9,19 @@
     <link rel="manifest" crossorigin="use-credentials" href="manifest.json">
     <title>Photo</title>
     <link rel="stylesheet" href="../script/semantic/semantic.min.css">
-    <script src="../script/alpine.min.js"></script>
     <script src="../script/jquery.min.js"></script>
     <script src="../script/semantic/semantic.min.js"></script>
     <script src="../script/ao_module.js"></script>
+    <script src="../script/applocale.js"></script>
+    <script src="i18n.js"></script>
     <script src="constants.js"></script>
     <script src="histogram.js"></script>
     <script src="search.js"></script>
     <script src="photo.js"></script>
     <style>
+        /* Nothing shows until Alpine has started (see the end of the page) */
+        [x-cloak] { visibility: hidden; }
+
         #main {
             display: flex;
             flex-direction: column;
@@ -995,7 +999,8 @@
 
 </head>
 <body>
-    <div id="main" x-data='photoListObject()' x-init="init()">
+    <!-- Alpine calls init() of the x-data object by itself: no x-init here -->
+    <div id="main" x-cloak x-data='photoListObject()'>
         <div class="ui inverted secondary small menu" id="menu">
             <!-- Mobile sidebar toggle (hidden on desktop via CSS) -->
             <a class="icon item" id="sidebar-toggle-btn" x-on:click="sidebarOpen = !sidebarOpen;" style="display:none;">
@@ -1011,19 +1016,19 @@
             <div id="sidebar" :class="{ 'open': sidebarOpen }">
 
                 <div class="sidebar-section">
-                    <div class="sidebar-section-title">Sort By</div>
+                    <div class="sidebar-section-title" locale="sidebar/sortBy">Sort By</div>
                     <div style="padding: 0 0.4em;">
                         <select class="sidebar-select" x-model="sortOrder" x-on:change="getFolderInfo();"
-                                :disabled="groupByDate" :title="groupByDate ? 'Turn off Group by date to sort manually' : ''">
-                            <option value="smart">Natural Order</option>
-                            <option value="mostRecent">Newest First</option>
-                            <option value="leastRecent">Oldest First</option>
-                            <option value="default">Filename A→Z</option>
-                            <option value="reverse">Filename Z→A</option>
-                            <option value="smallToLarge">Size Small→Large</option>
-                            <option value="largeToSmall">Size Large→Small</option>
-                            <option value="fileTypeAsce">Extension A→Z</option>
-                            <option value="fileTypeDesc">Extension Z→A</option>
+                                :disabled="groupByDate" :title="groupByDate ? T('sort/groupTip', 'Turn off Group by date to sort manually') : ''">
+                            <option value="smart" locale="sort/smart">Natural Order</option>
+                            <option value="mostRecent" locale="sort/newest">Newest First</option>
+                            <option value="leastRecent" locale="sort/oldest">Oldest First</option>
+                            <option value="default" locale="sort/nameAsc">Filename A→Z</option>
+                            <option value="reverse" locale="sort/nameDesc">Filename Z→A</option>
+                            <option value="smallToLarge" locale="sort/sizeAsc">Size Small→Large</option>
+                            <option value="largeToSmall" locale="sort/sizeDesc">Size Large→Small</option>
+                            <option value="fileTypeAsce" locale="sort/extAsc">Extension A→Z</option>
+                            <option value="fileTypeDesc" locale="sort/extDesc">Extension Z→A</option>
                         </select>
                     </div>
                 </div>
@@ -1031,35 +1036,35 @@
                 <div class="sidebar-divider"></div>
 
                 <div class="sidebar-section">
-                    <div class="sidebar-section-title">View</div>
+                    <div class="sidebar-section-title" locale="sidebar/view">View</div>
                     <label class="sidebar-toggle" title="Split the grid into Year / Month sections">
                         <input type="checkbox" x-model="groupByDate" x-on:change="onGroupByDateChange();">
-                        <span>Group by date</span>
+                        <span locale="view/groupByDate">Group by date</span>
                     </label>
-                    <div class="sidebar-zoom-hint">Hold Ctrl / ⌘ and scroll to resize photos</div>
+                    <div class="sidebar-zoom-hint" locale="view/zoomHint">Hold Ctrl / ⌘ and scroll to resize photos</div>
                 </div>
 
                 <div class="sidebar-divider"></div>
 
                 <div class="sidebar-section">
-                    <div class="sidebar-section-title">Filter by Rating</div>
+                    <div class="sidebar-section-title" locale="sidebar/filterRating">Filter by Rating</div>
                     <div class="sidebar-rating">
                         <template x-for="n in [1,2,3,4,5]" :key="n">
                             <i class="star icon" :class="{ 'outline': n > ratingFilter }"
                                x-on:click="setRatingFilter(n)"
-                               :title="'Rating ' + n + ' and up'"></i>
+                               :title="T('rating/andUp', 'Rating {n} and up', {n: n})"></i>
                         </template>
                         <span class="sidebar-rating-clear" x-show="ratingFilter > 0"
-                              x-on:click="setRatingFilter(0)">Clear</span>
+                              x-on:click="setRatingFilter(0)" locale="rating/clear">Clear</span>
                     </div>
                     <div class="sidebar-rating-hint" x-show="ratingFilter > 0"
-                         x-text="'Showing ' + ratingFilter + '★ & up'"></div>
+                         x-text="T('rating/showing', 'Showing {n}★ & up', {n: ratingFilter})"></div>
                 </div>
 
                 <div class="sidebar-divider"></div>
 
                 <div class="sidebar-section">
-                    <div class="sidebar-section-title">Library</div>
+                    <div class="sidebar-section-title" locale="sidebar/library">Library</div>
                     <template x-for="vroot in vroots">
                         <a class="sidebar-item" x-on:click="updateRenderingPath(vroot[2]);">
                             <i class="ui hdd outline icon"></i>
@@ -1071,7 +1076,7 @@
                 <div class="sidebar-divider"></div>
 
                 <div class="sidebar-section">
-                    <div class="sidebar-section-title">Current Path</div>
+                    <div class="sidebar-section-title" locale="sidebar/currentPath">Current Path</div>
                     <template x-for="(seg, idx) in getPathSegments()">
                         <a class="sidebar-item"
                            :class="{ 'active': seg.path === currentPath, 'disk-root': seg.isDiskRoot }"
@@ -1086,7 +1091,7 @@
                 <div x-show="folders.length > 0">
                     <div class="sidebar-divider"></div>
                     <div class="sidebar-section">
-                        <div class="sidebar-section-title">Subfolders</div>
+                        <div class="sidebar-section-title" locale="sidebar/subfolders">Subfolders</div>
                         <template x-for="folder in folders">
                             <a class="sidebar-item" x-on:click="updateRenderingPath(folder);">
                                 <i class="ui folder open icon"></i>
@@ -1120,7 +1125,7 @@
                                 </template>
                                 <input type="text" id="photo-search-input" x-ref="searchInput"
                                     autocomplete="off" spellcheck="false"
-                                    :placeholder="searchTags.length ? '' : 'Search — name, camera, ISO, f/2.8, June, 2023, landscape…'"
+                                    :placeholder="searchTags.length ? '' : T('search/placeholder', 'Search — name, camera, ISO, f/2.8, June, 2023, landscape…')"
                                     x-model="searchInput"
                                     x-on:input="onSearchInput()"
                                     x-on:keydown="onSearchKeydown($event)"
@@ -1148,13 +1153,13 @@
                     <!-- Result count / indexing status -->
                     <div id="search-meta" x-show="searchMode || indexStatusText.length > 0">
                         <span x-show="searchMode"
-                            x-text="searchTotal + ' result' + (searchTotal === 1 ? '' : 's')"></span>
-                        <a class="search-clear-link" x-show="searchMode" x-on:click="clearSearch()">Clear search</a>
+                            x-text="searchTotal === 1 ? T('search/result', '{n} result', {n: searchTotal}) : T('search/results', '{n} results', {n: searchTotal})"></span>
+                        <a class="search-clear-link" x-show="searchMode" x-on:click="clearSearch()" locale="search/clear">Clear search</a>
                         <span id="index-chip" x-show="indexStatusText.length > 0">
                             <i class="loading spinner icon" x-show="indexing"></i>
                             <span x-text="indexStatusText"></span>
                             <a class="reindex-link" x-show="!indexing" x-on:click="rebuildIndex()"
-                                title="Rebuild the search index">Rebuild</a>
+                                title="Rebuild the search index" locale="search/rebuild">Rebuild</a>
                         </span>
                     </div>
                 </div>
@@ -1162,9 +1167,9 @@
                 <div id="noimg" class="ui basic inverted segment" style="display:none;">
                     <h4 class="ui header">
                         <div class="content">
-                            <span x-text="searchMode ? 'No matching photos' : 'Empty Folder'">Empty Folder</span>
-                            <div class="sub header" x-show="!searchMode">There are no photo stored in <span x-text="currentPath + '/'"></span></div>
-                            <div class="sub header" x-show="searchMode">Try a different name, camera, ISO, f-number, month, year or orientation.</div>
+                            <span x-text="searchMode ? T('empty/noMatch', 'No matching photos') : T('empty/folder', 'Empty Folder')">Empty Folder</span>
+                            <div class="sub header" x-show="!searchMode" x-text="T('empty/noPhotosIn', 'There are no photo stored in {path}', {path: currentPath + '/'})"></div>
+                            <div class="sub header" x-show="searchMode" locale="empty/searchTip">Try a different name, camera, ISO, f-number, month, year or orientation.</div>
                         </div>
                     </h4>
                 </div>
@@ -1190,7 +1195,7 @@
                     </div>
                     <!-- Infinite scroll sentinel -->
                     <div id="load-more-indicator" style="text-align:center; padding: 1em; color: #aaa;" x-show="hasMoreImages">
-                        <i class="loading spinner icon"></i> Loading more photos...
+                        <i class="loading spinner icon"></i> <span locale="grid/loadingMore">Loading more photos...</span>
                     </div>
                 </div>
                 <!-- Grid zoom hint (shown briefly while Ctrl/⌘ + wheel resizes the grid) -->
@@ -1221,7 +1226,7 @@
                 </div>
                 
                 <!-- Loading Progress -->
-                <div id="loading-progress" class="loading-progress"><i class="loading spinner icon"></i> Loading</div>
+                <div id="loading-progress" class="loading-progress"><i class="loading spinner icon"></i> <span locale="viewer/loading">Loading</span></div>
                 
                 <!-- Zoom Controls -->
                 <div id="zoom-controls" class="zoom-controls">
@@ -1241,7 +1246,7 @@
                     <button class="close-btn info-panel-close" onclick="hideInfoPanel()">×</button>
                 </div>
                 <div class="info-panel">
-                    <h3>Photo Information</h3>
+                    <h3 locale="info/title">Photo Information</h3>
                     <div class="photo-rating-row">
                         <div id="photo-rating-stars" class="photo-rating-stars">
                             <i class="photo-star">★</i>
@@ -1250,37 +1255,37 @@
                             <i class="photo-star">★</i>
                             <i class="photo-star">★</i>
                         </div>
-                        <span id="photo-rating-label" class="photo-rating-label">Rate</span>
+                        <span id="photo-rating-label" class="photo-rating-label" locale="info/rate">Rate</span>
                     </div>
                     <table class="ui very basic compact table inverted">
                         <tbody>
                             <tr>
-                                <td><strong>Filename:</strong></td>
+                                <td><strong locale="info/filename">Filename:</strong></td>
                                 <td><span id="info-filename"></span></td>
                             </tr>
                             <tr>
-                                <td><strong>Filepath:</strong></td>
+                                <td><strong locale="info/filepath">Filepath:</strong></td>
                                 <td><span id="info-filepath"></span></td>
                             </tr>
                             <tr>
-                                <td><strong>Image Dimensions:</strong></td>
-                                <td><span id="info-dimensions">Loading...</span></td>
+                                <td><strong locale="info/dimensions">Image Dimensions:</strong></td>
+                                <td><span id="info-dimensions" locale="info/loading">Loading...</span></td>
                             </tr>
                         </tbody>
                     </table>
-                    <h4>EXIF Data</h4>
+                    <h4 locale="exif/data">EXIF Data</h4>
                     <div id="exif-data">
                         <!-- Basic Information -->
                         <div id="basic-info-section" style="display: none;">
-                            <h5>Basic Information</h5>
+                            <h5 locale="exif/basic">Basic Information</h5>
                             <table class="ui very basic compact table inverted exif-section-table">
                                 <tbody>
-                                    <tr id="format-row" style="display: none;"><td>Format</td><td id="format-value"></td></tr>
-                                    <tr id="dimensions-row" style="display: none;"><td>Dimensions</td><td id="dimensions-value"></td></tr>
-                                    <tr id="pixels-row" style="display: none;"><td>Pixels</td><td id="pixels-value"></td></tr>
-                                    <tr id="color-space-row" style="display: none;"><td>Color Space</td><td id="color-space-value"></td></tr>
-                                    <tr id="shooting-time-row" style="display: none;"><td>Shooting Time</td><td id="shooting-time-value"></td></tr>
-                                    <tr id="software-row" style="display: none;"><td>Software</td><td id="software-value"></td></tr>
+                                    <tr id="format-row" style="display: none;"><td locale="exif/format">Format</td><td id="format-value"></td></tr>
+                                    <tr id="dimensions-row" style="display: none;"><td locale="exif/dimensions">Dimensions</td><td id="dimensions-value"></td></tr>
+                                    <tr id="pixels-row" style="display: none;"><td locale="exif/pixels">Pixels</td><td id="pixels-value"></td></tr>
+                                    <tr id="color-space-row" style="display: none;"><td locale="exif/colorSpace">Color Space</td><td id="color-space-value"></td></tr>
+                                    <tr id="shooting-time-row" style="display: none;"><td locale="exif/shootingTime">Shooting Time</td><td id="shooting-time-value"></td></tr>
+                                    <tr id="software-row" style="display: none;"><td locale="exif/software">Software</td><td id="software-value"></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1288,7 +1293,7 @@
 
                         <!-- Shooting Parameters -->
                         <div id="shooting-params-section" style="display: none;">
-                            <h5>Shooting Parameters</h5>
+                            <h5 locale="exif/params">Shooting Parameters</h5>
                             <div id="shooting-params-grid" class="ui grid">
                                 <div class="eight wide column" id="focal-length-row" style="display: none;">
                                     <div class="propertiesLabel">
@@ -1326,14 +1331,14 @@
 
                         <!-- Tone Analysis -->
                         <div id="tone-analysis-section" style="display: none;">
-                            <h5>Tone Analysis</h5>
+                            <h5 locale="exif/tone">Tone Analysis</h5>
                             <table class="ui very basic compact table inverted exif-section-table">
                                 <tbody>
-                                    <tr><td>Tone Type</td><td class="tone-type-value">Analyzing...</td></tr>
-                                    <tr><td>Brightness</td><td class="brightness-value">Analyzing...</td></tr>
-                                    <tr><td>Contrast</td><td class="contrast-value">Analyzing...</td></tr>
-                                    <tr><td>Shadow Ratio</td><td class="shadow-ratio-value">Analyzing...</td></tr>
-                                    <tr><td>Highlight Ratio</td><td class="highlight-ratio-value">Analyzing...</td></tr>
+                                    <tr><td locale="exif/toneType">Tone Type</td><td class="tone-type-value" locale="exif/analyzing">Analyzing...</td></tr>
+                                    <tr><td locale="exif/brightness">Brightness</td><td class="brightness-value" locale="exif/analyzing">Analyzing...</td></tr>
+                                    <tr><td locale="exif/contrast">Contrast</td><td class="contrast-value" locale="exif/analyzing">Analyzing...</td></tr>
+                                    <tr><td locale="exif/shadowRatio">Shadow Ratio</td><td class="shadow-ratio-value" locale="exif/analyzing">Analyzing...</td></tr>
+                                    <tr><td locale="exif/highlightRatio">Highlight Ratio</td><td class="highlight-ratio-value" locale="exif/analyzing">Analyzing...</td></tr>
                                     <tr><td colspan="2"><canvas id="histogram-canvas" width="300" height="120" style="width: 100%; height: 120px; background: #222; margin: 10px 0; border-radius: 4px;"></canvas></td></tr>
                                 </tbody>
                             </table>
@@ -1342,13 +1347,13 @@
 
                         <!-- Device Information -->
                         <div id="device-info-section" style="display: none;">
-                            <h5>Device Information</h5>
+                            <h5 locale="exif/device">Device Information</h5>
                             <table class="ui very basic compact table inverted exif-section-table">
                                 <tbody>
-                                    <tr id="camera-row" style="display: none;"><td>Camera</td><td id="camera-value"></td></tr>
-                                    <tr id="lens-row" style="display: none;"><td>Lens</td><td id="lens-value"></td></tr>
-                                    <tr id="focal-length-device-row" style="display: none;"><td>Focal Length</td><td id="focal-length-device-value"></td></tr>
-                                    <tr id="max-aperture-row" style="display: none;"><td>Max Aperture</td><td id="max-aperture-value"></td></tr>
+                                    <tr id="camera-row" style="display: none;"><td locale="exif/camera">Camera</td><td id="camera-value"></td></tr>
+                                    <tr id="lens-row" style="display: none;"><td locale="exif/lens">Lens</td><td id="lens-value"></td></tr>
+                                    <tr id="focal-length-device-row" style="display: none;"><td locale="exif/focalLength">Focal Length</td><td id="focal-length-device-value"></td></tr>
+                                    <tr id="max-aperture-row" style="display: none;"><td locale="exif/maxAperture">Max Aperture</td><td id="max-aperture-value"></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1356,15 +1361,15 @@
 
                         <!-- Shooting Mode -->
                         <div id="shooting-mode-section" style="display: none;">
-                            <h5>Shooting Mode</h5>
+                            <h5 locale="exif/mode">Shooting Mode</h5>
                             <table class="ui very basic compact table inverted exif-section-table">
                                 <tbody>
-                                    <tr id="exposure-program-row" style="display: none;"><td>Exposure Program</td><td id="exposure-program-value"></td></tr>
-                                    <tr id="exposure-mode-row" style="display: none;"><td>Exposure Mode</td><td id="exposure-mode-value"></td></tr>
-                                    <tr id="metering-mode-row" style="display: none;"><td>Metering Mode</td><td id="metering-mode-value"></td></tr>
-                                    <tr id="white-balance-row" style="display: none;"><td>White Balance</td><td id="white-balance-value"></td></tr>
-                                    <tr id="flash-row" style="display: none;"><td>Flash</td><td id="flash-value"></td></tr>
-                                    <tr id="scene-capture-row" style="display: none;"><td>Scene Capture Type</td><td id="scene-capture-value"></td></tr>
+                                    <tr id="exposure-program-row" style="display: none;"><td locale="exif/exposureProgram">Exposure Program</td><td id="exposure-program-value"></td></tr>
+                                    <tr id="exposure-mode-row" style="display: none;"><td locale="exif/exposureMode">Exposure Mode</td><td id="exposure-mode-value"></td></tr>
+                                    <tr id="metering-mode-row" style="display: none;"><td locale="exif/metering">Metering Mode</td><td id="metering-mode-value"></td></tr>
+                                    <tr id="white-balance-row" style="display: none;"><td locale="exif/whiteBalance">White Balance</td><td id="white-balance-value"></td></tr>
+                                    <tr id="flash-row" style="display: none;"><td locale="exif/flash">Flash</td><td id="flash-value"></td></tr>
+                                    <tr id="scene-capture-row" style="display: none;"><td locale="exif/sceneCapture">Scene Capture Type</td><td id="scene-capture-value"></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1372,19 +1377,19 @@
 
                         <!-- Technical Parameters -->
                         <div id="technical-params-section" style="display: none;">
-                            <h5>Technical Parameters</h5>
+                            <h5 locale="exif/technical">Technical Parameters</h5>
                             <table class="ui very basic compact table inverted exif-section-table">
                                 <tbody>
-                                    <tr id="shutter-speed-tech-row" style="display: none;"><td>Shutter Speed</td><td id="shutter-speed-tech-value"></td></tr>
-                                    <tr id="aperture-value-row" style="display: none;"><td>Aperture Value</td><td id="aperture-value-value"></td></tr>
-                                    <tr id="focal-plane-res-row" style="display: none;"><td>Focal Plane Resolution</td><td id="focal-plane-res-value"></td></tr>
+                                    <tr id="shutter-speed-tech-row" style="display: none;"><td locale="exif/shutterSpeed">Shutter Speed</td><td id="shutter-speed-tech-value"></td></tr>
+                                    <tr id="aperture-value-row" style="display: none;"><td locale="exif/apertureValue">Aperture Value</td><td id="aperture-value-value"></td></tr>
+                                    <tr id="focal-plane-res-row" style="display: none;"><td locale="exif/focalPlaneRes">Focal Plane Resolution</td><td id="focal-plane-res-value"></td></tr>
                                 </tbody>
                             </table>
                         </div>
 
                         <!-- No EXIF data message -->
                         <div id="no-exif-message" style="display: none;">
-                            <p>No EXIF data available</p>
+                            <p locale="exif/none">No EXIF data available</p>
                         </div>
                     </div>
                 </div>
@@ -1395,16 +1400,16 @@
     <!-- Arozcast Photo Cast Modal -->
     <div id="cast-photo-modal">
         <div class="cast-photo-dialog">
-            <h4>Cast to Arozcast</h4>
+            <h4 locale="cast/title">Cast to Arozcast</h4>
             <div id="cast-photo-status" class="cast-status" style="display:none;"></div>
             <input id="cast-photo-code" type="text" maxlength="4" placeholder="1234"
                    oninput="this.value=this.value.replace(/\D/g,'')"
                    onkeydown="if(event.key==='Enter') connectPhotoCast()">
             <div id="cast-photo-error" class="cast-error"></div>
             <div class="cast-actions">
-                <button class="btn-cancel" onclick="closePhotoCastDialog()">Cancel</button>
-                <button class="btn-disconnect" id="cast-photo-disc-btn" style="display:none;" onclick="disconnectPhotoCast()">Disconnect</button>
-                <button class="btn-connect" id="cast-photo-conn-btn" onclick="connectPhotoCast()">Connect</button>
+                <button class="btn-cancel" onclick="closePhotoCastDialog()" locale="common/cancel">Cancel</button>
+                <button class="btn-disconnect" id="cast-photo-disc-btn" style="display:none;" onclick="disconnectPhotoCast()" locale="cast/disconnect">Disconnect</button>
+                <button class="btn-connect" id="cast-photo-conn-btn" onclick="connectPhotoCast()" locale="cast/connect">Connect</button>
             </div>
         </div>
     </div>
@@ -1674,6 +1679,14 @@
         // Wait a bit for the image to load, then initialize zoom/pan
         setTimeout(initZoomPan, 100);
     };
+
+    // Alpine starts once the language file is in, so its first render is
+    // already translated
+    loadAppLocale(function () {
+        const alpine = document.createElement('script');
+        alpine.src = '../script/alpine.min.js';
+        document.body.appendChild(alpine);
+    });
     
 </script>
 

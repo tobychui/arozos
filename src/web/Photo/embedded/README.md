@@ -14,6 +14,7 @@ with a thumbnail strip, and an editor with Adjust / Filters / Crop tabs.
 | `js/geometry.js` | Crop / straighten / keystone / flip / quarter turn math (no DOM) |
 | `js/ruler.js` | The dial ruler (across or upright) |
 | `js/icons.js` | Inline SVG icons (no emoji, no icon font) |
+| `../i18n.js`, `../locale/photo.json` | Localization, shared with the gallery: `locale="key"` on markup in `embedded.html`, `T(key, english, vars)` in scripts. The start of `viewer.js` waits for the language file |
 | `listNearbyImage.js` | AGI: the photos of the folder; `detail=true` adds size and date |
 | `tests/geometry.test.js` | `node web/Photo/embedded/tests/geometry.test.js` |
 
