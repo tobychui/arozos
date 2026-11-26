@@ -9,9 +9,9 @@
 
     Where previews go is the user's choice (Photo > Settings). It is kept in
     the index database's index_meta table, which survives an index rebuild:
-      preview_mode  "appdata"   cache in PREVIEW_DEFAULT_DIR (default)
+      preview_mode  "realtime"  draw on every request, store nothing (default)
+                    "appdata"   cache in PREVIEW_DEFAULT_DIR
                     "custom"    cache in the folder in preview_path
-                    "realtime"  draw on every request and store nothing
     A cached preview is <dir>/<hh>/<hash>.jpg, where hash is 14 hex digits of
     the photo's virtual path and hh its first two. It is drawn again when the
     photo is newer than it. Only files named like that are ever deleted from a
@@ -84,14 +84,14 @@ function previewCleanFolder(path) {
 // The preview settings of this user: { mode, path, dir }. dir is the cache
 // folder, or null for realtime previews.
 function previewSettings(db) {
-    var mode = "appdata";
+    var mode = "realtime";
     var path = "";
     if (db != null) {
-        mode = metaGet(db, "preview_mode", "appdata");
+        mode = metaGet(db, "preview_mode", "realtime");
         path = metaGet(db, "preview_path", "");
     }
     if (PREVIEW_MODES.indexOf(mode) < 0) {
-        mode = "appdata";
+        mode = "realtime";
     }
     var dir = PREVIEW_DEFAULT_DIR;
     if (mode === "realtime") {
@@ -136,9 +136,18 @@ function previewLookup(dir, filepath) {
     return { src: file, w: dim[0], h: dim[1], v: cacheTime };
 }
 
+// Whether this server can draw previews (imagelib.renderPreview came with a
+// newer ArozOS build)
+function previewAvailable() {
+    return typeof imagelib !== "undefined" && typeof imagelib.renderPreview === "function";
+}
+
 // Draw the preview of a photo into dir (or inline when dir is null)
 function previewRender(dir, filepath) {
     var r;
+    if (!previewAvailable()) {
+        return { error: "unavailable" };
+    }
     if (dir === null) {
         r = imagelib.renderPreview(filepath, "", PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT);
         if (!r || !r.dataURL) {

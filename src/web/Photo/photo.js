@@ -161,7 +161,7 @@ function photoListObject() {
         // settings dialog (gear)
         settingsOpen: false,
         settings: {
-            loaded: false, mode: 'appdata', path: '', dir: '', defaultDir: '',
+            loaded: false, mode: 'realtime', path: '', dir: '', defaultDir: '',
             stats: null, statsLoading: false, error: '', busy: false,
             total: 0, lastIndexed: 0, exclude: [], excludeInput: ''
         },

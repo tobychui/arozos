@@ -57,6 +57,11 @@ function main() {
                 continue;
             }
         }
+        if (!previewAvailable()) {
+            // An older server build: show the thumbnails, ask for nothing
+            items[f] = { error: "unavailable" };
+            continue;
+        }
         if (!generate) {
             items[f] = { pending: true };
             continue;

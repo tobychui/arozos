@@ -343,14 +343,25 @@
         .search-clear-link { color: #f76c5d; cursor: pointer; }
         .search-clear-link:hover { text-decoration: underline; }
         #index-chip {
-            margin-left: auto;
-            color: #888;
-            font-size: 0.95em;
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0.9em;
+            z-index: 20;
             display: flex;
             align-items: center;
-            gap: 0.35em;
+            gap: 0.4em;
+            padding: 0.3em 0.85em;
+            border-radius: 999px;
+            background: rgba(30, 30, 30, 0.9);
+            border: 1px solid #333;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(6px);
+            color: #aaa;
+            font-size: 0.8em;
+            white-space: nowrap;
         }
-        #index-chip .reindex-link { color: #888; cursor: pointer; }
+        #index-chip i.icon { margin: 0; height: auto; }
+        #index-chip .reindex-link { color: #999; cursor: pointer; }
         #index-chip .reindex-link:hover { color: #f76c5d; }
 
         #fadeplate{
@@ -930,9 +941,15 @@
             height: 100%;
             object-fit: cover;
             object-position: center;
-            transition: transform 0.25s ease, filter 0.2s ease;
+            transition: transform 0.35s ease, filter 0.35s ease;
         }
         .imagecard:hover img { filter: brightness(1.08); }
+        /* Waterfall: the square thumbnail stands in, blurred, until the
+           photo's own preview has loaded */
+        .imagecard img.pv-pending {
+            filter: blur(14px) brightness(0.85);
+            transform: scale(1.12);
+        }
         .imagecard::after {
             content: "";
             position: absolute;
@@ -1648,17 +1665,19 @@
                     </div>
 
                     <!-- Result count / indexing status -->
-                    <div id="search-meta" x-show="searchMode || indexStatusText.length > 0">
-                        <span x-show="searchMode" x-text="searchSummary()"></span>
-                        <a class="search-clear-link" x-show="searchMode && scope === 'folder'" x-on:click="setScope('all')" locale="search/everywhere">Search all photos</a>
-                        <a class="search-clear-link" x-show="searchMode" x-on:click="clearSearch()" locale="search/clear">Clear search</a>
-                        <span id="index-chip" x-show="indexStatusText.length > 0">
-                            <i class="loading spinner icon" x-show="indexing"></i>
-                            <span x-text="indexStatusText"></span>
-                            <a class="reindex-link" x-show="!indexing" x-on:click="rebuildIndex()"
-                                title="Rebuild the search index" locale="search/rebuild">Rebuild</a>
-                        </span>
+                    <div id="search-meta" x-show="searchMode">
+                        <span x-text="searchSummary()"></span>
+                        <a class="search-clear-link" x-show="scope === 'folder'" x-on:click="setScope('all')" locale="search/everywhere">Search all photos</a>
+                        <a class="search-clear-link" x-on:click="clearSearch()" locale="search/clear">Clear search</a>
                     </div>
+
+                    <!-- Indexing status: floats over the gallery, so it never moves it -->
+                    <span id="index-chip" x-show="indexStatusText.length > 0" x-transition.opacity.duration.200ms>
+                        <i class="loading spinner icon" x-show="indexing"></i>
+                        <span x-text="indexStatusText"></span>
+                        <a class="reindex-link" x-show="!indexing" x-on:click="rebuildIndex()"
+                            title="Rebuild the search index" locale="search/rebuild">Rebuild</a>
+                    </span>
                 </div>
 
                 <div id="noimg" class="ui basic inverted segment" style="display:none;">
@@ -1696,6 +1715,7 @@
                                                     <div class="imagecard" x-on:click="showImage($el); ShowModal();"
                                                         :style="{ aspectRatio: cardRatio(image) }" :filedata="cardFiledata(image)">
                                                         <img :src="PhotoPreviews.url(image.filepath) || thumbUrl(image)" :data-thumb="thumbUrl(image)"
+                                                            :class="PhotoPreviews.url(image.filepath) ? '' : 'pv-pending'"
                                                             x-init="PhotoPreviews.observe($el, image.filepath)" alt="">
                                                     </div>
                                                 </template>
@@ -1733,7 +1753,7 @@
                             x-on:click="setPreviewMode('appdata')" x-on:keydown.enter.prevent="setPreviewMode('appdata')" x-on:keydown.space.prevent="setPreviewMode('appdata')">
                             <span class="pd-radio"></span>
                             <div class="pd-opt-main">
-                                <div class="pd-opt-title" locale="settings/modeAppdata">Keep them in my app data (recommended)</div>
+                                <div class="pd-opt-title" locale="settings/modeAppdata">Keep them in my app data</div>
                                 <div class="pd-opt-desc" x-text="settings.defaultDir"></div>
                             </div>
                         </div>
@@ -1750,7 +1770,7 @@
                             x-on:click="setPreviewMode('realtime')" x-on:keydown.enter.prevent="setPreviewMode('realtime')" x-on:keydown.space.prevent="setPreviewMode('realtime')">
                             <span class="pd-radio"></span>
                             <div class="pd-opt-main">
-                                <div class="pd-opt-title" locale="settings/modeRealtime">Draw them every time</div>
+                                <div class="pd-opt-title" locale="settings/modeRealtime">Draw them every time (default)</div>
                                 <div class="pd-opt-desc" locale="settings/modeRealtimeDesc">Uses no disk space, but every preview is drawn again each time it is shown.</div>
                             </div>
                         </div>

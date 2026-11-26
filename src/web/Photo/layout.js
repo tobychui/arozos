@@ -160,6 +160,7 @@ var PhotoPreviews = {
     batchSize: 3,
     mode: '',
     observer: null,
+    failures: 0,        // generate requests failed in a row
     generation: 0,      // bumps on reset, so late answers are dropped
     onSize: null,       // function(filepath, w, h) set by the component
 
@@ -194,13 +195,24 @@ var PhotoPreviews = {
         if (this.observer) this.observer.unobserve(el);
     },
 
+    // Show the preview of a card. The blurred thumbnail stays until the
+    // preview has really loaded; a photo without preview shows it sharp.
     apply: function (el, filepath) {
         var r = this.ready[filepath];
-        if (!r || !r.url || el.getAttribute('data-preview') !== filepath) return;
-        if (el.getAttribute('src') !== r.url) {
-            el.setAttribute('src', r.url);
+        if (!r || el.getAttribute('data-preview') !== filepath) return;
+        if (!r.url) {
+            el.classList.remove('pv-pending');
+            return;
         }
         el.classList.add('is-preview');
+        if (el.getAttribute('src') === r.url) {
+            if (el.complete) el.classList.remove('pv-pending');
+            return;
+        }
+        var done = function () { el.classList.remove('pv-pending'); };
+        el.addEventListener('load', done, { once: true });
+        el.addEventListener('error', done, { once: true });
+        el.setAttribute('src', r.url);
     },
 
     want: function (el, filepath) {
@@ -223,40 +235,54 @@ var PhotoPreviews = {
         var self = this;
         var gen = this.generation;
         while (this.lookupQueue.length) {
-            var batch = this.lookupQueue.splice(0, 200);
-            aoPhotoBackend('Photo/backend/previews.js', { files: batch, generate: false }).then(function (data) {
-                if (gen !== self.generation) return;
-                self.mode = (data && data.mode) || self.mode;
-                var items = (data && data.items) || {};
-                for (var f in items) {
-                    if (items[f].pending) {
-                        self.generateQueue.push(f);
-                    } else {
-                        self.store(f, items[f]);
+            (function (batch) {
+                aoPhotoBackend('Photo/backend/previews.js', { files: batch, generate: false }).then(function (data) {
+                    if (gen !== self.generation) return;
+                    self.mode = (data && data.mode) || self.mode;
+                    var items = (data && data.items) || {};
+                    for (var f in items) {
+                        if (items[f].pending) {
+                            self.generateQueue.push(f);
+                        } else {
+                            self.store(f, items[f]);
+                        }
                     }
-                }
-                self.pump();
-            }).catch(function () { /* keep the thumbnails */ });
+                    self.pump();
+                }).catch(function () {
+                    // Show these thumbnails sharp instead of blurred
+                    if (gen !== self.generation) return;
+                    for (var i = 0; i < batch.length; i++) self.store(batch[i], { error: 'failed' });
+                });
+            })(this.lookupQueue.splice(0, 200));
         }
     },
 
     pump: function () {
         var self = this;
         while (this.active < this.maxActive && this.generateQueue.length) {
-            var batch = this.generateQueue.splice(0, this.batchSize);
-            var gen = this.generation;
             this.active++;
-            aoPhotoBackend('Photo/backend/previews.js', { files: batch, generate: true }).then(function (data) {
-                if (gen !== self.generation) return;
-                var items = (data && data.items) || {};
-                for (var f in items) self.store(f, items[f]);
-            }).catch(function () {
-                /* leave the thumbnails */
-            }).then(function () {
-                if (gen !== self.generation) return;
-                self.active--;
-                self.pump();
-            });
+            (function (batch, gen) {
+                aoPhotoBackend('Photo/backend/previews.js', { files: batch, generate: true }).then(function (data) {
+                    if (gen !== self.generation) return;
+                    self.failures = 0;
+                    var items = (data && data.items) || {};
+                    for (var f in items) self.store(f, items[f]);
+                }).catch(function () {
+                    if (gen !== self.generation) return;
+                    // Keep the thumbnails of this batch; after a few failed
+                    // requests in a row stop asking (the server cannot draw)
+                    for (var i = 0; i < batch.length; i++) self.store(batch[i], { error: 'failed' });
+                    self.failures++;
+                    if (self.failures >= 3) {
+                        var rest = self.generateQueue.splice(0);
+                        for (var k = 0; k < rest.length; k++) self.store(rest[k], { error: 'failed' });
+                    }
+                }).then(function () {
+                    if (gen !== self.generation) return;
+                    self.active--;
+                    self.pump();
+                });
+            })(this.generateQueue.splice(0, this.batchSize), this.generation);
         }
     },
 
@@ -306,10 +332,12 @@ var PhotoPreviews = {
         this.generateQueue = [];
         this.queued = {};
         this.active = 0;
+        this.failures = 0;
         clearTimeout(this.lookupTimer);
         var imgs = document.querySelectorAll('#viewbox img[data-preview]');
         for (var i = 0; i < imgs.length; i++) {
             imgs[i].classList.remove('is-preview');
+            imgs[i].classList.add('pv-pending');
             var thumb = imgs[i].getAttribute('data-thumb');
             if (thumb) imgs[i].setAttribute('src', thumb);
             this.observe(imgs[i], imgs[i].getAttribute('data-preview'));

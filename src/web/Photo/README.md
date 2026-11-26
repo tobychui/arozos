@@ -43,11 +43,12 @@ thumbnail code is not involved.
 Where they are kept is a per user setting (Settings dialog, stored in
 `index_meta` of the index database, which survives an index rebuild):
 
-- **appdata** (default): `user:/.appdata/photo/previews/<hh>/<hash>.jpg`
+- **realtime** (default): drawn on every request and sent as a data URL;
+  nothing stored. The blurred square thumbnail stands in until it loads
+- **appdata**: `user:/.appdata/photo/previews/<hh>/<hash>.jpg`
 - **custom**: the same layout inside a folder the user picks; it must be
   writable and outside the Photo library roots, and only files named like
   previews are ever deleted from it
-- **realtime**: drawn on every request and sent as a data URL; nothing stored
 
 A preview is drawn again when the photo is newer than it. The front end asks
 `previews.js` for cached ones first (`generate: false`, up to 200 at a time),

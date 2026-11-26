@@ -74,7 +74,7 @@ function main() {
     var action = payload.action || "get";
     var reply;
     if (action === "set") {
-        var mode = "" + (payload.previewMode || "appdata");
+        var mode = "" + (payload.previewMode || "realtime");
         if (PREVIEW_MODES.indexOf(mode) < 0) {
             reply = { error: "unknown preview mode" };
         } else if (mode === "custom") {
