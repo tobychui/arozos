@@ -635,6 +635,7 @@ function updateDynamicIcons(){
 // ════════════════════════════════════════════════════════════════════════
 var activeTab = 'clock';
 function switchTab(id){
+    if (id !== activeTab) cdStopAlarm();
     activeTab = id;
     ['clock','world','countdown','stopwatch'].forEach(function(t){
         document.getElementById('tab-'+t+'-btn').classList.toggle('active', t === id);
@@ -933,7 +934,7 @@ document.getElementById('tz-list').addEventListener('click', function(e){
 // ════════════════════════════════════════════════════════════════════════
 var cdH=0, cdM=0, cdS=0;
 var cdRunning=false, cdTotalMs=0, cdTargetTs=0, cdRemMs=0;
-var cdTimer=null, cdAlarm=null;
+var cdTimer=null, cdAlarm=null, cdAlarmVolTick=null, cdAlarmTimeout=null;
 
 function cdAdjust(unit, d){
     if (cdRunning) return;
@@ -949,6 +950,7 @@ function cdArrows(disabled){
 }
 
 function cdStart(){
+    cdStopAlarm();
     if (cdRunning) return;
     if (!cdRemMs){
         var total = (cdH*3600 + cdM*60 + cdS)*1000;
@@ -961,6 +963,7 @@ function cdStart(){
     document.getElementById('cd-btn-play').disabled  = true;
     document.getElementById('cd-btn-pause').disabled = false;
     document.getElementById('cd-progress').style.background = 'var(--accent)';
+    ['cd-h','cd-m','cd-s'].forEach(function(id){ document.getElementById(id).classList.remove('alarm'); });
     cdTimer = setInterval(cdTick, 200);
     ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-countdown','Countdown'));
 }
@@ -1011,23 +1014,32 @@ function cdReset(){
     document.getElementById('cd-progress').style.width      = '0%';
     document.getElementById('cd-progress').style.background = 'var(--accent)';
     ['cd-h','cd-m','cd-s'].forEach(function(id){ document.getElementById(id).classList.remove('alarm'); });
-    if (cdAlarm){ cdAlarm.pause(); cdAlarm=null; }
+    cdStopAlarm();
     ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-countdown','Countdown'));
 }
 
 function cdFireAlarm(){
     ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-times-up',"⏰ Time's up!"));
+    cdStopAlarm();
     try {
         cdAlarm = new Audio('sound/imuslab_theme.mp3');
         cdAlarm.volume = 0.3;
-        cdAlarm.play();
-        var volTick = setInterval(function(){
-            if (!cdAlarm){ clearInterval(volTick); return; }
+        var playing = cdAlarm.play();
+        // Rejects if autoplay is blocked or the alarm is stopped while loading
+        if (playing) playing.catch(function(){});
+        cdAlarmVolTick = setInterval(function(){
             cdAlarm.volume = Math.min(1, cdAlarm.volume + 0.07);
-            if (cdAlarm.volume >= 1) clearInterval(volTick);
+            if (cdAlarm.volume >= 1) clearInterval(cdAlarmVolTick);
         }, 4000);
-        setTimeout(function(){ clearInterval(volTick); if (cdAlarm){ cdAlarm.pause(); cdAlarm=null; } }, 30000);
+        cdAlarmTimeout = setTimeout(cdStopAlarm, 30000);
     } catch(e){}
+}
+
+// Silences the alarm and cancels its volume ramp and auto-stop timers
+function cdStopAlarm(){
+    clearInterval(cdAlarmVolTick); cdAlarmVolTick=null;
+    clearTimeout(cdAlarmTimeout); cdAlarmTimeout=null;
+    if (cdAlarm){ cdAlarm.pause(); cdAlarm=null; }
 }
 
 // ════════════════════════════════════════════════════════════════════════
