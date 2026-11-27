@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/sftp"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/storage/quotafs"
 )
 
 // Access answers what the signed in user may do. It is asked on every
@@ -32,6 +33,7 @@ type root struct {
 	rootFile       *rootFolder
 	startDirectory string
 	access         Access
+	quota          quotafs.Quota //nil for no limit
 }
 
 type rootFolder struct {
@@ -71,12 +73,15 @@ func (r *rootEntry) Sys() interface{} {
 	return nil
 }
 
-func GetNewSFTPRoot(username string, userAccess Access) sftp.Handlers {
+// GetNewSFTPRoot serves the drives of a user. userQuota is the storage quota
+// the user's writes are held to, or nil for none.
+func GetNewSFTPRoot(username string, userAccess Access, userQuota quotafs.Quota) sftp.Handlers {
 	root := &root{
 		username:       username,
 		rootFile:       &rootFolder{name: "/", modtime: time.Now(), isdir: true},
 		startDirectory: "/",
 		access:         userAccess,
+		quota:          userQuota,
 	}
 	return sftp.Handlers{root, root, root, root}
 }
@@ -135,7 +140,7 @@ func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 		return nil, err
 	}
 
-	f, err := fsh.FileSystemAbstraction.OpenFile(rpath, os.O_WRONLY|openFlags(r.Pflags()), 0775)
+	f, err := quotafs.For(fsh, fs.quota).OpenFile(rpath, os.O_WRONLY|openFlags(r.Pflags()), 0775)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +157,7 @@ func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
 		return nil, err
 	}
 
-	f, err := fsh.FileSystemAbstraction.OpenFile(rpath, os.O_RDWR|openFlags(r.Pflags()), 0775)
+	f, err := quotafs.For(fsh, fs.quota).OpenFile(rpath, os.O_RDWR|openFlags(r.Pflags()), 0775)
 	if err != nil {
 		return nil, err
 	}
@@ -226,12 +231,22 @@ func (fs *root) rename(oldpath, newpath string) error {
 		return err
 	}
 
+	destDrive := quotafs.For(newFsh, fs.quota)
 	if oldFsh.UUID == newFsh.UUID {
+		//A rename can replace a file, whose space comes back
+		replaced := int64(0)
+		if destDrive.Tracked() && !strings.EqualFold(realOldPath, realNewPath) {
+			if info, err := newFsh.FileSystemAbstraction.Stat(realNewPath); err == nil && !info.IsDir() {
+				replaced = info.Size()
+			}
+		}
+
 		//Use rename function
 		err = oldFsh.FileSystemAbstraction.Rename(realOldPath, realNewPath)
 		if err != nil {
 			return err
 		}
+		destDrive.Claim(-replaced)
 	} else {
 		//Cross root rename (aka move)
 		src, err := oldFsh.FileSystemAbstraction.ReadStream(realOldPath)
@@ -239,6 +254,14 @@ func (fs *root) rename(oldpath, newpath string) error {
 			return err
 		}
 		defer src.Close()
+
+		//The source stays where it is, so this adds to the usage
+		if destDrive.Tracked() {
+			growth := quotafs.For(oldFsh, fs.quota).Size(realOldPath) - destDrive.Size(realNewPath)
+			if err := destDrive.Claim(growth); err != nil {
+				return err
+			}
+		}
 
 		err = newFsh.FileSystemAbstraction.WriteStream(realNewPath, src, 0775)
 		if err != nil {
@@ -274,7 +297,7 @@ func (fs *root) rmdir(pathname string) error {
 	if err != nil {
 		return err
 	}
-	return fsh.FileSystemAbstraction.RemoveAll(rpath)
+	return quotafs.For(fsh, fs.quota).RemoveAll(rpath)
 }
 
 func (fs *root) link(oldpath, newpath string) error {
@@ -299,7 +322,7 @@ func (fs *root) unlink(pathname string) error {
 		return os.ErrInvalid
 	}
 
-	return fsh.FileSystemAbstraction.Remove(rpath)
+	return quotafs.For(fsh, fs.quota).Remove(rpath)
 }
 
 type listerat []os.FileInfo

@@ -299,6 +299,9 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) (status int,
 	fi, statErr := f.Stat()
 	closeErr := f.Close()
 	// TODO(rost): Returning 405 Method Not Allowed might not be appropriate.
+	if errors.Is(copyErr, ErrInsufficientStorage) {
+		return StatusInsufficientStorage, copyErr
+	}
 	if copyErr != nil {
 		return http.StatusMethodNotAllowed, copyErr
 	}
@@ -741,6 +744,10 @@ func StatusText(code int) string {
 	}
 	return http.StatusText(code)
 }
+
+// ErrInsufficientStorage is returned (or wrapped) by a File that cannot take
+// more data, so that the client is told with 507 Insufficient Storage.
+var ErrInsufficientStorage = errors.New("webdav: insufficient storage")
 
 var (
 	errDestinationEqualsSource = errors.New("webdav: destination equals source")

@@ -121,7 +121,7 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 			}
 
 			//Get and serve the file content
-			fs := s.getRootFs(userinfo.GetAllFileSystemHandler(), userinfo.Username, userinfo.CanWrite)
+			fs := s.getRootFs(userinfo.GetAllFileSystemHandler(), userinfo.Username, userinfo.CanWrite, userinfo.StorageQuota)
 			fs.ServeHTTP(w, r)
 		}
 	}

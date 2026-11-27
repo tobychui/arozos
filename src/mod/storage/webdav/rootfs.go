@@ -19,24 +19,27 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/network/webdav"
+	"imuslab.com/arozos/mod/storage/quotafs"
 )
 
 type RootFsWebDAVAdapter struct {
 	fshs     []*filesystem.FileSystemHandler
 	adapters map[string]*FshWebDAVAdapter
+	quota    quotafs.Quota //nil for no limit
 }
 
 // NewRootFsWebDAVAdapter builds the virtual root over the given storages.
 // It is built per request, so newly mounted or closed storages show up
 // immediately.
-func NewRootFsWebDAVAdapter(fshs []*filesystem.FileSystemHandler, username string, canWrite WriteChecker) *RootFsWebDAVAdapter {
+func NewRootFsWebDAVAdapter(fshs []*filesystem.FileSystemHandler, username string, canWrite WriteChecker, userQuota quotafs.Quota) *RootFsWebDAVAdapter {
 	adapters := map[string]*FshWebDAVAdapter{}
 	for _, fsh := range fshs {
-		adapters[fsh.UUID] = NewFshWebDAVAdapter(fsh, username, canWrite)
+		adapters[fsh.UUID] = NewFshWebDAVAdapter(fsh, username, canWrite, userQuota)
 	}
 	return &RootFsWebDAVAdapter{
 		fshs:     fshs,
 		adapters: adapters,
+		quota:    userQuota,
 	}
 }
 
@@ -173,11 +176,22 @@ func (a *RootFsWebDAVAdapter) Rename(ctx context.Context, oldName, newName strin
 		return err
 	}
 	srcFsa := srcAdapter.fsh.FileSystemAbstraction
+	srcDrive := quotafs.For(srcAdapter.fsh, a.quota)
+	destDrive := quotafs.For(destAdapter.fsh, a.quota)
+	//Between two drives that count against the quota, a move changes nothing
+	if !srcDrive.Tracked() && destDrive.Tracked() {
+		if err := destDrive.Claim(srcDrive.Size(realSrc)); err != nil {
+			return quotaError(err)
+		}
+	}
 	err = copyAcrossFsh(srcFsa, realSrc, destAdapter.fsh.FileSystemAbstraction, realDest)
 	if err != nil {
 		return err
 	}
-	return srcFsa.RemoveAll(realSrc)
+	if destDrive.Tracked() {
+		return srcFsa.RemoveAll(realSrc)
+	}
+	return srcDrive.RemoveAll(realSrc)
 }
 
 func (a *RootFsWebDAVAdapter) Stat(ctx context.Context, name string) (os.FileInfo, error) {

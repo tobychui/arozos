@@ -23,6 +23,8 @@ import (
 	upnp "imuslab.com/arozos/mod/network/upnp"
 	"imuslab.com/arozos/mod/network/websocket"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/quota"
+	"imuslab.com/arozos/mod/storage/quotafs"
 	"imuslab.com/arozos/mod/storage/sftpserver"
 	"imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
@@ -342,8 +344,12 @@ func FileServerInit() {
 		CurrentUser:   fileServerCurrentUser,
 		CheckPassword: fileServerCheckPassword,
 		LogAuth:       fileServerLogAuth("sftp"),
-		LookupUser: func(username string) (sftpserver.Access, error) {
-			return userHandler.GetUserInfoFromUsername(username)
+		LookupUser: func(username string) (sftpserver.Access, quotafs.Quota, error) {
+			userinfo, err := userHandler.GetUserInfoFromUsername(username)
+			if err != nil {
+				return nil, nil, err
+			}
+			return userinfo, userinfo.StorageQuota, nil
 		},
 	})
 
@@ -555,7 +561,10 @@ func fileServerLogAuth(authType string) func(username, remote string, ok bool) {
 	}
 }
 
-var _ sftpserver.Access = (*user.User)(nil)
+var (
+	_ sftpserver.Access = (*user.User)(nil)
+	_ quotafs.Quota     = (*quota.QuotaHandler)(nil)
+)
 
 // Toggle the target File Server Services
 func NetworkHandleFileServerToggle(w http.ResponseWriter, r *http.Request) {

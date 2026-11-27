@@ -13,7 +13,6 @@ import (
 	"imuslab.com/arozos/mod/auth"
 	db "imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/filesystem"
-	"imuslab.com/arozos/mod/network/webdav"
 	"imuslab.com/arozos/mod/permission"
 	"imuslab.com/arozos/mod/share/shareEntry"
 	"imuslab.com/arozos/mod/storage"
@@ -610,8 +609,8 @@ func TestGetLockSystem_SharedPerUser(t *testing.T) {
 func TestLockThenPut_AcrossRequests(t *testing.T) {
 	s := newTestServer()
 	fsh, dir := newLocalTestFsh(t, "user")
-	newHandler := func() *webdav.Handler {
-		return s.getRootFs([]*filesystem.FileSystemHandler{fsh}, "alice", allowAllWrites)
+	newHandler := func() http.Handler {
+		return s.getRootFs([]*filesystem.FileSystemHandler{fsh}, "alice", allowAllWrites, nil)
 	}
 
 	lockBody := `<?xml version="1.0" encoding="utf-8"?><D:lockinfo xmlns:D="DAV:"><D:lockscope><D:exclusive/></D:lockscope><D:locktype><D:write/></D:locktype><D:owner>finder</D:owner></D:lockinfo>`

@@ -18,6 +18,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"golang.org/x/crypto/ssh"
 	"imuslab.com/arozos/mod/info/logger"
+	"imuslab.com/arozos/mod/storage/quotafs"
 )
 
 type SFTPConfig struct {
@@ -28,8 +29,9 @@ type SFTPConfig struct {
 	//Authenticate checks a sign in (password, login IP rules) and logs it.
 	//remote is the client's IP address.
 	Authenticate func(username, password, remote string) error
-	//LookupUser returns what a signed in user may reach
-	LookupUser func(username string) (Access, error)
+	//LookupUser returns what a signed in user may reach, and the storage quota
+	//their writes are held to (nil for none)
+	LookupUser func(username string) (Access, quotafs.Quota, error)
 }
 
 // ClientInfo is one connected client, as the settings page lists it.
@@ -181,12 +183,21 @@ func (i *Instance) serve(nConn net.Conn, config *ssh.ServerConfig, sftpConfig *S
 	nConn.SetDeadline(time.Time{})
 	defer cx.Close()
 
-	access, err := sftpConfig.LookupUser(cx.User())
+	access, userQuota, err := sftpConfig.LookupUser(cx.User())
 	if err != nil {
 		return
 	}
 	if sftpConfig.ReadOnly {
 		access = readOnlyAccess{access}
+	}
+
+	//What the session counted is an estimate, so recalculate the usage once
+	//the user is gone, like the FTP server does
+	if userQuota != nil && !sftpConfig.ReadOnly {
+		defer func() {
+			userQuota.CalculateQuotaUsage()
+			logger.PrintAndLog("Sftpserver", "[SFTP] Storage quota updated: "+cx.User(), nil)
+		}()
 	}
 
 	id := uuid.NewV4().String()
@@ -230,7 +241,7 @@ func (i *Instance) serve(nConn net.Conn, config *ssh.ServerConfig, sftpConfig *S
 		sessions.Add(1)
 		go func(channel ssh.Channel) {
 			defer sessions.Done()
-			server := sftp.NewRequestServer(channel, GetNewSFTPRoot(cx.User(), access))
+			server := sftp.NewRequestServer(channel, GetNewSFTPRoot(cx.User(), access, userQuota))
 			if err := server.Serve(); err != nil && !errors.Is(err, net.ErrClosed) && err.Error() != "EOF" {
 				logger.PrintAndLog("Sftpserver", "sftp session of "+cx.User()+" ended with an error", err)
 			}

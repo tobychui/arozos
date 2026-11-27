@@ -32,7 +32,7 @@ func newRootFsTestHandler(t *testing.T) (http.Handler, string, string) {
 	userFsh, userDir := newLocalTestFsh(t, "user")
 	tmpFsh, tmpDir := newLocalTestFsh(t, "tmp")
 	s := newTestServer()
-	h := s.getRootFs([]*filesystem.FileSystemHandler{userFsh, tmpFsh}, "alice", allowAllWrites)
+	h := s.getRootFs([]*filesystem.FileSystemHandler{userFsh, tmpFsh}, "alice", allowAllWrites, nil)
 	return h, userDir, tmpDir
 }
 
@@ -88,7 +88,7 @@ func TestRootFs_ListsEveryStorage(t *testing.T) {
 
 func TestRootFs_StatStorageUsesUUID(t *testing.T) {
 	userFsh, _ := newLocalTestFsh(t, "user")
-	rootfs := NewRootFsWebDAVAdapter([]*filesystem.FileSystemHandler{userFsh}, "alice", allowAllWrites)
+	rootfs := NewRootFsWebDAVAdapter([]*filesystem.FileSystemHandler{userFsh}, "alice", allowAllWrites, nil)
 	s, err := rootfs.Stat(context.Background(), "/user")
 	if err != nil {
 		t.Fatalf("Stat /user: %v", err)
@@ -190,7 +190,7 @@ func TestRootFs_MoveAcrossStorages(t *testing.T) {
 
 func TestRootFs_VirtualPath(t *testing.T) {
 	userFsh, _ := newLocalTestFsh(t, "user")
-	rootfs := NewRootFsWebDAVAdapter([]*filesystem.FileSystemHandler{userFsh}, "alice", allowAllWrites)
+	rootfs := NewRootFsWebDAVAdapter([]*filesystem.FileSystemHandler{userFsh}, "alice", allowAllWrites, nil)
 	tests := []struct {
 		name    string
 		want    string

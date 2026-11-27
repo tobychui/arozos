@@ -23,6 +23,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network/webdav"
+	"imuslab.com/arozos/mod/storage/quotafs"
 	"imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -39,6 +40,11 @@ type Server struct {
 	readOnlyFileSystemHandler *webdav.Handler
 	windowsClientNotLoggedIn  sync.Map //Map to store not logged in windows WebDAV Client
 	windowsClientLoggedIn     sync.Map //Map to store logged in Windows WebDAV Client
+
+	//Pending recalculations of storage usage, see scheduleRecount
+	recountLock  sync.Mutex
+	recounts     map[string]*time.Timer
+	recountDelay time.Duration //0 for the default
 }
 
 type WindowClientInfo struct {
@@ -269,7 +275,7 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Serve all storages of the user under one virtual root, like the FTP server
-	fs := s.getRootFs(userinfo.GetAllFileSystemHandler(), userinfo.Username, userinfo.CanWrite)
+	fs := s.getRootFs(userinfo.GetAllFileSystemHandler(), userinfo.Username, userinfo.CanWrite, userinfo.StorageQuota)
 
 	//Serve the content
 	fs.ServeHTTP(w, r)
@@ -323,9 +329,10 @@ func (s *Server) getLockSystem(username string) webdav.LockSystem {
 }
 
 // getRootFs builds the WebDAV handler of a user, with the virtual root
-// listing every given storage (see RootFsWebDAVAdapter).
-func (s *Server) getRootFs(fshs []*filesystem.FileSystemHandler, username string, canWrite WriteChecker) *webdav.Handler {
-	rootfs := NewRootFsWebDAVAdapter(fshs, username, canWrite)
+// listing every given storage (see RootFsWebDAVAdapter). userQuota is the
+// storage quota the user's writes are held to, or nil for none.
+func (s *Server) getRootFs(fshs []*filesystem.FileSystemHandler, username string, canWrite WriteChecker, userQuota quotafs.Quota) http.Handler {
+	rootfs := NewRootFsWebDAVAdapter(fshs, username, canWrite, userQuota)
 	fs := &webdav.Handler{
 		Prefix:     s.prefix,
 		FileSystem: rootfs,
@@ -349,5 +356,12 @@ func (s *Server) getRootFs(fshs []*filesystem.FileSystemHandler, username string
 		}()
 	}
 
-	return fs
+	if userQuota == nil {
+		return fs
+	}
+	return quotaHandler{
+		dav:     fs,
+		rootfs:  rootfs,
+		changed: func() { s.scheduleRecount(username, userQuota) },
+	}
 }

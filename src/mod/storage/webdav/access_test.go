@@ -41,7 +41,7 @@ func newAccessTestHandler(t *testing.T) (http.Handler, string, string) {
 		t.Fatalf("WriteFile() = %v", err)
 	}
 	s := newTestServer()
-	h := s.getRootFs([]*filesystem.FileSystemHandler{mediaFsh, scratchFsh}, "alice", readOnlyDrives("media"))
+	h := s.getRootFs([]*filesystem.FileSystemHandler{mediaFsh, scratchFsh}, "alice", readOnlyDrives("media"), nil)
 	return h, mediaDir, scratchDir
 }
 

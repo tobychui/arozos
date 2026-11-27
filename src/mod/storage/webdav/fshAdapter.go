@@ -12,6 +12,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network/webdav"
+	"imuslab.com/arozos/mod/storage/quotafs"
 )
 
 // WriteChecker reports whether the user may change a virtual path. The adapters
@@ -23,6 +24,7 @@ type FshWebDAVAdapter struct {
 	fsh      *filesystem.FileSystemHandler
 	username string
 	canWrite WriteChecker
+	quota    quotafs.Quota //nil for no limit
 }
 
 type BufferFsIoHandler struct {
@@ -119,11 +121,14 @@ func (b BufferFsIoHandler) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func NewFshWebDAVAdapter(fsh *filesystem.FileSystemHandler, username string, canWrite WriteChecker) *FshWebDAVAdapter {
+// NewFshWebDAVAdapter serves one drive of a user. userQuota is the storage
+// quota the user's writes are held to, or nil for none.
+func NewFshWebDAVAdapter(fsh *filesystem.FileSystemHandler, username string, canWrite WriteChecker, userQuota quotafs.Quota) *FshWebDAVAdapter {
 	return &FshWebDAVAdapter{
 		fsh,
 		username,
 		canWrite,
+		userQuota,
 	}
 }
 
@@ -165,7 +170,8 @@ func (a *FshWebDAVAdapter) Mkdir(ctx context.Context, name string, perm os.FileM
 	return a.fsh.FileSystemAbstraction.Mkdir(realRequestPath, perm)
 }
 func (a *FshWebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
-	if flag&(os.O_WRONLY|os.O_RDWR|os.O_CREATE|os.O_TRUNC|os.O_APPEND) != 0 {
+	writing := flag&(os.O_WRONLY|os.O_RDWR|os.O_CREATE|os.O_TRUNC|os.O_APPEND) != 0
+	if writing {
 		if err := a.checkWrite(name); err != nil {
 			return nil, err
 		}
@@ -182,9 +188,20 @@ func (a *FshWebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, 
 	if a.fsh.RequireBuffer {
 		//Buffer the remote content to local for access
 		return newBufferFsIoHandler(a.fsh.FileSystemAbstraction, realRequestPath)
-	} else {
+	}
+	if !writing {
 		return a.fsh.FileSystemAbstraction.OpenFile(realRequestPath, flag, perm)
 	}
+
+	drive := quotafs.For(a.fsh, a.quota)
+	f, err := drive.OpenFile(realRequestPath, flag, perm)
+	if err != nil {
+		return nil, err
+	}
+	if tracked, ok := f.(*quotafs.File); ok && flag&os.O_TRUNC != 0 {
+		return &uploadFile{tracked, drive, realRequestPath}, nil
+	}
+	return f, nil
 }
 func (a *FshWebDAVAdapter) RemoveAll(ctx context.Context, name string) error {
 	if err := a.checkWrite(name); err != nil {
@@ -194,7 +211,7 @@ func (a *FshWebDAVAdapter) RemoveAll(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	return a.fsh.FileSystemAbstraction.RemoveAll(realRequestPath)
+	return quotafs.For(a.fsh, a.quota).RemoveAll(realRequestPath)
 }
 func (a *FshWebDAVAdapter) Rename(ctx context.Context, oldName, newName string) error {
 	if err := a.checkWrite(oldName); err != nil {

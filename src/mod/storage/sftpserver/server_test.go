@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
+	"imuslab.com/arozos/mod/storage/quotafs"
 )
 
 type serverRig struct {
@@ -26,11 +27,19 @@ type serverRig struct {
 func newServerRig(t *testing.T, readOnly bool) *serverRig {
 	t.Helper()
 	_, access, dir := newAccessTestRoot(t, "rw")
+	rig := newServerRigFor(t, access, nil, readOnly)
+	rig.dir = dir
+	return rig
+}
+
+// newServerRigFor serves the given drives and quota to user alice
+func newServerRigFor(t *testing.T, access Access, userQuota quotafs.Quota, readOnly bool) *serverRig {
+	t.Helper()
 	key, err := LoadOrCreateHostKey(filepath.Join(t.TempDir(), "host.key"))
 	if err != nil {
 		t.Fatalf("LoadOrCreateHostKey() = %v", err)
 	}
-	rig := &serverRig{key: key, dir: dir}
+	rig := &serverRig{key: key}
 	instance, err := NewSFTPServer(&SFTPConfig{
 		ListeningIP: "127.0.0.1:0",
 		HostKey:     key,
@@ -42,7 +51,7 @@ func newServerRig(t *testing.T, readOnly bool) *serverRig {
 			}
 			return nil
 		},
-		LookupUser: func(username string) (Access, error) { return access, nil },
+		LookupUser: func(username string) (Access, quotafs.Quota, error) { return access, userQuota, nil },
 	})
 	if err != nil {
 		t.Fatalf("NewSFTPServer() = %v", err)

@@ -11,6 +11,7 @@ import (
 	"imuslab.com/arozos/mod/fileservers"
 	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network/upnp"
+	"imuslab.com/arozos/mod/storage/quotafs"
 	"imuslab.com/arozos/mod/storage/sftpserver"
 	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
@@ -34,8 +35,8 @@ type ManagerOption struct {
 	CheckPassword func(username, password, remote string) error
 	//LogAuth records a sign in attempt in the login history
 	LogAuth func(username, remote string, ok bool)
-	//LookupUser returns what a signed in user may reach
-	LookupUser func(username string) (sftpserver.Access, error)
+	//LookupUser returns what a signed in user may reach, and their storage quota
+	LookupUser func(username string) (sftpserver.Access, quotafs.Quota, error)
 }
 
 type Manager struct {

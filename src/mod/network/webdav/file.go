@@ -7,6 +7,7 @@ package webdav
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -734,6 +735,9 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 		_, copyErr := io.Copy(dstFile, srcFile)
 		propsErr := copyProps(dstFile, srcFile)
 		closeErr := dstFile.Close()
+		if errors.Is(copyErr, ErrInsufficientStorage) {
+			return StatusInsufficientStorage, copyErr
+		}
 		if copyErr != nil {
 			return http.StatusInternalServerError, copyErr
 		}

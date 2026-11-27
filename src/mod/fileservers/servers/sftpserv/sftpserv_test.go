@@ -14,6 +14,7 @@ import (
 
 	"imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/storage/quotafs"
 	"imuslab.com/arozos/mod/storage/sftpserver"
 )
 
@@ -55,7 +56,7 @@ func newRig(t *testing.T) *rig {
 		LogAuth: func(username, remote string, ok bool) {
 			r.logins = append(r.logins, username+" "+strconv.FormatBool(ok))
 		},
-		LookupUser: func(string) (sftpserver.Access, error) { return noAccess{}, nil },
+		LookupUser: func(string) (sftpserver.Access, quotafs.Quota, error) { return noAccess{}, nil, nil },
 	}
 	r.m = NewSFTPServer(r.opt)
 	t.Cleanup(r.m.Close)
