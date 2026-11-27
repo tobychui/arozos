@@ -248,30 +248,102 @@ func (fs *root) rename(oldpath, newpath string) error {
 		}
 		destDrive.Claim(-replaced)
 	} else {
-		//Cross root rename (aka move)
-		src, err := oldFsh.FileSystemAbstraction.ReadStream(realOldPath)
-		if err != nil {
-			return err
-		}
-		defer src.Close()
-
-		//The source stays where it is, so this adds to the usage
-		if destDrive.Tracked() {
-			growth := quotafs.For(oldFsh, fs.quota).Size(realOldPath) - destDrive.Size(realNewPath)
-			if err := destDrive.Claim(growth); err != nil {
-				return err
-			}
-		}
-
-		err = newFsh.FileSystemAbstraction.WriteStream(realNewPath, src, 0775)
-		if err != nil {
-			return err
-		}
-
-		//Remove the src
-		//oldFsh.FileSystemAbstraction.RemoveAll(realOldPath)
+		return fs.moveAcross(oldFsh, realOldPath, newFsh, realNewPath)
 	}
 
+	return nil
+}
+
+// moveAcross moves a file or folder tree to another drive: everything is
+// copied over, and the source is only removed once the whole copy succeeded.
+// A copy that fails leaves the source as it was and removes what it wrote.
+func (fs *root) moveAcross(srcFsh *filesystem.FileSystemHandler, src string, destFsh *filesystem.FileSystemHandler, dest string) error {
+	srcFsa, destFsa := srcFsh.FileSystemAbstraction, destFsh.FileSystemAbstraction
+	srcInfo, err := srcFsa.Stat(src)
+	if err != nil {
+		return err
+	}
+	destExisted := false
+	if destInfo, err := destFsa.Stat(dest); err == nil {
+		if destInfo.IsDir() || srcInfo.IsDir() {
+			//Like a rename on one drive, a folder is not merged into another
+			//and a file does not replace a folder
+			return os.ErrExist
+		}
+		destExisted = true
+	}
+
+	//What each drive gains or loses, of which only the gain is claimed up
+	//front, so that a refused move changes nothing
+	srcDrive, destDrive := quotafs.For(srcFsh, fs.quota), quotafs.For(destFsh, fs.quota)
+	moved := srcDrive.Size(src)
+	change := int64(0)
+	if destDrive.Tracked() {
+		change += moved - destDrive.Size(dest)
+	}
+	if srcDrive.Tracked() {
+		change -= moved
+	}
+	if change > 0 {
+		if err := destDrive.Claim(change); err != nil {
+			return err
+		}
+	}
+
+	if err := copyTree(srcFsa, src, destFsa, dest); err != nil {
+		if !destExisted {
+			destFsa.RemoveAll(dest)
+		}
+		if change > 0 {
+			destDrive.Claim(-change)
+		}
+		return err
+	}
+	if err := srcFsa.RemoveAll(src); err != nil {
+		//Both copies are on disk now; the recount at the end of the session
+		//corrects the usage
+		return err
+	}
+	if change < 0 {
+		//Space comes back to the quota, through whichever drive counts
+		counted := destDrive
+		if !counted.Tracked() {
+			counted = srcDrive
+		}
+		counted.Claim(change)
+	}
+	return nil
+}
+
+// copyTree copies a file or folder tree from one drive to another
+func copyTree(srcFsa filesystem.FileSystemAbstraction, src string, destFsa filesystem.FileSystemAbstraction, dest string) error {
+	info, err := srcFsa.Stat(src)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		f, err := srcFsa.ReadStream(src)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		return destFsa.WriteStream(dest, f, 0775)
+	}
+
+	if err := destFsa.MkdirAll(dest, 0775); err != nil {
+		return err
+	}
+	entries, err := srcFsa.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		//Real paths of remote drives use forward slashes on every host
+		err := copyTree(srcFsa, path.Join(arozfs.ToSlash(src), entry.Name()), destFsa, path.Join(arozfs.ToSlash(dest), entry.Name()))
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

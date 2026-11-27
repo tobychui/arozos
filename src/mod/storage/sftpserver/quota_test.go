@@ -110,7 +110,7 @@ func TestQuotaOnFileCommands(t *testing.T) {
 			perform: func(fs *root) error { return fs.rename("/public/big.bin", "/user/big.bin") }},
 		{name: "move over a file keeps it", refused: true, wantUsed: 40,
 			perform: func(fs *root) error { return fs.rename("/public/big.bin", "/user/old.bin") }},
-		{name: "move out", wantUsed: 40,
+		{name: "move out gives space back", wantUsed: 0,
 			perform: func(fs *root) error { return fs.rename("/user/old.bin", "/public/old.bin") }},
 	}
 
