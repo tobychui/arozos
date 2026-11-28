@@ -119,6 +119,13 @@ func (t *tailBuffer) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// Reset empties the buffer, so it describes the next attempt only.
+func (t *tailBuffer) Reset() {
+	t.mu.Lock()
+	t.data = nil
+	t.mu.Unlock()
+}
+
 func (t *tailBuffer) String() string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -191,6 +198,75 @@ func (s *HLSSession) stop() {
 	if dir != "" {
 		os.RemoveAll(dir)
 	}
+}
+
+// supervise is the sole owner of cmd.Wait: it reaps the transcode whether it
+// finishes the file or is killed, and closes s.exited once it is over.
+//
+// A transcode that dies before writing its first segment is restarted with the
+// next entry of chain (the first entry is the one already running as cmd), so
+// a hardware pipeline that cannot handle this source - see transcodeChain -
+// falls back instead of failing the session. s.exited only closes once no
+// attempt is left, which keeps WaitForPlaylist waiting through the retries.
+func (s *HLSSession) supervise(cmd *exec.Cmd, chain []*hwEncoderProfile, build func(*hwEncoderProfile) ([]string, error)) {
+	defer close(s.exited)
+	current := chain[0]
+	rest := chain[1:]
+	for {
+		waitErr := cmd.Wait()
+		// A clean exit with no segment (a start offset past the end of the
+		// file) is not something another encoder would do better.
+		if waitErr == nil || playlistHasSegment(s.PlaylistPath()) {
+			return
+		}
+		s.mu.Lock()
+		if s.stopped {
+			s.mu.Unlock()
+			return
+		}
+		next, hw, ok := s.restart(&rest, current, waitErr, build)
+		s.mu.Unlock()
+		if !ok {
+			return
+		}
+		cmd, current = next, hw
+	}
+}
+
+// restart starts the next workable entry of *rest in a clean session
+// directory, consuming entries as it goes, and returns the process and the
+// entry it runs. Must be called with s.mu held, so stop cannot miss the new
+// process.
+func (s *HLSSession) restart(rest *[]*hwEncoderProfile, failed *hwEncoderProfile, failure error, build func(*hwEncoderProfile) ([]string, error)) (*exec.Cmd, *hwEncoderProfile, bool) {
+	for len(*rest) > 0 {
+		hw := (*rest)[0]
+		*rest = (*rest)[1:]
+		logger.PrintAndLog("Transcoder", "HLS transcode with "+profileName(failed)+" failed before its first segment, trying "+
+			profileName(hw)+": "+s.StderrTail(), failure)
+
+		// Drop whatever the failed attempt left behind (a playlist header,
+		// an init segment for a stream that never came).
+		os.RemoveAll(s.Dir)
+		if err := os.MkdirAll(s.Dir, 0755); err != nil {
+			return nil, nil, false
+		}
+		s.stderr.Reset()
+
+		args, err := build(hw)
+		if err != nil {
+			failed, failure = hw, err
+			continue
+		}
+		cmd := exec.Command("ffmpeg", args...)
+		cmd.Stderr = s.stderr
+		if err := cmd.Start(); err != nil {
+			failed, failure = hw, err
+			continue
+		}
+		s.cmd = cmd
+		return cmd, hw, true
+	}
+	return nil, nil, false
 }
 
 // validHLSSegmentName reports whether name matches the segment naming this
@@ -457,8 +533,12 @@ func (m *HLSManager) GetOrCreate(owner string, client string, inputFile string, 
 		return nil, err
 	}
 
-	args, err := buildHLSArgs(inputFile, session.Dir, resolution, startTime,
-		m.segmentBaseURL(key), getHWEncoderProfile())
+	segmentBaseURL := m.segmentBaseURL(key)
+	build := func(hw *hwEncoderProfile) ([]string, error) {
+		return buildHLSArgs(inputFile, session.Dir, resolution, startTime, segmentBaseURL, hw)
+	}
+	chain := transcodeChain()
+	args, err := build(chain[0])
 	if err != nil {
 		os.RemoveAll(session.Dir)
 		return nil, err
@@ -474,12 +554,7 @@ func (m *HLSManager) GetOrCreate(owner string, client string, inputFile string, 
 	}
 	session.cmd = cmd
 	session.exited = make(chan struct{})
-	//Sole owner of cmd.Wait: reaps the process whether it finishes the file or
-	//is killed, and signals both facts through the same channel.
-	go func(exited chan struct{}) {
-		cmd.Wait()
-		close(exited)
-	}(session.exited)
+	go session.supervise(cmd, chain, build)
 
 	m.mu.Lock()
 	// Another request may have created the same session while ffmpeg was

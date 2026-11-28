@@ -27,8 +27,9 @@ import (
 // HEIC image format extensions supported by the system
 var HeicImageFormats = []string{".heic", ".heif", ".hif"}
 
-// Largest HEIC file that is decoded. An iPhone photo is 1 to 5 MB; the
-// decoded picture costs 4 bytes a pixel on top of the file.
+// Largest HEIC file that is decoded on a host with 4 GB of memory or less
+// (largeimage.go). An iPhone photo is 1 to 5 MB; the decoded picture costs
+// 4 bytes a pixel on top of the file.
 const maxHEICFileSize = 64 << 20
 
 // Thumbnails short side, in pixels
@@ -40,16 +41,23 @@ func IsHEICImageFile(filePath string) bool {
 	return utils.StringInArray(HeicImageFormats, ext)
 }
 
-// readHEIC reads a HEIC file of any file system, refusing oversized ones
-func readHEIC(fsh *filesystem.FileSystemHandler, file string) ([]byte, error) {
+// readHEIC reads a HEIC file of any file system, refusing oversized ones.
+// Without an error, release must be called once the picture is done with.
+func readHEIC(fsh *filesystem.FileSystemHandler, file string) (data []byte, release func(), err error) {
 	fshAbs := fsh.FileSystemAbstraction
 	if !fshAbs.FileExists(file) {
-		return nil, errors.New("source not exists")
+		return nil, nil, errors.New("source not exists")
 	}
-	if fshAbs.GetFileSize(file) > maxHEICFileSize {
-		return nil, errors.New("HEIC file too large")
+	release, ok := admitImageSize(fshAbs.GetFileSize(file), maxHEICFileSize)
+	if !ok {
+		return nil, nil, errors.New("HEIC file too large")
 	}
-	return fshAbs.ReadFile(file)
+	data, err = fshAbs.ReadFile(file)
+	if err != nil {
+		release()
+		return nil, nil, err
+	}
+	return data, release, nil
 }
 
 // decodeHEIC decodes the primary picture upright: the rotation (irot),
@@ -73,10 +81,11 @@ func decodeHEICPreview(data []byte) (image.Image, error) {
 
 // Generate thumbnail for HEIC images
 func generateThumbnailForHEIC(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
-	data, err := readHEIC(fsh, file)
+	data, release, err := readHEIC(fsh, file)
 	if err != nil {
 		return "", err
 	}
+	defer release()
 	img, err := decodeHEICPreview(data)
 	if err != nil {
 		return "", errors.New("failed to decode HEIC image: " + err.Error())
@@ -95,10 +104,11 @@ func generateThumbnailForHEIC(fsh *filesystem.FileSystemHandler, cacheFolder str
 // RenderHEICImage decodes a HEIC photo and returns it as a full size JPEG
 // for browsers that cannot show HEIC
 func RenderHEICImage(fsh *filesystem.FileSystemHandler, file string) ([]byte, error) {
-	data, err := readHEIC(fsh, file)
+	data, release, err := readHEIC(fsh, file)
 	if err != nil {
 		return nil, err
 	}
+	defer release()
 	img, err := decodeHEIC(data)
 	if err != nil {
 		return nil, errors.New("failed to decode HEIC image: " + err.Error())

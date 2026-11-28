@@ -13,18 +13,24 @@ package transcoder
 	    converts 10-bit to 8-bit (scale_vaapi), then encodes it. Frames never
 	    leave GPU memory, so a 1080p or 4K HEVC source costs the CPU little more
 	    than demuxing and the audio track. Before this existed, only the encode
-	    was offloaded: an HEVC source was still decoded, scaled and converted to
-	    NV12 by the CPU, which a low-end dual-core cannot keep up with.
-	  - Encode only: the CPU decodes and scales, the GPU encodes. Kept for
-	    drivers without the video processing (VPP) entrypoint scale_vaapi needs.
+	    was offloaded: an HEVC source was still decoded on the CPU, which a
+	    low-end dual-core cannot keep up with at 4K.
+	  - GPU decode, CPU scale: the GPU decodes and encodes, ffmpeg copies the
+	    decoded frames to system memory in between so they can be scaled and
+	    converted to 8-bit NV12 in software. This is for drivers without the
+	    video processing (VPP) entrypoint scale_vaapi needs - Debian's free
+	    intel-media-va-driver build has none on 9th generation graphics (UHD
+	    610/620/630) - and it still takes the decode, by far the most expensive
+	    step for HEVC, off the CPU. A source the GPU cannot decode is decoded in
+	    software by ffmpeg instead, so this also covers every encode-only case.
 
 	Each comes in two flavours. Intel's media driver exposes H.264 encoding
-	either through the full encode entrypoint or the low-power (VDEnc) one,
-	and the free build Debian and Ubuntu ship as intel-media-va-driver has only
-	the low-power one on most generations, since the other needs the non-free
-	shader kernels. ffmpeg's h264_vaapi asks for the full entrypoint unless
-	told -low_power 1 and does not try the other on its own, so without the
-	low-power variant such a host would fall back to libx264 entirely.
+	either through the full encode entrypoint or the low-power (VDEnc) one, and
+	the free driver build only has the low-power one on most generations. The
+	ffmpeg 7.1 Debian ships picks the low-power one on its own when it is the
+	only one, but releases that do not would need -low_power 1, so a low-power
+	variant is probed when the normal one fails. Both share a Group, so only
+	one of them ends up in the fallback chain.
 */
 
 import (
@@ -57,41 +63,52 @@ func vaapiRenderNodes() []string {
 func vaapiProfiles(device string) []*hwEncoderProfile {
 	preInput := []string{"-vaapi_device", device}
 	lowPower := []string{"-low_power", "1"}
+	name := filepath.Base(device)
 	// -hwaccel_output_format vaapi keeps decoded frames on the GPU. A source
 	// the GPU cannot decode (an unsupported profile, or a codec such as MPEG-4
 	// Part 2 that VAAPI never had) is decoded in software by ffmpeg instead
 	// of failing, and vaapiHWFilter uploads those frames.
-	decode := []string{"-hwaccel", "vaapi", "-hwaccel_output_format", "vaapi"}
-	name := filepath.Base(device)
+	gpuFrames := []string{"-hwaccel", "vaapi", "-hwaccel_output_format", "vaapi"}
+	// Without -hwaccel_output_format, ffmpeg copies each GPU-decoded frame
+	// back to system memory, which is what the software scale filter needs.
+	cpuFrames := []string{"-hwaccel", "vaapi"}
 
+	full := "vaapi-full:" + device
+	hybrid := "vaapi-hybrid:" + device
 	return []*hwEncoderProfile{
 		{
-			Name:        "Intel/AMD VAAPI, hardware decode and encode (" + name + ")",
+			Name:        "Intel/AMD VAAPI, GPU decode, scale and encode (" + name + ")",
 			Codec:       "h264_vaapi",
 			PreInput:    preInput,
-			DecodeArgs:  decode,
+			DecodeArgs:  gpuFrames,
 			ScaleFilter: vaapiHWFilter,
+			Group:       full,
 		},
 		{
-			Name:        "Intel/AMD VAAPI low-power, hardware decode and encode (" + name + ")",
+			Name:        "Intel/AMD VAAPI low-power, GPU decode, scale and encode (" + name + ")",
 			Codec:       "h264_vaapi",
 			PreInput:    preInput,
-			DecodeArgs:  decode,
+			DecodeArgs:  gpuFrames,
 			ScaleFilter: vaapiHWFilter,
 			EncodeArgs:  lowPower,
+			Group:       full,
 		},
 		{
-			Name:        "Intel/AMD VAAPI, encode only (" + name + ")",
+			Name:        "Intel/AMD VAAPI, GPU decode and encode, CPU scale (" + name + ")",
 			Codec:       "h264_vaapi",
 			PreInput:    preInput,
+			DecodeArgs:  cpuFrames,
 			ScaleFilter: vaapiUploadFilter,
+			Group:       hybrid,
 		},
 		{
-			Name:        "Intel/AMD VAAPI low-power, encode only (" + name + ")",
+			Name:        "Intel/AMD VAAPI low-power, GPU decode and encode, CPU scale (" + name + ")",
 			Codec:       "h264_vaapi",
 			PreInput:    preInput,
+			DecodeArgs:  cpuFrames,
 			ScaleFilter: vaapiUploadFilter,
 			EncodeArgs:  lowPower,
+			Group:       hybrid,
 		},
 	}
 }
@@ -117,8 +134,8 @@ func vaapiScaleFilter(scale string) string {
 	return "scale_vaapi=" + strings.TrimPrefix(scale, "scale=") + ":format=nv12"
 }
 
-// vaapiUploadFilter is the -vf chain of the encode-only pipeline: scale and
-// convert in software, then upload for the encoder.
+// vaapiUploadFilter is the -vf chain of the CPU-scale pipeline: scale and
+// convert to 8-bit NV12 in software, then upload for the encoder.
 func vaapiUploadFilter(scale string) string {
 	if scale == "" {
 		return "format=nv12,hwupload"

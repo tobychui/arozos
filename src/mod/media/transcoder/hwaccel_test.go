@@ -74,7 +74,7 @@ func TestProbeArgs(t *testing.T) {
 				EncodeArgs:  []string{"-preset", "fast"},
 			},
 			wantSize:    defaultProbeSize,
-			wantOrdered: []string{"-i", "-vf", "format=nv12", "-vcodec", "h264_fake", "-preset", "fast", "-f", "null", "-"},
+			wantOrdered: []string{"-i", "-vf", "scale=w=640:h=480,format=nv12", "-vcodec", "h264_fake", "-preset", "fast", "-f", "null", "-"},
 		},
 		{
 			name: "explicit probe size overrides the default",
@@ -86,7 +86,7 @@ func TestProbeArgs(t *testing.T) {
 				ProbeSize:   "640x480",
 			},
 			wantSize:    "640x480",
-			wantOrdered: []string{"-i", "-vcodec", "h264_videotoolbox", "-realtime", "1"},
+			wantOrdered: []string{"-i", "-vf", "scale=w=1280:h=960,format=nv12", "-vcodec", "h264_videotoolbox", "-realtime", "1"},
 			wantAbsent:  []string{"color=c=black:s=" + defaultProbeSize + ":d=0.1"},
 		},
 		{

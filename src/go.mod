@@ -41,6 +41,7 @@ require (
 	github.com/robertkrimen/otto v0.5.1
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	github.com/satori/go.uuid v1.2.0
+	github.com/shirou/gopsutil/v4 v4.26.9
 	github.com/spf13/afero v1.15.0
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
@@ -91,7 +92,6 @@ require (
 	github.com/prometheus/procfs v0.22.0 // indirect
 	github.com/quic-go/quic-go v0.63.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 // indirect
-	github.com/shirou/gopsutil/v4 v4.26.9 // indirect
 	github.com/syncthing/notify v0.0.0-20250528144937-c7027d4f7465 // indirect
 	github.com/syncthing/syncthing v1.30.0-rc.1.0.20261020195438-d6d0181f7d46 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect

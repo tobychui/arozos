@@ -76,13 +76,14 @@ func TestVAAPIProfiles(t *testing.T) {
 	const device = "/dev/dri/renderD129"
 	profiles := vaapiProfiles(device)
 	want := []struct {
-		hwDecode bool
-		lowPower bool
+		gpuFrames bool // decoded frames stay on the GPU and are scaled there
+		lowPower  bool
+		group     string
 	}{
-		{true, false},
-		{true, true},
-		{false, false},
-		{false, true},
+		{true, false, "vaapi-full:" + device},
+		{true, true, "vaapi-full:" + device},
+		{false, false, "vaapi-hybrid:" + device},
+		{false, true, "vaapi-hybrid:" + device},
 	}
 	if len(profiles) != len(want) {
 		t.Fatalf("vaapiProfiles() returned %d profiles, want %d", len(profiles), len(want))
@@ -97,12 +98,20 @@ func TestVAAPIProfiles(t *testing.T) {
 		if !strings.Contains(p.Name, "renderD129") {
 			t.Errorf("profile %d Name = %q, want it to name the render node", i, p.Name)
 		}
-		hwDecode := strings.Join(p.DecodeArgs, " ") == "-hwaccel vaapi -hwaccel_output_format vaapi"
-		if hwDecode != want[i].hwDecode {
-			t.Errorf("profile %d (%s) DecodeArgs = %v, want hardware decode %v", i, p.Name, p.DecodeArgs, want[i].hwDecode)
+		// Every VAAPI profile decodes on the GPU; they differ in where the
+		// decoded frames go.
+		wantDecode := "-hwaccel vaapi"
+		if want[i].gpuFrames {
+			wantDecode += " -hwaccel_output_format vaapi"
 		}
-		if hwDecode != strings.Contains(p.ScaleFilter(""), "scale_vaapi") {
-			t.Errorf("profile %d (%s) hardware decode %v does not match filter %q", i, p.Name, hwDecode, p.ScaleFilter(""))
+		if got := strings.Join(p.DecodeArgs, " "); got != wantDecode {
+			t.Errorf("profile %d (%s) DecodeArgs = %q, want %q", i, p.Name, got, wantDecode)
+		}
+		if want[i].gpuFrames != strings.Contains(p.ScaleFilter(""), "scale_vaapi") {
+			t.Errorf("profile %d (%s) GPU frames %v does not match filter %q", i, p.Name, want[i].gpuFrames, p.ScaleFilter(""))
+		}
+		if p.Group != want[i].group {
+			t.Errorf("profile %d (%s) Group = %q, want %q", i, p.Name, p.Group, want[i].group)
 		}
 		lowPower := strings.Join(p.EncodeArgs, " ") == "-low_power 1"
 		if lowPower != want[i].lowPower {
@@ -133,8 +142,14 @@ func TestProbeArgsOmitDecodeArgs(t *testing.T) {
 	if indexOf(args, "-hwaccel") != -1 || indexOf(args, "-hwaccel_output_format") != -1 {
 		t.Errorf("probeArgs() = %v, want no hardware decode options", args)
 	}
-	if vf := indexOf(args, "-vf"); vf == -1 || args[vf+1] != vaapiHWFilter("") {
-		t.Errorf("probeArgs() = %v, want the full hardware filter chain", args)
+	// The probe has to resize: scale_vaapi passes a frame of unchanged size
+	// and format straight through, which once hid a driver with no video
+	// processing support at all.
+	if vf := indexOf(args, "-vf"); vf == -1 || args[vf+1] != vaapiHWFilter(probeScaleFilter(defaultProbeSize)) {
+		t.Errorf("probeArgs() = %v, want the full hardware filter chain with a resize", args)
+	}
+	if !strings.Contains(strings.Join(args, " "), "scale_vaapi=w=640:h=480:format=nv12") {
+		t.Errorf("probeArgs() = %v, want scale_vaapi to resize the probe frame", args)
 	}
 }
 

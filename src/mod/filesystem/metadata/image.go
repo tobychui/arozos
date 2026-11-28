@@ -23,11 +23,14 @@ func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder st
 	var img image.Image
 	var err error
 
-	if fshAbs.GetFileSize(file) > (25 << 20) {
-		//Maxmium image size to be converted is 25MB, on 500MB (~250MB usable) Linux System
+	//Maxmium image size to be converted is 25MB, on 500MB (~250MB usable) Linux System
+	//Hosts with more than 4GB of memory convert larger files anyway
+	release, ok := admitImageSize(fshAbs.GetFileSize(file), 25<<20)
+	if !ok {
 		//This file is too large to convert
 		return "", errors.New("image file too large")
 	}
+	defer release()
 
 	if filepath.Ext(file) == ".webp" {
 		//Webp image format

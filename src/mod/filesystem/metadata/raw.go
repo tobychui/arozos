@@ -18,11 +18,12 @@ import (
 func generateThumbnailForRAW(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
 	fshAbs := fsh.FileSystemAbstraction
 
-	// Check file size - skip files larger than 100MB to prevent memory issues
-	fileSize := fshAbs.GetFileSize(file)
-	if fileSize > (100 << 20) {
+	// Skip files larger than 100MB on hosts without the memory for them
+	release, ok := admitImageSize(fshAbs.GetFileSize(file), 100<<20)
+	if !ok {
 		return "", errors.New("RAW file too large (>100MB)")
 	}
+	defer release()
 
 	// Read the RAW file
 	rawData, err := fshAbs.ReadFile(file)
@@ -541,11 +542,12 @@ func getSizeForType(fieldType uint16) uint32 {
 func RenderRAWImage(fsh *filesystem.FileSystemHandler, file string) ([]byte, error) {
 	fshAbs := fsh.FileSystemAbstraction
 
-	// Check file size - skip files larger than 100MB to prevent memory issues
-	fileSize := fshAbs.GetFileSize(file)
-	if fileSize > (100 << 20) {
+	// Skip files larger than 100MB on hosts without the memory for them
+	release, ok := admitImageSize(fshAbs.GetFileSize(file), 100<<20)
+	if !ok {
 		return nil, errors.New("RAW file too large (>100MB)")
 	}
+	defer release()
 
 	// Read the RAW file
 	rawData, err := fshAbs.ReadFile(file)

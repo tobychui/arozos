@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	"imuslab.com/arozos/mod/info/logger"
@@ -35,85 +36,129 @@ const (
 // When the host has a usable hardware H.264 encoder - NVENC / VAAPI / Quick
 // Sync / AMF on Linux and Windows, VideoToolbox on macOS - it is used in place
 // of libx264 to keep CPU load down (probed once and cached by
-// getHWEncoderProfile); otherwise this falls back to the original software path.
-// With VAAPI the source is decoded and scaled on the GPU as well, which is what
+// getHWEncoderProfiles); otherwise this falls back to the original software
+// path. With VAAPI the source is decoded on the GPU as well, which is what
 // keeps an HEVC source from saturating a low-end CPU.
+//
+// A pipeline that fails before sending a single byte (see transcodeChain) is
+// retried with the next one, and if every one fails the client gets an error
+// rather than an empty response it would wait on forever.
 func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string, resolution TranscodeOutputResolution, startTime float64) {
-	// Build the FFmpeg command based on the resolution parameter
-	args, err := buildMP4Args(inputFile, resolution, startTime, getHWEncoderProfile())
-	if err != nil {
+	if _, err := resolutionScaleFilter(resolution); err != nil {
 		http.Error(w, "Invalid resolution parameter", http.StatusBadRequest)
 		return
 	}
-	cmd := exec.Command("ffmpeg", args...)
 
-	// Set response headers for streaming MP4 video
+	// Set response headers for streaming MP4 video. Nothing is sent until the
+	// first byte of video, so they are withdrawn again if no attempt succeeds.
 	w.Header().Set("Content-Type", "video/mp4")
 	w.Header().Set("Transfer-Encoding", "chunked")
 	w.Header().Set("Cache-Control", "public, max-age=3600, s-maxage=3600, must-revalidate")
 	w.Header().Set("Accept-Ranges", "bytes")
 
-	// Get the command output pipe
+	wrote, err := runWithFallback(transcodeChain(), func(hw *hwEncoderProfile) (bool, error) {
+		args, err := buildMP4Args(inputFile, resolution, startTime, hw)
+		if err != nil {
+			return false, err
+		}
+		return streamMP4(w, r, args)
+	}, func(hw *hwEncoderProfile, err error) {
+		logger.PrintAndLog("Transcoder", "Transcode with "+profileName(hw)+" failed before producing any video, trying the next encoder", err)
+	}, func() bool {
+		return r.Context().Err() != nil
+	})
+
+	if !wrote && err != nil && r.Context().Err() == nil {
+		for _, header := range []string{"Content-Type", "Transfer-Encoding", "Cache-Control", "Accept-Ranges"} {
+			w.Header().Del(header)
+		}
+		logger.PrintAndLog("Transcoder", "Every encoder failed to transcode "+inputFile, err)
+		http.Error(w, "Failed to transcode video", http.StatusInternalServerError)
+		return
+	}
+	logger.PrintAndLog("Transcoder", "[Media Server] Transcode client disconnected", nil)
+}
+
+// profileName names a transcodeChain entry for logs; nil is libx264.
+func profileName(hw *hwEncoderProfile) string {
+	if hw == nil {
+		return "software (libx264)"
+	}
+	return hw.Name
+}
+
+// runWithFallback runs attempt with each entry of chain in turn until one
+// produces output, ends without an error, the request is cancelled, or the
+// chain runs out. It reports whether any attempt produced output and the last
+// attempt's error. failed is called for every attempt that is followed by
+// another.
+func runWithFallback(chain []*hwEncoderProfile, attempt func(*hwEncoderProfile) (bool, error), failed func(*hwEncoderProfile, error), cancelled func() bool) (bool, error) {
+	var err error
+	for i, hw := range chain {
+		var wrote bool
+		wrote, err = attempt(hw)
+		// A clean exit with no output (a start offset past the end of the
+		// file) is not something another encoder would do better.
+		if wrote || err == nil || cancelled() {
+			return wrote, err
+		}
+		if i < len(chain)-1 {
+			failed(hw, err)
+		}
+	}
+	return false, err
+}
+
+// countingWriter remembers whether anything has been written through it.
+type countingWriter struct {
+	w io.Writer
+	n int64
+}
+
+func (c *countingWriter) Write(p []byte) (int, error) {
+	n, err := c.w.Write(p)
+	c.n += int64(n)
+	return n, err
+}
+
+// streamMP4 runs one ffmpeg with the given arguments and copies its output to
+// the response until it finishes or the client goes away. It reports whether
+// any video reached the client, and ffmpeg's error if it failed.
+func streamMP4(w http.ResponseWriter, r *http.Request, args []string) (bool, error) {
+	cmd := exec.Command("ffmpeg", args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		http.Error(w, "Failed to create output pipe", http.StatusInternalServerError)
-		return
+		return false, err
 	}
-
-	// Get the command error pipe to capture standard error
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		http.Error(w, "Failed to create error pipe", http.StatusInternalServerError)
-		logger.PrintAndLog("Transcoder", fmt.Sprintf("Failed to create error pipe: %v", err), nil)
-		return
-	}
-
-	// Start the command
+	// Only the end of stderr is kept: it holds the reason for a failure,
+	// while the start is the banner and the full stream listing.
+	stderr := &tailBuffer{}
+	cmd.Stderr = stderr
 	if err := cmd.Start(); err != nil {
-		http.Error(w, "Failed to start FFmpeg", http.StatusInternalServerError)
-		return
+		return false, err
 	}
 
-	// Buffered so both the natural-end goroutine and the client-disconnect goroutine
-	// can send without blocking — only the first signal is consumed.
-	done := make(chan struct{}, 2)
-
-	// Monitor client connection close
+	// Kill ffmpeg when the client goes away; the copy below then ends too.
+	finished := make(chan struct{})
+	defer close(finished)
 	go func() {
-		<-r.Context().Done()
-		time.Sleep(300 * time.Millisecond)
-		cmd.Process.Kill()
-		done <- struct{}{}
-	}()
-
-	// Copy the command output to the HTTP response in a separate goroutine
-	go func() {
-		if _, err := io.Copy(w, stdout); err != nil {
+		select {
+		case <-r.Context().Done():
+			time.Sleep(300 * time.Millisecond)
 			cmd.Process.Kill()
-		}
-		// Signal natural end so the handler returns and the chunked-transfer
-		// terminator is flushed to the client.
-		done <- struct{}{}
-	}()
-
-	// Read and log the command standard error
-	go func() {
-		errOutput, _ := io.ReadAll(stderr)
-		if len(errOutput) > 0 {
-			logger.PrintAndLog("Transcoder", fmt.Sprintf("FFmpeg error output: %s", string(errOutput)), nil)
+		case <-finished:
 		}
 	}()
 
-	go func() {
-		if err := cmd.Wait(); err != nil {
-			logger.PrintAndLog("Transcoder", fmt.Sprintf("FFmpeg process exited: %v", err), nil)
-			return
-		}
-	}()
-
-	// Wait for the command to finish or client disconnect
-	<-done
-	logger.PrintAndLog("Transcoder", "[Media Server] Transcode client disconnected", nil)
+	out := &countingWriter{w: w}
+	if _, err := io.Copy(out, stdout); err != nil {
+		cmd.Process.Kill()
+	}
+	waitErr := cmd.Wait()
+	if waitErr != nil && r.Context().Err() == nil {
+		logger.PrintAndLog("Transcoder", "FFmpeg exited with an error: "+strings.TrimSpace(stderr.String()), waitErr)
+	}
+	return out.n > 0, waitErr
 }
 
 // buildMP4Args assembles the ffmpeg command line of TranscodeAndStream: the

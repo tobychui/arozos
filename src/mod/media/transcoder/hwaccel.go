@@ -13,7 +13,9 @@ package transcoder
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +37,12 @@ type hwEncoderProfile struct {
 	ScaleFilter func(scale string) string // -vf value wrapping the given scale filter ("" = no scaling)
 	EncodeArgs  []string                  // encoder-specific args replacing "-preset superfast"
 	ProbeSize   string                    // WxH test frame size for the probe encode; "" uses defaultProbeSize
+	// Group names profiles that are variants of one pipeline on one device,
+	// such as the normal and low-power VAAPI encoder. Only the first of a
+	// group that passes the probe is kept, so a failing transcode falls back
+	// to a different pipeline rather than to a near copy of the same one.
+	// "" makes the profile a group of its own.
+	Group string
 }
 
 // defaultProbeSize is the test frame size used by testHWEncoder when a profile
@@ -45,7 +53,7 @@ const defaultProbeSize = "320x240"
 
 var (
 	hwProfileOnce sync.Once
-	hwProfile     *hwEncoderProfile // nil if no usable hardware encoder was found
+	hwProfiles    []*hwEncoderProfile // usable hardware profiles, best first; empty if none
 )
 
 // nv12ScaleFilter returns a -vf filter chain that applies the given scale
@@ -60,36 +68,82 @@ func nv12ScaleFilter(scale string) string {
 	return scale + ",format=nv12"
 }
 
-// getHWEncoderProfile probes the host once for a working Intel/AMD hardware
-// H.264 encoder and caches the result for the lifetime of the process.
-func getHWEncoderProfile() *hwEncoderProfile {
+// getHWEncoderProfiles probes the host once for working hardware H.264
+// pipelines and caches the result for the lifetime of the process.
+func getHWEncoderProfiles() []*hwEncoderProfile {
 	hwProfileOnce.Do(func() {
-		hwProfile = probeHWEncoders()
-		if hwProfile != nil {
-			logger.PrintAndLog("Transcoder", "Hardware transcoding enabled: "+hwProfile.Name, nil)
-		} else {
+		hwProfiles = probeHWEncoders()
+		if len(hwProfiles) == 0 {
 			logger.PrintAndLog("Transcoder", "No usable hardware encoder found, using software (libx264) transcoding", nil)
+			return
 		}
+		names := make([]string, len(hwProfiles))
+		for i, profile := range hwProfiles {
+			names[i] = profile.Name
+		}
+		logger.PrintAndLog("Transcoder", "Hardware transcoding enabled: "+strings.Join(names, ", then "), nil)
 	})
-	return hwProfile
+	return hwProfiles
 }
 
-// probeHWEncoders tries each platform candidate in order and returns the
-// first one that can actually complete a throwaway encode, since an encoder
-// can be compiled into ffmpeg yet still fail when no compatible GPU/driver
-// is present on this particular machine.
-func probeHWEncoders() *hwEncoderProfile {
-	for _, profile := range candidateHWProfiles() {
-		if testHWEncoder(profile) {
-			return profile
-		}
+// getHWEncoderProfile returns the best usable hardware profile, or nil when
+// transcoding has to use libx264.
+func getHWEncoderProfile() *hwEncoderProfile {
+	if profiles := getHWEncoderProfiles(); len(profiles) > 0 {
+		return profiles[0]
 	}
 	return nil
+}
+
+// transcodeChain lists the encoder settings a transcode tries in turn: every
+// usable hardware profile, best first, then nil for libx264. The probe only
+// shows that a pipeline works for a synthetic 8-bit frame; a real source can
+// still break it - a 10-bit HDR film needs a pixel format conversion the GPU
+// may not offer - so a transcode that fails before producing anything moves
+// on to the next entry instead of leaving the player waiting forever.
+func transcodeChain() []*hwEncoderProfile {
+	return append(append([]*hwEncoderProfile{}, getHWEncoderProfiles()...), nil)
+}
+
+// probeHWEncoders tries each platform candidate in order and keeps those that
+// can actually complete a throwaway encode, since an encoder can be compiled
+// into ffmpeg yet still fail when no compatible GPU/driver is present on this
+// particular machine. Within a Group only the first that works is kept.
+func probeHWEncoders() []*hwEncoderProfile {
+	return selectWorkingProfiles(candidateHWProfiles(), testHWEncoder)
+}
+
+// selectWorkingProfiles is the probing loop of probeHWEncoders, separated so
+// the grouping rule can be tested without ffmpeg.
+func selectWorkingProfiles(candidates []*hwEncoderProfile, works func(*hwEncoderProfile) bool) []*hwEncoderProfile {
+	var usable []*hwEncoderProfile
+	satisfied := map[string]bool{}
+	for _, profile := range candidates {
+		if profile.Group != "" && satisfied[profile.Group] {
+			continue
+		}
+		if !works(profile) {
+			continue
+		}
+		usable = append(usable, profile)
+		if profile.Group != "" {
+			satisfied[profile.Group] = true
+		}
+	}
+	return usable
 }
 
 // probeArgs builds the ffmpeg argument list for a profile's throwaway probe
 // encode: a single synthetic frame pushed through the real encoder settings
 // and discarded.
+//
+// The frame is resized on the way, to twice the probe size. Without that the
+// probe proved nothing about GPU scaling: scale_vaapi passes a frame straight
+// through when neither size nor format changes, so a driver with no video
+// processing entrypoint at all (Debian's free Intel driver on 9th generation
+// graphics) passed the probe and then failed every real transcode. Doubling
+// rather than halving keeps the frame above the minimum size some encoders
+// accept.
 func probeArgs(profile *hwEncoderProfile) []string {
 	size := profile.ProbeSize
 	if size == "" {
@@ -100,7 +154,7 @@ func probeArgs(profile *hwEncoderProfile) []string {
 		"-hide_banner", "-loglevel", "error",
 		"-f", "lavfi", "-i", "color=c=black:s="+size+":d=0.1",
 	)
-	if vf := profile.ScaleFilter(""); vf != "" {
+	if vf := profile.ScaleFilter(probeScaleFilter(size)); vf != "" {
 		args = append(args, "-vf", vf)
 	}
 	args = append(args, "-frames:v", "1", "-vcodec", profile.Codec)
@@ -115,4 +169,13 @@ func testHWEncoder(profile *hwEncoderProfile) bool {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "ffmpeg", probeArgs(profile)...)
 	return cmd.Run() == nil
+}
+
+// probeScaleFilter returns a scale filter to twice the given WxH probe size.
+func probeScaleFilter(size string) string {
+	w, h := 0, 0
+	if _, err := fmt.Sscanf(size, "%dx%d", &w, &h); err != nil || w <= 0 || h <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("scale=w=%d:h=%d", w*2, h*2)
 }
