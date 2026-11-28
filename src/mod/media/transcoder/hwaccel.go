@@ -4,7 +4,8 @@ package transcoder
 	hwaccel.go
 
 	Detects and caches a working hardware H.264 encoder so TranscodeAndStream
-	can offload encoding from the CPU when the host supports it, falling back
+	can offload encoding (and, where the profile supports it, decoding and
+	scaling too) from the CPU when the host supports it, falling back
 	to the existing libx264 software path otherwise. Platform-specific profiles
 	(which encoder, which ffmpeg args) live in hwaccel_linux.go /
 	hwaccel_windows.go / hwaccel_darwin.go / hwaccel_other.go.
@@ -22,9 +23,15 @@ import (
 // hwEncoderProfile describes how to invoke a hardware-accelerated H.264
 // encoder as a drop-in replacement for the software libx264 path.
 type hwEncoderProfile struct {
-	Name        string                    // human-readable label for logging, e.g. "Intel/AMD VAAPI"
-	Codec       string                    // ffmpeg -vcodec value, e.g. "h264_vaapi"
-	PreInput    []string                  // extra global args inserted before -i (device init, etc.)
+	Name     string   // human-readable label for logging, e.g. "Intel/AMD VAAPI"
+	Codec    string   // ffmpeg -vcodec value, e.g. "h264_vaapi"
+	PreInput []string // extra global args inserted before -i (device init, etc.)
+	// DecodeArgs are input options, placed right before -i, that turn on
+	// hardware decoding and keep the decoded frames in GPU memory. They are
+	// left out of the probe encode, whose synthetic input has no hardware
+	// decoder to test. ffmpeg decodes a source the GPU cannot handle in
+	// software instead, so ScaleFilter must then accept both kinds of frame.
+	DecodeArgs  []string
 	ScaleFilter func(scale string) string // -vf value wrapping the given scale filter ("" = no scaling)
 	EncodeArgs  []string                  // encoder-specific args replacing "-preset superfast"
 	ProbeSize   string                    // WxH test frame size for the probe encode; "" uses defaultProbeSize

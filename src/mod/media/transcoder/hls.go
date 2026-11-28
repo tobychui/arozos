@@ -265,6 +265,9 @@ func buildHLSArgs(inputFile string, dir string, resolution TranscodeOutputResolu
 		// zero, which is what the growing playlist expects.
 		args = append(args, "-ss", fmt.Sprintf("%.3f", startTime))
 	}
+	if hw != nil {
+		args = append(args, hw.DecodeArgs...)
+	}
 	args = append(args, "-i", inputFile)
 
 	// Take the first video and, if present, the first audio track. Without this

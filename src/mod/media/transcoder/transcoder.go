@@ -36,53 +36,16 @@ const (
 // Sync / AMF on Linux and Windows, VideoToolbox on macOS - it is used in place
 // of libx264 to keep CPU load down (probed once and cached by
 // getHWEncoderProfile); otherwise this falls back to the original software path.
+// With VAAPI the source is decoded and scaled on the GPU as well, which is what
+// keeps an HEVC source from saturating a low-end CPU.
 func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string, resolution TranscodeOutputResolution, startTime float64) {
 	// Build the FFmpeg command based on the resolution parameter
-	var cmd *exec.Cmd
-
-	scale, err := resolutionScaleFilter(resolution)
+	args, err := buildMP4Args(inputFile, resolution, startTime, getHWEncoderProfile())
 	if err != nil {
 		http.Error(w, "Invalid resolution parameter", http.StatusBadRequest)
 		return
 	}
-
-	var preInputArgs []string
-	if startTime > 0.001 {
-		preInputArgs = append(preInputArgs, "-ss", fmt.Sprintf("%.3f", startTime))
-	}
-
-	var videoCodecArgs []string
-	var vf string
-	if hw := getHWEncoderProfile(); hw != nil {
-		preInputArgs = append(append([]string{}, hw.PreInput...), preInputArgs...)
-		vf = hw.ScaleFilter(scale)
-		videoCodecArgs = append([]string{"-vcodec", hw.Codec}, hw.EncodeArgs...)
-		videoCodecArgs = append(videoCodecArgs, rateControlArgs(resolution, true)...)
-	} else {
-		vf = scale
-		// -pix_fmt yuv420p is not optional. libx264 otherwise matches the source
-		// bit depth, so a 10-bit input (routine in anime releases) produces a
-		// High 10 stream that Chrome and Firefox cannot decode — the transcode
-		// would appear to succeed and then fail to play, which is the whole
-		// problem transcoding exists to avoid.
-		videoCodecArgs = []string{"-vcodec", "libx264", "-preset", "superfast", "-pix_fmt", "yuv420p"}
-		videoCodecArgs = append(videoCodecArgs, rateControlArgs(resolution, false)...)
-	}
-
-	middleArgs := []string{"-i", inputFile}
-	if vf != "" {
-		middleArgs = append(middleArgs, "-vf", vf)
-	}
-
-	transcodeFormatArgs := []string{"-f", "mp4"}
-	transcodeFormatArgs = append(transcodeFormatArgs, videoCodecArgs...)
-	transcodeFormatArgs = append(transcodeFormatArgs, "-g", "60", "-movflags", "frag_keyframe+empty_moov+faststart", "pipe:1")
-
-	var args []string
-	args = append(args, preInputArgs...)
-	args = append(args, middleArgs...)
-	args = append(args, transcodeFormatArgs...)
-	cmd = exec.Command("ffmpeg", args...)
+	cmd := exec.Command("ffmpeg", args...)
 
 	// Set response headers for streaming MP4 video
 	w.Header().Set("Content-Type", "video/mp4")
@@ -151,6 +114,55 @@ func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string
 	// Wait for the command to finish or client disconnect
 	<-done
 	logger.PrintAndLog("Transcoder", "[Media Server] Transcode client disconnected", nil)
+}
+
+// buildMP4Args assembles the ffmpeg command line of TranscodeAndStream: the
+// hardware profile when one is given, libx264 otherwise, muxed into a
+// fragmented MP4 on stdout. buildHLSArgs is its HLS counterpart.
+func buildMP4Args(inputFile string, resolution TranscodeOutputResolution, startTime float64, hw *hwEncoderProfile) ([]string, error) {
+	scale, err := resolutionScaleFilter(resolution)
+	if err != nil {
+		return nil, err
+	}
+
+	var preInputArgs []string
+	if startTime > 0.001 {
+		preInputArgs = append(preInputArgs, "-ss", fmt.Sprintf("%.3f", startTime))
+	}
+
+	var videoCodecArgs []string
+	var vf string
+	if hw != nil {
+		preInputArgs = append(append([]string{}, hw.PreInput...), preInputArgs...)
+		preInputArgs = append(preInputArgs, hw.DecodeArgs...)
+		vf = hw.ScaleFilter(scale)
+		videoCodecArgs = append([]string{"-vcodec", hw.Codec}, hw.EncodeArgs...)
+		videoCodecArgs = append(videoCodecArgs, rateControlArgs(resolution, true)...)
+	} else {
+		vf = scale
+		// -pix_fmt yuv420p is not optional. libx264 otherwise matches the source
+		// bit depth, so a 10-bit input (routine in anime releases) produces a
+		// High 10 stream that Chrome and Firefox cannot decode — the transcode
+		// would appear to succeed and then fail to play, which is the whole
+		// problem transcoding exists to avoid.
+		videoCodecArgs = []string{"-vcodec", "libx264", "-preset", "superfast", "-pix_fmt", "yuv420p"}
+		videoCodecArgs = append(videoCodecArgs, rateControlArgs(resolution, false)...)
+	}
+
+	middleArgs := []string{"-i", inputFile}
+	if vf != "" {
+		middleArgs = append(middleArgs, "-vf", vf)
+	}
+
+	transcodeFormatArgs := []string{"-f", "mp4"}
+	transcodeFormatArgs = append(transcodeFormatArgs, videoCodecArgs...)
+	transcodeFormatArgs = append(transcodeFormatArgs, "-g", "60", "-movflags", "frag_keyframe+empty_moov+faststart", "pipe:1")
+
+	var args []string
+	args = append(args, preInputArgs...)
+	args = append(args, middleArgs...)
+	args = append(args, transcodeFormatArgs...)
+	return args, nil
 }
 
 type TranscodeAudioSampleRate int
