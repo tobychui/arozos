@@ -280,3 +280,42 @@ func TestDebugf(t *testing.T) {
 		}
 	}
 }
+
+// TestWalkRoot checks that a walk finds its root on servers with and without
+// MLST, and that a missing root is reported as filepath.Walk does: the error
+// and no file info, where it used to hand over a FileInfo that panics.
+func TestWalkRoot(t *testing.T) {
+	for _, noMLST := range []bool{false, true} {
+		l, mem := startServer(t, noMLST)
+		mem.MkdirAll("/docs", 0755)
+		afero.WriteFile(mem, "/docs/a.txt", []byte("hello"), 0644)
+
+		visited := map[string]bool{}
+		err := l.Walk("/docs", func(path string, info os.FileInfo, err error) error {
+			if err != nil || info == nil {
+				t.Errorf("noMLST=%v: walk of /docs got %q with info %v, error %v", noMLST, path, info, err)
+				return nil
+			}
+			visited[path] = info.IsDir()
+			return nil
+		})
+		if err != nil {
+			t.Errorf("noMLST=%v: Walk(/docs) error: %v", noMLST, err)
+		}
+		if isDir, ok := visited["/docs"]; !ok || !isDir || len(visited) != 2 {
+			t.Errorf("noMLST=%v: visited %v, want /docs as a folder and its file", noMLST, visited)
+		}
+
+		calls := 0
+		err = l.Walk("/missing", func(path string, info os.FileInfo, err error) error {
+			calls++
+			if info != nil || err == nil {
+				t.Errorf("noMLST=%v: missing root got info %v, error %v; want no info and an error", noMLST, info, err)
+			}
+			return err
+		})
+		if calls != 1 || err == nil {
+			t.Errorf("noMLST=%v: missing root: %d callback(s), Walk error %v", noMLST, calls, err)
+		}
+	}
+}

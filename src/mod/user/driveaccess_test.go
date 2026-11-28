@@ -251,3 +251,25 @@ func TestDriveLookupDebug(t *testing.T) {
 		}
 	}
 }
+
+// TestHomeDriveWithoutPool checks that a user whose storage is not loaded
+// gets an error for its home drive instead of a nil pointer panic.
+func TestHomeDriveWithoutPool(t *testing.T) {
+	tests := []struct {
+		name    string
+		user    *User
+		wantErr bool
+	}{
+		{"no pool", &User{Username: "alice"}, true},
+		{"pool", newDriveTestUser(ruleMap{}), false},
+	}
+	for _, tt := range tests {
+		fsh, err := tt.user.GetHomeFileSystemHandler()
+		if (err != nil) != tt.wantErr {
+			t.Errorf("%s: GetHomeFileSystemHandler() error = %v, wantErr %v", tt.name, err, tt.wantErr)
+		}
+		if !tt.wantErr && fsh.UUID != "user" {
+			t.Errorf("%s: got drive %q, want user", tt.name, fsh.UUID)
+		}
+	}
+}

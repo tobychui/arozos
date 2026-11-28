@@ -1,6 +1,8 @@
 package user
 
 import (
+	"errors"
+
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/info/logger"
@@ -27,7 +29,8 @@ func (u *User) GetHomeDirectory() (string, error) {
 // Get the user home file system handler, aka user:/
 func (u *User) GetHomeFileSystemHandler() (*fs.FileSystemHandler, error) {
 	if u.HomeDirectories == nil {
-		logger.Debugf("User", "GetHomeFileSystemHandler(%q): the user has no home pool (nil), reading its drives panics with a nil pointer dereference", u.Username)
+		logger.Debugf("User", "GetHomeFileSystemHandler(%q): the user has no home pool (nil)", u.Username)
+		return &fs.FileSystemHandler{}, errors.New("the storage of this user is not loaded")
 	}
 	return getHandlerFromID(u.HomeDirectories.Storages, "user")
 }

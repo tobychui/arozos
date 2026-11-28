@@ -38,8 +38,13 @@ func NewStoragePool(fsHandlers []*fs.FileSystemHandler, owner string) (*StorageP
 	storageHandlers := []*fs.FileSystemHandler{}
 	for _, fsHandler := range fsHandlers {
 		//Move the handler pointer to the target
-		if fsHandler == nil || fsHandler.FileSystemAbstraction == nil {
-			logger.Debugf("Storage", "NewStoragePool(%s): drive %s has no abstraction; looking up any drive in this pool by id panics on it", owner, fsHandler.Describe())
+		if fsHandler == nil {
+			//Every lookup in the pool reads the id of each drive
+			logger.Debugf("Storage", "NewStoragePool(%s): a nil drive handler was given, it is left out", owner)
+			continue
+		}
+		if fsHandler.FileSystemAbstraction == nil {
+			logger.Debugf("Storage", "NewStoragePool(%s): drive %s has no abstraction; using it panics", owner, fsHandler.Describe())
 		}
 		storageHandlers = append(storageHandlers, fsHandler)
 	}
@@ -54,7 +59,7 @@ func NewStoragePool(fsHandlers []*fs.FileSystemHandler, owner string) (*StorageP
 // Check if this storage pool contain this particular disk ID
 func (s *StoragePool) ContainDiskID(diskID string) bool {
 	for _, fsh := range s.Storages {
-		if fsh.UUID == diskID {
+		if fsh != nil && fsh.UUID == diskID {
 			return true
 		}
 	}
@@ -85,7 +90,7 @@ func (s *StoragePool) GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, er
 	}
 
 	for _, fsh := range s.Storages {
-		if fsh.UUID == uuid {
+		if fsh != nil && fsh.UUID == uuid {
 			return fsh, nil
 		}
 	}
@@ -109,7 +114,7 @@ func (s *StoragePool) AttachFsHandler(fsh *filesystem.FileSystemHandler) error {
 func (s *StoragePool) DetachFsHandler(uuid string) {
 	newFshList := []*fs.FileSystemHandler{}
 	for _, fsh := range s.Storages {
-		if fsh.UUID != uuid {
+		if fsh != nil && fsh.UUID != uuid {
 			newFshList = append(newFshList, fsh)
 		}
 	}
@@ -124,7 +129,8 @@ func (s *StoragePool) Close() {
 	//For each storage pool, close it
 	for _, fsh := range s.Storages {
 		if fsh == nil {
-			logger.Debugf("Storage", "StoragePool.Close(%s): the pool holds a nil drive handler, closing it panics", s.Owner)
+			logger.Debugf("Storage", "StoragePool.Close(%s): skipping a nil drive handler", s.Owner)
+			continue
 		}
 		if !fsh.Closed {
 			fsh.Close()

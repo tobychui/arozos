@@ -857,10 +857,10 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		out, err = fshAbs.OpenFile(mergeFileLocation, os.O_CREATE|os.O_WRONLY, 0755)
 	}
 	logger.Debugf("File System", "LowMemoryUpload %s: merging %d chunk(s) into %q (buffered locally: %v), open error: %v", uploadUUID, len(chunkName), mergeFileLocation, fsh.RequireBuffer, err)
-	if out == nil {
-		logger.Debugf("File System", "LowMemoryUpload %s: the merge file is a nil interface; the deferred out.Close() panics with a nil pointer dereference when this handler returns", uploadUUID)
+	if out != nil {
+		//Drives return a nil file, not a nil *os.File, when the open fails
+		defer out.Close()
 	}
-	defer out.Close()
 
 	if err != nil {
 		systemWideLogger.PrintAndLog("File System", "Failed to open file:"+err.Error(), err)
@@ -2508,7 +2508,9 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 				path = filepath.ToSlash(path)
 				relpath := strings.TrimPrefix(path, filepath.ToSlash(unzipDest))
 				if info == nil {
-					logger.Debugf("File System", "FileOperation %s: upload walk got NO file info for %q (walk error: %v); info.IsDir() below panics with a nil pointer dereference", oprId, path, err)
+					//Unreadable, or the unzip left nothing behind
+					logger.Debugf("File System", "FileOperation %s: upload walk got no file info for %q (walk error: %v), skipped", oprId, path, err)
+					return nil
 				}
 				if info.IsDir() {
 					destFshAbs.MkdirAll(filepath.Join(rdestFile, relpath), 0775)
@@ -3073,7 +3075,9 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 						path = filepath.ToSlash(path)
 						relpath := strings.TrimPrefix(path, filepath.ToSlash(unzipDest))
 						if info == nil {
-							logger.Debugf("File System", "handleOpr: upload walk got NO file info for %q (walk error: %v); info.IsDir() below panics with a nil pointer dereference", path, err)
+							//Unreadable, or the unzip left nothing behind
+							logger.Debugf("File System", "handleOpr: upload walk got no file info for %q (walk error: %v), skipped", path, err)
+							return nil
 						}
 						if info.IsDir() {
 							destFshAbs.MkdirAll(filepath.Join(rdestFile, relpath), 0775)

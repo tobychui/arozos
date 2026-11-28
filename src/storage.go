@@ -161,7 +161,9 @@ func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 		}
 		logger.Debugf("Storage", "Heartbeat: %s", thisFsh.Describe())
 		if thisFsh.FileSystemAbstraction == nil {
-			logger.Debugf("Storage", "Heartbeat: %s:/ has no abstraction, the Heartbeat call below panics with a nil pointer dereference", thisFsh.UUID)
+			//Nothing to check, and no start options would bring it back
+			logger.Debugf("Storage", "Heartbeat: %s:/ has no abstraction, skipped", thisFsh.UUID)
+			continue
 		}
 		err := thisFsh.FileSystemAbstraction.Heartbeat()
 		if err != nil {
@@ -237,8 +239,9 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 		//Read the config file
 		pgStorageConfig, err := os.ReadFile(expectedConfigPath)
 		if err != nil {
-			logger.Debugf("Storage", "LoadStoragePoolForGroup(%s): config unreadable, the group keeps NO storage pool (nil); the heartbeat and every drive listing panic on it: %v", pg.Name, err)
+			logger.Debugf("Storage", "LoadStoragePoolForGroup(%s): config unreadable, the group gets an empty pool: %v", pg.Name, err)
 			systemWideLogger.PrintAndLog("Storage", "Failed to read config for "+pg.Name+": "+err.Error(), err)
+			ensureGroupPool(pg)
 			return errors.New("Failed to read config for " + pg.Name + ": " + err.Error())
 		}
 
@@ -248,8 +251,9 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 		})
 
 		if err != nil {
-			logger.Debugf("Storage", "LoadStoragePoolForGroup(%s): config is not valid, the group keeps NO storage pool (nil); the heartbeat and every drive listing panic on it: %v", pg.Name, err)
+			logger.Debugf("Storage", "LoadStoragePoolForGroup(%s): config is not valid, the group gets an empty pool: %v", pg.Name, err)
 			systemWideLogger.PrintAndLog("Storage", "Failed to load storage configuration: "+err.Error(), err)
+			ensureGroupPool(pg)
 			return errors.New("Failed to load storage configuration: " + err.Error())
 		}
 
@@ -284,6 +288,15 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 	return nil
 }
 
+// ensureGroupPool gives a group an empty pool when it has none, so a group
+// whose storage config cannot be loaded has no drives instead of a nil pool,
+// which every drive listing and the heartbeat would read
+func ensureGroupPool(pg *permission.PermissionGroup) {
+	if pg.StoragePool == nil {
+		pg.StoragePool = &storage.StoragePool{Owner: pg.Name, Storages: []*fs.FileSystemHandler{}}
+	}
+}
+
 // Check if a storage pool exists by its group owner name
 func StoragePoolExists(poolOwner string) bool {
 	_, err := GetStoragePoolByOwner(poolOwner)
@@ -291,18 +304,22 @@ func StoragePoolExists(poolOwner string) bool {
 }
 
 func GetAllStoragePools() []*storage.StoragePool {
-	//Append the base pool
-	results := []*storage.StoragePool{baseStoragePool}
+	//Append the base pool, once it is loaded
+	results := []*storage.StoragePool{}
+	if baseStoragePool != nil {
+		results = append(results, baseStoragePool)
+	} else {
+		logger.Debug("Storage", "GetAllStoragePools: the base storage pool is not loaded yet, left out")
+	}
 
-	//Add each permissionGroup's pool
+	//Add each permissionGroup's pool. A group whose pool is not loaded has
+	//no drives to list, and every caller reads the pools it gets
 	for _, pg := range permissionHandler.PermissionGroups {
-		if pg.StoragePool == nil && logger.DebugEnabled() {
-			logger.Debugf("Storage", "GetAllStoragePools: group %q has NO storage pool (nil); listing its drives panics with a nil pointer dereference", pg.Name)
+		if pg.StoragePool == nil {
+			logger.Debugf("Storage", "GetAllStoragePools: group %q has no storage pool (nil), left out", pg.Name)
+			continue
 		}
 		results = append(results, pg.StoragePool)
-	}
-	if baseStoragePool == nil && logger.DebugEnabled() {
-		logger.Debug("Storage", "GetAllStoragePools: the base storage pool is nil (not loaded yet, or a reload failed); listing its drives panics")
 	}
 
 	return results
@@ -372,12 +389,10 @@ func GetAllLoadedFsh() []*fs.FileSystemHandler {
 	allFsh := []*fs.FileSystemHandler{}
 	allStoragePools := GetAllStoragePools()
 	for _, thisSP := range allStoragePools {
-		if thisSP == nil {
-			logger.Debug("Storage", "GetAllLoadedFsh: a storage pool is nil, reading its drives panics with a nil pointer dereference")
-		}
 		for _, thisFsh := range thisSP.Storages {
 			if thisFsh == nil {
-				logger.Debugf("Storage", "GetAllLoadedFsh: pool %s holds a nil drive handler, reading its id panics", thisSP.Owner)
+				logger.Debugf("Storage", "GetAllLoadedFsh: pool %s holds a nil drive handler, skipped", thisSP.Owner)
+				continue
 			}
 			fshPointer := thisFsh
 			fshTmp[thisFsh.UUID] = fshPointer

@@ -774,7 +774,10 @@ func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 	totalBytes := int64(0)
 	srcFshAbs.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if info == nil {
-			logger.Debugf("Filesystem", "dirCopy: sizing walk got NO file info for %q (walk error: %v); info.IsDir() below panics with a nil pointer dereference", path, err)
+			//Unreadable or gone since the folder was listed: the copy walk
+			//below meets it again and reports it
+			logger.Debugf("Filesystem", "dirCopy: sizing walk got no file info for %q (walk error: %v), not counted", path, err)
+			return nil
 		}
 		if !info.IsDir() {
 			totalBytes += info.Size()
@@ -801,7 +804,11 @@ func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 		}
 
 		if info == nil {
-			logger.Debugf("Filesystem", "dirCopy: copy walk got NO file info for %q (walk error: %v); info.IsDir() below panics with a nil pointer dereference", path, err)
+			logger.Debugf("Filesystem", "dirCopy: copy walk got no file info for %q (walk error: %v), stopping the copy", path, err)
+			if err == nil {
+				err = errors.New("no file information for " + path)
+			}
+			return err
 		} else if err != nil {
 			logger.Debugf("Filesystem", "dirCopy: copy walk error at %q is ignored: %v", path, err)
 		}

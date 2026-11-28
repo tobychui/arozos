@@ -207,16 +207,18 @@ func TestPathResolveDebug(t *testing.T) {
 	}
 }
 
-// TestEmptyPathIsTraced checks that an empty path is reported before it
-// reaches the slice that panics on it.
-func TestEmptyPathIsTraced(t *testing.T) {
+// TestEmptyPathIsRefused checks that a blank path from a client is an error,
+// where pathname[0:1] used to panic, and that the refusal is traced.
+func TestEmptyPathIsRefused(t *testing.T) {
 	read := captureDebug(t, true)
 	fs, _, _ := newAccessTestRoot(t, "rw")
-	func() {
-		defer func() { recover() }()
-		fs.getFshAndSubpathFromSFTPPathname("  ")
-	}()
-	if got := read(); !strings.Contains(got, "empty path; pathname[0:1] below panics") {
-		t.Errorf("record %q does not warn about the empty path", got)
+	for _, path := range []string{"", "  "} {
+		fsh, _, _, err := fs.getFshAndSubpathFromSFTPPathname(path)
+		if !errors.Is(err, os.ErrInvalid) || fsh != nil {
+			t.Errorf("getFshAndSubpathFromSFTPPathname(%q) = %v, %v; want no drive and os.ErrInvalid", path, fsh, err)
+		}
+	}
+	if got := read(); !strings.Contains(got, "empty path refused") {
+		t.Errorf("record %q does not trace the refusal", got)
 	}
 }

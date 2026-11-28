@@ -116,7 +116,7 @@ func TestPoolDebugTrace(t *testing.T) {
 	}{
 		{false, nil},
 		{true, []string{
-			"NewStoragePool(system): drive <nil drive handler> has no abstraction; looking up any drive in this pool by id panics on it",
+			"NewStoragePool(system): a nil drive handler was given, it is left out",
 			"NewStoragePool(system): 1 drive(s) [media:/]",
 			"AttachFsHandler(pool system): \"video\" (video:/",
 			"DetachFsHandler(pool system): video:/ detached",
@@ -130,8 +130,6 @@ func TestPoolDebugTrace(t *testing.T) {
 		}
 		logger.SetDefaultLogger(l)
 		logger.SetDebug(tt.enabled)
-		//A pool holding a nil handler panics on its next lookup, which is
-		//what its debug line warns about, so it is only created
 		NewStoragePool([]*fs.FileSystemHandler{nil}, "system")
 		pool, _ := NewStoragePool([]*fs.FileSystemHandler{newTestDrive("media")}, "system")
 		pool.AttachFsHandler(newTestDrive("video"))
@@ -151,5 +149,38 @@ func TestPoolDebugTrace(t *testing.T) {
 				t.Errorf("debug on: %q missing from %q", want, got)
 			}
 		}
+	}
+}
+
+// TestNilHandlersAreSkipped checks that a nil drive handler is left out of a
+// new pool, and that one found in a pool anyway is passed over by lookups,
+// detaching and closing instead of panicking.
+func TestNilHandlersAreSkipped(t *testing.T) {
+	pool, _ := NewStoragePool([]*fs.FileSystemHandler{nil, newTestDrive("media"), nil}, "system")
+	if len(pool.Storages) != 1 {
+		t.Fatalf("pool holds %d drives, want the 1 that is not nil", len(pool.Storages))
+	}
+	pool.Storages = append(pool.Storages, nil, newTestDrive("music"))
+	tests := []struct {
+		name string
+		run  func() bool
+	}{
+		{"contains", func() bool { return pool.ContainDiskID("music") && !pool.ContainDiskID("video") }},
+		{"lookup", func() bool { fsh, err := pool.GetFsHandlerByUUID("music"); return err == nil && fsh.UUID == "music" }},
+		{"lookup missing", func() bool { _, err := pool.GetFsHandlerByUUID("video"); return err != nil }},
+	}
+	for _, tt := range tests {
+		if !tt.run() {
+			t.Errorf("%s failed with a nil handler in the pool", tt.name)
+		}
+	}
+	pool.DetachFsHandler("media")
+	if len(pool.Storages) != 1 || pool.Storages[0].UUID != "music" {
+		t.Errorf("after detaching media the pool holds %s", fs.DebugHandlerList(pool.Storages))
+	}
+	pool.Storages = append(pool.Storages, nil)
+	pool.Close()
+	if !pool.Storages[0].Closed {
+		t.Error("the drive next to a nil handler was not closed")
 	}
 }

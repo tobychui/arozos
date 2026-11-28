@@ -483,12 +483,15 @@ func (l FTPFSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
 		return err
 	}
 	defer c.Quit()
-	rootStat, err := c.GetEntry(root)
+	//statWith falls back to the listing of the parent on servers without
+	//MLST, where GetEntry fails for a root that is there
+	rootStatInfo, err := l.statWith(c, root)
 	if err != nil {
-		l.debugf("Walk %q: reading the root entry failed (%v), the walk callback gets a FileInfo with no entry, any call on it will panic", root, err)
+		//As filepath.Walk does: the error and no file info, and no descent
+		l.debugf("Walk %q: the root could not be read: %v", root, err)
+		return walkFn(root, nil, err)
 	}
-	rootStatInfo := NewFileInfoFromEntry(rootStat, c, root)
-	err = walkFn(root, rootStatInfo, err)
+	err = walkFn(root, rootStatInfo, nil)
 	if err != nil {
 		return err
 	}

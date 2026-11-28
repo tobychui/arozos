@@ -440,9 +440,11 @@ func (fs *root) Realpath(p string) string {
 func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.FileSystemHandler, string, string, error) {
 	pathname = strings.TrimSpace(pathname)
 	if pathname == "" {
+		//pathname[0:1] below needs a character
 		if logger.DebugEnabled() {
-			logger.Debugf("Sftpserver", "getFshAndSubpathFromSFTPPathname(%q): empty path; pathname[0:1] below panics with slice bounds out of range", fs.username)
+			logger.Debugf("Sftpserver", "getFshAndSubpathFromSFTPPathname(%q): empty path refused", fs.username)
 		}
+		return nil, "", "", os.ErrInvalid
 	}
 	if pathname[0:1] != "/" {
 		pathname = "/" + pathname

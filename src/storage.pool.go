@@ -594,18 +594,18 @@ func reloadGroupPool(group string) {
 	systemWideLogger.PrintAndLog("Storage", "Reloading Storage Pool for: "+group, nil)
 	pg := permissionHandler.GetPermissionGroupByName(group)
 	if pg == nil {
-		logger.Debugf("Storage", "reloadGroupPool(%s): no such permission group, reading its pool panics with a nil pointer dereference", group)
-	} else if pg.StoragePool == nil {
-		logger.Debugf("Storage", "reloadGroupPool(%s): the group has no pool (nil), closing it panics with a nil pointer dereference", group)
+		logger.Debugf("Storage", "reloadGroupPool(%s): no such permission group, nothing to reload", group)
+		return
+	}
+	if pg.StoragePool == nil {
+		logger.Debugf("Storage", "reloadGroupPool(%s): the group has no pool yet, loading one", group)
 	} else {
 		logger.Debugf("Storage", "reloadGroupPool(%s): closing pool %p %s. Until the reload ends the pool is EMPTY", group, pg.StoragePool, fs.DebugHandlerList(pg.StoragePool.Storages))
+		pg.StoragePool.Close()
 	}
 
-	//Pool should be exists. Close it
-	pg.StoragePool.Close()
-
 	//Create an empty pool for this permission group
-	newEmptyPool := storage.StoragePool{}
+	newEmptyPool := storage.StoragePool{Owner: pg.Name, Storages: []*fs.FileSystemHandler{}}
 	pg.StoragePool = &newEmptyPool
 
 	//Recreate a new pool for this permission group

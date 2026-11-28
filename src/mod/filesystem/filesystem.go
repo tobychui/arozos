@@ -135,7 +135,11 @@ func NewFileSystemHandlersFromJSON(jsonContent []byte, runtimePersistenceConfig 
 			continue
 		}
 		if thisHandler == nil || thisHandler.FileSystemAbstraction == nil {
-			logger.Debugf("Filesystem", "NewFileSystemHandlersFromJSON: %s:/ returned no error but %s, it will be put in the pool as is", option.Uuid, thisHandler.Describe())
+			//A pool reads the id of every drive and the heartbeat calls into
+			//each abstraction, so a drive that is not there stays out
+			logger.PrintAndLog("Filesystem", "[File System] "+option.Name+" opened without a file system, skipping it", nil)
+			logger.Debugf("Filesystem", "NewFileSystemHandlersFromJSON: %s:/ returned no error but %s, skipped", option.Uuid, thisHandler.Describe())
+			continue
 		}
 		resultingHandlers = append(resultingHandlers, thisHandler)
 	}
@@ -592,11 +596,12 @@ func (fsh *FileSystemHandler) RequierUserIsolation() bool {
 func (fsh *FileSystemHandler) Close() {
 	defer logger.TracePanicFunc("Filesystem", func() string { return "closing drive handler " + fsh.DebugString() })
 	logger.Debugf("Filesystem", "Close: %s", fsh.Describe())
-	if fsh.FileSystemAbstraction == nil {
-		logger.Debugf("Filesystem", "Close: %s:/ has no abstraction, closing it panics with a nil pointer dereference", fsh.UUID)
-	}
 	//Set the close flag to true so others function wont access it
 	fsh.Closed = true
+	if fsh.FileSystemAbstraction == nil {
+		logger.Debugf("Filesystem", "Close: %s:/ has no abstraction, nothing to close", fsh.UUID)
+		return
+	}
 
 	//Close the file system object
 	err := fsh.FileSystemAbstraction.Close()

@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/permission"
+	"imuslab.com/arozos/mod/storage"
 	"imuslab.com/arozos/mod/storage/access"
 )
 
@@ -331,5 +333,79 @@ func TestParseClusterDriveRule(t *testing.T) {
 				t.Errorf("parseClusterDriveRule() = %+v, want %+v", got, tt.want)
 			}
 		})
+	}
+}
+
+// useStorageGlobals sets the pools the storage functions read for one test
+func useStorageGlobals(t *testing.T, base *storage.StoragePool, groups ...*permission.PermissionGroup) {
+	t.Helper()
+	oldBase, oldHandler := baseStoragePool, permissionHandler
+	baseStoragePool = base
+	permissionHandler = &permission.PermissionHandler{PermissionGroups: groups}
+	t.Cleanup(func() { baseStoragePool, permissionHandler = oldBase, oldHandler })
+}
+
+// TestGroupWithBrokenConfigGetsEmptyPool checks that a group whose storage
+// config cannot be read or parsed ends up with an empty pool, not the nil
+// one the drive heartbeat used to crash on.
+func TestGroupWithBrokenConfigGetsEmptyPool(t *testing.T) {
+	t.Chdir(t.TempDir())
+	os.MkdirAll(filepath.Join("system", "storage", "unreadable.json"), 0755)
+	os.WriteFile(filepath.Join("system", "storage", "invalid.json"), []byte("{not json"), 0644)
+	for _, name := range []string{"unreadable", "invalid"} {
+		pg := &permission.PermissionGroup{Name: name}
+		if err := LoadStoragePoolForGroup(pg); err == nil {
+			t.Errorf("%s: LoadStoragePoolForGroup() should report the broken config", name)
+		}
+		if pg.StoragePool == nil || pg.StoragePool.Owner != name || len(pg.StoragePool.Storages) != 0 {
+			t.Errorf("%s: want an empty pool owned by the group, got %+v", name, pg.StoragePool)
+		}
+	}
+}
+
+// TestStoragePoolsSkipNil checks that a group with no pool, and a base pool
+// that is not loaded yet, are left out of the pool lists instead of being
+// read as nil.
+func TestStoragePoolsSkipNil(t *testing.T) {
+	media := &fs.FileSystemHandler{UUID: "media", Name: "Media"}
+	family := &permission.PermissionGroup{Name: "family", StoragePool: &storage.StoragePool{Owner: "family", Storages: []*fs.FileSystemHandler{media}}}
+	useStorageGlobals(t, nil, &permission.PermissionGroup{Name: "broken"}, family)
+
+	if pools := GetAllStoragePools(); len(pools) != 1 || pools[0] != family.StoragePool {
+		t.Errorf("GetAllStoragePools() = %v, want only the family pool", pools)
+	}
+	if drives := GetAllLoadedFsh(); len(drives) != 1 || drives[0] != media {
+		t.Errorf("GetAllLoadedFsh() = %v, want only media", drives)
+	}
+	if _, err := GetStoragePoolByOwner("broken"); err == nil {
+		t.Error("a group with no pool should have no pool to find")
+	}
+	family.StoragePool.Storages = append(family.StoragePool.Storages, nil)
+	if drives := GetAllLoadedFsh(); len(drives) != 1 {
+		t.Errorf("GetAllLoadedFsh() with a nil drive = %v, want only media", drives)
+	}
+}
+
+// TestReloadGroupPoolWithoutPool checks that reloading an unknown group, or
+// a group that has no pool, does not panic, and leaves the group a pool.
+func TestReloadGroupPoolWithoutPool(t *testing.T) {
+	t.Chdir(t.TempDir())
+	family := &permission.PermissionGroup{Name: "family"}
+	useStorageGlobals(t, &storage.StoragePool{Owner: "system"}, family)
+	reloadGroupPool("nobody")
+	reloadGroupPool("family")
+	if family.StoragePool == nil || family.StoragePool.Owner != "family" {
+		t.Errorf("after the reload the group has pool %+v, want one owned by family", family.StoragePool)
+	}
+}
+
+// TestHeartbeatSkipsDriveWithoutAbstraction checks that the drive heartbeat
+// passes over a drive with no abstraction instead of calling into nil.
+func TestHeartbeatSkipsDriveWithoutAbstraction(t *testing.T) {
+	broken := &fs.FileSystemHandler{UUID: "broken", Name: "Broken", Filesystem: "smb"}
+	useStorageGlobals(t, &storage.StoragePool{Owner: "system", Storages: []*fs.FileSystemHandler{broken}})
+	StoragePerformFileSystemAbstractionConnectionHeartbeat()
+	if broken.Closed {
+		t.Error("the drive should be left as it is")
 	}
 }

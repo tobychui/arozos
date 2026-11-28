@@ -2,11 +2,13 @@ package filesystem
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"imuslab.com/arozos/mod/filesystem/abstractions/localfs"
 	"imuslab.com/arozos/mod/info/logger"
 )
 
@@ -373,5 +375,46 @@ func TestFileCopyDebugTrace(t *testing.T) {
 			t.Errorf("trace step %q is out of order in %q", step, log)
 		}
 		last = i
+	}
+}
+
+// gappyWalkFS is a local drive whose Walk hands one entry over with no file
+// info, as a network drive or a file removed during the walk does
+type gappyWalkFS struct {
+	localfs.LocalFileSystemAbstraction
+	gap string
+}
+
+func (g gappyWalkFS) Walk(root string, walkFn filepath.WalkFunc) error {
+	return g.LocalFileSystemAbstraction.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if filepath.Base(path) == g.gap {
+			return walkFn(path, nil, errors.New("entry vanished"))
+		}
+		return walkFn(path, info, err)
+	})
+}
+
+// TestDirCopyWithoutFileInfo checks that a folder copy meeting an entry with
+// no file info stops with the walk error, where it used to panic.
+func TestDirCopyWithoutFileInfo(t *testing.T) {
+	srcFsh, srcRoot := newTestLocalHandler(t, "srcdrive")
+	destFsh, destRoot := newTestLocalHandler(t, "destdrive")
+	writeTestFile(t, srcRoot+"folder/a.bin", 10)
+	writeTestFile(t, srcRoot+"folder/gone.bin", 10)
+	srcFsh.FileSystemAbstraction = gappyWalkFS{srcFsh.FileSystemAbstraction.(localfs.LocalFileSystemAbstraction), "gone.bin"}
+
+	err := CopyDir(srcFsh, srcRoot+"folder", destFsh, destRoot+"folder")
+	if err == nil || !strings.Contains(err.Error(), "entry vanished") {
+		t.Errorf("CopyDir() error = %v, want the walk error", err)
+	}
+}
+
+// TestCloseWithoutAbstraction checks that closing a drive handler that has no
+// abstraction marks it closed instead of panicking.
+func TestCloseWithoutAbstraction(t *testing.T) {
+	fsh := &FileSystemHandler{UUID: "broken"}
+	fsh.Close()
+	if !fsh.Closed {
+		t.Error("handler not marked closed")
 	}
 }
