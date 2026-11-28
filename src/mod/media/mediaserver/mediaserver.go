@@ -225,18 +225,9 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if this is a RAW image file and render it as JPEG (preview only, not download)
-	if !downloadMode && metadata.IsRawImageFile(realFilepath) {
-		jpegData, err := metadata.RenderRAWImage(targetFsh, realFilepath)
-		if err != nil {
-			// If RAW rendering fails, fall back to serving the raw file
-			s.options.Logger.PrintAndLog("Media Server", "Failed to render RAW image: "+err.Error(), nil)
-		} else {
-			// Successfully rendered RAW image, serve as JPEG
-			w.Header().Set("Content-Type", "image/jpeg")
-			w.Header().Set("Content-Length", strconv.Itoa(len(jpegData)))
-			w.Write(jpegData)
-			return
-		}
+	// If rendering fails, fall back to serving the raw file
+	if !downloadMode && metadata.IsRawImageFile(realFilepath) && s.serveRAWAsJPEG(w, r, targetFsh, realFilepath) {
+		return
 	}
 
 	// HEIC photos (iPhone) only show in Safari, so they are decoded and sent
@@ -806,20 +797,49 @@ func readStoryboardMeta(fshAbs filesystem.FileSystemAbstraction, realFilepath st
 	return &layout
 }
 
-// serveHEICAsJPEG sends a HEIC photo decoded to JPEG. Decoding a 12 MP photo
-// takes a while, so the ETag of the source file is checked first: a browser
-// that already holds this version gets a 304 without a decode.
+// answerNotModified sets the revalidation headers of a picture rendered from a
+// source file. Rendering takes a while, so it is checked first: a browser that
+// already holds this version of the source gets a 304 (done is then true).
+func answerNotModified(w http.ResponseWriter, r *http.Request, fsh *filesystem.FileSystemHandler, realFilepath string) (modTime time.Time, done bool) {
+	if fsh.RequireBuffer {
+		return modTime, false
+	}
+	info, err := fsh.FileSystemAbstraction.Stat(realFilepath)
+	if err != nil {
+		return modTime, false
+	}
+	utils.SetRevalidationHeaders(w, info)
+	if etag := w.Header().Get("ETag"); etag != "" && r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return info.ModTime(), true
+	}
+	return info.ModTime(), false
+}
+
+// serveRAWAsJPEG sends a RAW photo rendered as JPEG. It returns false, with
+// nothing written, when the file cannot be rendered.
+func (s *Instance) serveRAWAsJPEG(w http.ResponseWriter, r *http.Request, fsh *filesystem.FileSystemHandler, realFilepath string) bool {
+	modTime, done := answerNotModified(w, r, fsh, realFilepath)
+	if done {
+		return true
+	}
+
+	jpegData, err := metadata.RenderRAWImage(fsh, realFilepath)
+	if err != nil {
+		s.options.Logger.PrintAndLog("Media Server", "Failed to render RAW image", err)
+		w.Header().Del("ETag")
+		return false
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	http.ServeContent(w, r, filepath.Base(realFilepath)+".jpg", modTime, bytes.NewReader(jpegData))
+	return true
+}
+
+// serveHEICAsJPEG sends a HEIC photo decoded to JPEG
 func (s *Instance) serveHEICAsJPEG(w http.ResponseWriter, r *http.Request, fsh *filesystem.FileSystemHandler, realFilepath string) {
-	var modTime time.Time
-	if !fsh.RequireBuffer {
-		if info, err := fsh.FileSystemAbstraction.Stat(realFilepath); err == nil {
-			utils.SetRevalidationHeaders(w, info)
-			modTime = info.ModTime()
-			if etag := w.Header().Get("ETag"); etag != "" && r.Header.Get("If-None-Match") == etag {
-				w.WriteHeader(http.StatusNotModified)
-				return
-			}
-		}
+	modTime, done := answerNotModified(w, r, fsh, realFilepath)
+	if done {
+		return
 	}
 
 	jpegData, err := metadata.RenderHEICImage(fsh, realFilepath)

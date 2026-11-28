@@ -12,6 +12,7 @@ import (
 	"github.com/nfnt/resize"
 	"github.com/oliamb/cutter"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/metadata/dngrender"
 )
 
 // Generate thumbnail for RAW image files by extracting embedded JPEG
@@ -33,37 +34,14 @@ func generateThumbnailForRAW(fsh *filesystem.FileSystemHandler, cacheFolder stri
 
 	// Try to decode the RAW image
 	var img image.Image
-	var jpegData []byte
-
-	ext := filepath.Ext(file)
-	if strings.ToLower(ext) == ".dng" {
-		// For DNG files, try both marker scanning and TIFF IFD parsing
-		// Then use the largest JPEG found
-		jpegFromMarkers, err1 := extractLargestJPEG(rawData)
-		jpegFromTIFF, err2 := extractJPEGFromTIFF(rawData)
-
-		// Use whichever is largest
-		if err1 == nil && err2 == nil {
-			if len(jpegFromMarkers) > len(jpegFromTIFF) {
-				jpegData = jpegFromMarkers
-			} else {
-				jpegData = jpegFromTIFF
-			}
-		} else if err1 == nil {
-			jpegData = jpegFromMarkers
-		} else if err2 == nil {
-			jpegData = jpegFromTIFF
-		} else {
-			return "", errors.New("failed to extract any JPEG from DNG file: " + err1.Error() + "; " + err2.Error())
-		}
-
-		img, _, err = image.Decode(bytes.NewReader(jpegData))
+	if strings.ToLower(filepath.Ext(file)) == ".dng" {
+		img, err = dngThumbnailSource(rawData)
 		if err != nil {
-			return "", errors.New("failed to decode DNG JPEG data: " + err.Error())
+			return "", err
 		}
 	} else {
 		// For other RAW formats (ARW, CR2, NEF, RAF, ORF), only use marker scanning
-		jpegData, err = extractLargestJPEG(rawData)
+		jpegData, err := extractLargestJPEG(rawData)
 		if err != nil {
 			return "", errors.New("failed to extract thumbnail from RAW file: " + err.Error())
 		}
@@ -123,6 +101,80 @@ func generateThumbnailForRAW(fsh *filesystem.FileSystemHandler, cacheFolder stri
 	}
 
 	return "", nil
+}
+
+/*
+	DNG files
+
+	Many carry a JPEG preview like other RAW formats, which is the camera's own
+	rendering and is used when it is large enough. Others (phones, through
+	Android's DngCreator) hold only the sensor data, or a tiny thumbnail
+	beside it: those are developed by package dngrender.
+*/
+
+const (
+	// Shortest long side of a preview that is shown as the photo
+	dngMinPreviewSize = 1024
+	// Short side of the picture a thumbnail is cut from
+	dngThumbnailSize = 480
+)
+
+// dngPreview returns the embedded JPEG of a DNG with the most pixels and its
+// size, or nil when it holds none that can be decoded. Raw data stored as
+// lossless JPEG looks like one but cannot be decoded, so it is not chosen.
+func dngPreview(data []byte) (preview []byte, width int, height int) {
+	for _, extract := range []func([]byte) ([]byte, error){extractLargestJPEG, extractJPEGFromTIFF} {
+		candidate, err := extract(data)
+		if err != nil {
+			continue
+		}
+		cfg, err := jpeg.DecodeConfig(bytes.NewReader(candidate))
+		if err == nil && int64(cfg.Width)*int64(cfg.Height) > int64(width)*int64(height) {
+			preview, width, height = candidate, cfg.Width, cfg.Height
+		}
+	}
+	return preview, width, height
+}
+
+// renderDNG returns a DNG photo as a JPEG
+func renderDNG(data []byte) ([]byte, error) {
+	preview, width, height := dngPreview(data)
+	if max(width, height) >= dngMinPreviewSize {
+		return preview, nil
+	}
+
+	img, err := dngrender.Develop(data, 0)
+	if err != nil {
+		if preview != nil {
+			//A small preview is better than nothing
+			return preview, nil
+		}
+		return nil, errors.New("failed to render DNG file: " + err.Error())
+	}
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 92}); err != nil {
+		return nil, errors.New("failed to encode DNG file: " + err.Error())
+	}
+	return buf.Bytes(), nil
+}
+
+// dngThumbnailSource returns the picture the thumbnail of a DNG is made from
+func dngThumbnailSource(data []byte) (image.Image, error) {
+	preview, width, height := dngPreview(data)
+	if min(width, height) < dngThumbnailSize {
+		img, err := dngrender.Develop(data, dngThumbnailSize)
+		if err == nil {
+			return img, nil
+		}
+		if preview == nil {
+			return nil, errors.New("failed to render DNG file: " + err.Error())
+		}
+	}
+	img, err := jpeg.Decode(bytes.NewReader(preview))
+	if err != nil {
+		return nil, errors.New("failed to decode DNG preview: " + err.Error())
+	}
+	return img, nil
 }
 
 // Extract largest embedded JPEG from RAW file
@@ -319,12 +371,14 @@ func extractUncompressedThumbnail(data []byte, order binary.ByteOrder, ifdOffset
 
 	stripData := data[stripOffset : stripOffset+stripByteCount]
 
-	// Decode RGB strip to image.Image
-	img := image.NewRGBA(image.Rect(0, 0, int(width), int(height)))
-	expectedSize := int(width * height * 3)
-	if len(stripData) < expectedSize {
+	// The claimed size must fit in the strip before anything is allocated
+	// (written as a division so that it cannot overflow)
+	if uint64(width) > uint64(len(stripData))/3/uint64(height) {
 		return nil, errors.New("strip data smaller than expected")
 	}
+
+	// Decode RGB strip to image.Image
+	img := image.NewRGBA(image.Rect(0, 0, int(width), int(height)))
 
 	// Copy RGB data to RGBA image
 	for y := 0; y < int(height); y++ {
@@ -348,15 +402,35 @@ func extractUncompressedThumbnail(data []byte, order binary.ByteOrder, ifdOffset
 	return buf.Bytes(), nil
 }
 
+// Limits on the directories of an untrusted TIFF file
+const (
+	maxTIFFDirectories = 64
+	maxTIFFEntries     = 1024
+)
+
 // Parse TIFF IFD chain recursively to find all JPEG data
 // DNG files have multiple IFDs linked together and SubIFDs
 func parseTIFFIFDChain(data []byte, order binary.ByteOrder, ifdOffset uint64, candidates *[][]byte) {
+	walkTIFFDirectories(data, order, ifdOffset, candidates, map[uint64]bool{})
+}
+
+// walkTIFFDirectories reads one directory and those it points to. Each is read
+// once: a file whose directories point back at each other would otherwise
+// recurse until the stack overflows, which ends the whole server.
+func walkTIFFDirectories(data []byte, order binary.ByteOrder, ifdOffset uint64, candidates *[][]byte, visited map[uint64]bool) {
 	if ifdOffset == 0 || ifdOffset >= uint64(len(data))-2 {
 		return
 	}
+	if visited[ifdOffset] || len(visited) >= maxTIFFDirectories {
+		return
+	}
+	visited[ifdOffset] = true
 
 	// Read number of directory entries
 	numEntries := order.Uint16(data[ifdOffset : ifdOffset+2])
+	if numEntries > maxTIFFEntries {
+		return
+	}
 	entryOffset := ifdOffset + 2
 
 	var stripOffsets []uint64
@@ -440,7 +514,9 @@ func parseTIFFIFDChain(data []byte, order binary.ByteOrder, ifdOffset uint64, ca
 			for i := 0; i < len(stripOffsets) && i < len(stripByteCounts); i++ {
 				offset := stripOffsets[i]
 				length := stripByteCounts[i]
-				if offset+length <= uint64(len(data)) {
+				// Strips repeating the same bytes must not add up to more
+				// than the file holds
+				if offset+length <= uint64(len(data)) && uint64(jpegData.Len())+length <= uint64(len(data)) {
 					jpegData.Write(data[offset : offset+length])
 				}
 			}
@@ -456,7 +532,7 @@ func parseTIFFIFDChain(data []byte, order binary.ByteOrder, ifdOffset uint64, ca
 
 	// Process SubIFDs (child IFDs)
 	for _, subOffset := range subIFDOffsets {
-		parseTIFFIFDChain(data, order, subOffset, candidates)
+		walkTIFFDirectories(data, order, subOffset, candidates, visited)
 	}
 
 	// Get next IFD in chain (offset is after all entries)
@@ -464,7 +540,7 @@ func parseTIFFIFDChain(data []byte, order binary.ByteOrder, ifdOffset uint64, ca
 	if nextIFDOffset+4 <= uint64(len(data)) {
 		nextIFD := order.Uint32(data[nextIFDOffset : nextIFDOffset+4])
 		if nextIFD > 0 {
-			parseTIFFIFDChain(data, order, uint64(nextIFD), candidates)
+			walkTIFFDirectories(data, order, uint64(nextIFD), candidates, visited)
 		}
 	}
 }
@@ -555,30 +631,8 @@ func RenderRAWImage(fsh *filesystem.FileSystemHandler, file string) ([]byte, err
 		return nil, errors.New("failed to read RAW file: " + err.Error())
 	}
 
-	ext := filepath.Ext(file)
-	if strings.ToLower(ext) == ".dng" {
-		// For DNG files, try both marker scanning and TIFF IFD parsing
-		// Then use the largest JPEG found
-		jpegFromMarkers, err1 := extractLargestJPEG(rawData)
-		jpegFromTIFF, err2 := extractJPEGFromTIFF(rawData)
-
-		// Use whichever is largest
-		var jpegData []byte
-		if err1 == nil && err2 == nil {
-			if len(jpegFromMarkers) > len(jpegFromTIFF) {
-				jpegData = jpegFromMarkers
-			} else {
-				jpegData = jpegFromTIFF
-			}
-		} else if err1 == nil {
-			jpegData = jpegFromMarkers
-		} else if err2 == nil {
-			jpegData = jpegFromTIFF
-		} else {
-			return nil, errors.New("failed to extract any JPEG from DNG file: " + err1.Error() + "; " + err2.Error())
-		}
-
-		return jpegData, nil
+	if strings.ToLower(filepath.Ext(file)) == ".dng" {
+		return renderDNG(rawData)
 	}
 
 	// For other RAW formats (ARW, CR2, NEF, RAF, ORF), use marker scanning
