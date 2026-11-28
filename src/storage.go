@@ -230,7 +230,7 @@ func GroupStoragePoolInit() {
 }
 
 func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
-	defer logger.TracePanic("Storage", "loading the storage pool of group "+pg.Name)
+	defer logger.TracePanicFunc("Storage", func() string { return "loading the storage pool of group " + pg.Name })
 	expectedConfigPath := "./system/storage/" + pg.Name + ".json"
 	logger.Debugf("Storage", "LoadStoragePoolForGroup(%s): config %q exists=%v, replacing pool %p", pg.Name, expectedConfigPath, fs.FileExists(expectedConfigPath), pg.StoragePool)
 	if fs.FileExists(expectedConfigPath) {
@@ -342,7 +342,9 @@ func GetFSHandlerSubpathFromVpath(vpath string) (*fs.FileSystemHandler, string, 
 		return nil, "", errors.New("Target file system handler already closed")
 	}
 
-	logger.Debugf("Storage", "GetFSHandlerSubpathFromVpath(%q): %s subpath %q", vpath, fsh.Describe(), subpath)
+	if logger.DebugEnabled() {
+		logger.Debugf("Storage", "GetFSHandlerSubpathFromVpath(%q): %s subpath %q", vpath, fsh.Describe(), subpath)
+	}
 	return fsh, subpath, nil
 }
 

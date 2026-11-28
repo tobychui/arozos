@@ -129,7 +129,9 @@ func GetIDFromVirtualPath(vpath string) (string, string, error) {
 }
 
 func GetFileDataFromPath(fsh *FileSystemHandler, vpath string, realpath string, sizeRounding int) FileData {
-	logger.Debugf("Filesystem", "GetFileDataFromPath: %q (%q) on %s", vpath, realpath, fsh.Describe())
+	if logger.DebugEnabled() {
+		logger.Debugf("Filesystem", "GetFileDataFromPath: %q (%q) on %s", vpath, realpath, fsh.Describe())
+	}
 	fileSize := fsh.FileSystemAbstraction.GetFileSize(realpath)
 	displaySize := GetFileDisplaySize(fileSize, sizeRounding)
 	modtime, _ := fsh.FileSystemAbstraction.GetModTime(realpath)

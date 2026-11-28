@@ -314,7 +314,9 @@ func (u *User) GetFileSystemHandlerFromVirtualPath(vpath string) (*fs.FileSystem
 	if err != nil {
 		logger.Debugf("User", "GetFileSystemHandlerFromVirtualPath(%q, %q): %v. Returned an EMPTY handler with no abstraction; a caller ignoring the error panics on it", u.Username, vpath, err)
 	} else {
-		logger.Debugf("User", "GetFileSystemHandlerFromVirtualPath(%q, %q): %s", u.Username, vpath, handler.Describe())
+		if logger.DebugEnabled() {
+			logger.Debugf("User", "GetFileSystemHandlerFromVirtualPath(%q, %q): %s", u.Username, vpath, handler.Describe())
+		}
 	}
 	return handler, err
 }

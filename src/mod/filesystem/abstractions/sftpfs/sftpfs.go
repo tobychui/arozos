@@ -212,7 +212,7 @@ func (s SFTPFileSystemAbstraction) Stat(filename string) (os.FileInfo, error) {
 	return s.client.Stat(filename)
 }
 func (s SFTPFileSystemAbstraction) Close() error {
-	defer logger.TracePanic("Sftpfs", "closing the SFTP connection of "+s.uuid+":/")
+	defer logger.TracePanicFunc("Sftpfs", func() string { return "closing the SFTP connection of " + s.uuid + ":/" })
 	logger.Debugf("Sftpfs", "%s:/ closing %s:%d (client set=%v conn set=%v). Copies of this abstraction still in use keep the closed client", s.uuid, s.url, s.port, s.client != nil, s.conn != nil)
 	if s.client == nil || s.conn == nil {
 		logger.Debugf("Sftpfs", "%s:/ was never connected; closing it panics with a nil pointer dereference", s.uuid)

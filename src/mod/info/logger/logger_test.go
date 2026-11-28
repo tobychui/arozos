@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
@@ -688,5 +689,233 @@ func TestEnableCrashLog(t *testing.T) {
 				t.Errorf("start marker missing: %q", data)
 			}
 		})
+	}
+}
+
+// tracedOpen stands for a file operation that traces its panics lazily
+func tracedOpen(path string, user *string, fail bool) {
+	defer TracePanicFunc("SMB", func() string { return "opening " + path + " for " + *user })
+	if fail {
+		panic("disk gone")
+	}
+}
+
+// TestTracePanicFunc checks that the description is only built for a panic
+// that is logged, that a description that panics itself is reported in its
+// place, and that the panic goes on unchanged.
+func TestTracePanicFunc(t *testing.T) {
+	user := "alice"
+	tests := []struct {
+		name    string
+		enabled bool
+		user    *string
+		want    string
+	}{
+		{"debug off", false, &user, ""},
+		{"debug on", true, &user, "PANIC while opening a.txt for alice: disk gone"},
+		{"description panics", true, nil, "PANIC while <description failed: runtime error: invalid memory address or nil pointer dereference>: disk gone"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := useDebugLogger(t, tt.enabled)
+			var got any
+			func() {
+				defer func() { got = recover() }()
+				tracedOpen("a.txt", tt.user, true)
+			}()
+			if got != "disk gone" {
+				t.Errorf("panic value = %v, want it passed on unchanged", got)
+			}
+			content := readLog(t, l)
+			if tt.want == "" && content != "" {
+				t.Errorf("expected nothing logged, got %q", content)
+			}
+			if tt.want != "" && !strings.Contains(content, tt.want) {
+				t.Errorf("%q missing from %q", tt.want, content)
+			}
+		})
+	}
+}
+
+// TestTracePanicFuncNoPanic checks that a call that returns normally never
+// builds its description, even with debug on, and a nil one is fine.
+func TestTracePanicFuncNoPanic(t *testing.T) {
+	l := useDebugLogger(t, true)
+	built := false
+	func() {
+		defer TracePanicFunc("SMB", func() string { built = true; return "x" })
+	}()
+	func() {
+		defer TracePanicFunc("SMB", nil)
+	}()
+	if built {
+		t.Error("description built for a call that did not panic")
+	}
+	if content := readLog(t, l); content != "" {
+		t.Errorf("expected nothing logged, got %q", content)
+	}
+}
+
+// TestTracePanicFuncAllocations checks that with debug off a traced call
+// allocates nothing for its description, unlike a built TracePanic string.
+func TestTracePanicFuncAllocations(t *testing.T) {
+	useDebugLogger(t, false)
+	user := strings.Repeat("u", 8)
+	path := strings.Repeat("p", 8)
+	lazy := testing.AllocsPerRun(200, func() { tracedOpen(path, &user, false) })
+	if lazy != 0 {
+		t.Errorf("TracePanicFunc call allocates %v times with debug off, want 0", lazy)
+	}
+	eager := testing.AllocsPerRun(200, func() {
+		func() {
+			defer TracePanic("SMB", "opening "+path+" for "+user)
+		}()
+	})
+	if eager == 0 {
+		t.Log("the compiler no longer allocates a built TracePanic string either")
+	}
+}
+
+// TestDescribeSafely checks the guard around descriptions.
+func TestDescribeSafely(t *testing.T) {
+	tests := []struct {
+		name     string
+		describe func() string
+		want     string
+	}{
+		{"plain", func() string { return "copying a" }, "copying a"},
+		{"nil", nil, "<no description>"},
+		{"panics", func() string { panic("bad field") }, "<description failed: bad field>"},
+	}
+	for _, tt := range tests {
+		if got := describeSafely(tt.describe); got != tt.want {
+			t.Errorf("%s: describeSafely() = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
+
+// TestEnableCrashLogRotates checks that a crash log over the limit is moved
+// to .1 at startup, replacing an older one, and a small one is kept.
+func TestEnableCrashLogRotates(t *testing.T) {
+	t.Cleanup(func() { debug.SetCrashOutput(nil, debug.CrashOptions{}) })
+	tests := []struct {
+		name        string
+		size        int
+		wantRotated bool
+	}{
+		{"small log kept", 100, false},
+		{"large log rotated", crashLogMaxBytes + 1, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "system_crash.log")
+			os.WriteFile(path, bytes.Repeat([]byte("x"), tt.size), 0644)
+			os.WriteFile(path+".1", []byte("older"), 0644)
+			if _, err := (&Logger{Prefix: "system", LogFolder: dir}).EnableCrashLog(); err != nil {
+				t.Fatalf("EnableCrashLog() error: %v", err)
+			}
+			current, _ := os.ReadFile(path)
+			older, _ := os.ReadFile(path + ".1")
+			if tt.wantRotated {
+				if len(older) != tt.size || bytes.Contains(current, []byte("xxxx")) {
+					t.Errorf("not rotated: current %d bytes, .1 %d bytes", len(current), len(older))
+				}
+			} else if string(older) != "older" || len(current) < tt.size {
+				t.Errorf("rotated a small log: current %d bytes, .1 %q", len(current), older)
+			}
+			if !bytes.Contains(current, []byte("ArozOS started")) {
+				t.Errorf("start marker missing from the current log")
+			}
+		})
+	}
+}
+
+// crashBystander is a goroutine that is not the one crashing; the crash log
+// must show its stack too
+func crashBystander(started chan bool) {
+	started <- true
+	select {}
+}
+
+// TestCrashLogHasEveryGoroutine crashes a child copy of this test binary and
+// checks that its crash log holds the panic and the stack of a goroutine
+// other than the crashing one.
+func TestCrashLogHasEveryGoroutine(t *testing.T) {
+	if dir := os.Getenv("AROZOS_CRASH_LOG_CHILD"); dir != "" {
+		if _, err := (&Logger{Prefix: "system", LogFolder: dir}).EnableCrashLog(); err != nil {
+			os.Exit(3)
+		}
+		started := make(chan bool)
+		go crashBystander(started)
+		<-started
+		go func() { panic("crash log test") }()
+		select {}
+	}
+	dir := t.TempDir()
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCrashLogHasEveryGoroutine$")
+	env := []string{"AROZOS_CRASH_LOG_CHILD=" + dir}
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, "GOTRACEBACK=") {
+			env = append(env, kv)
+		}
+	}
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("the child did not crash: %s", out)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "system_crash.log"))
+	if err != nil {
+		t.Fatalf("no crash log: %v", err)
+	}
+	for _, want := range []string{"ArozOS started", "panic: crash log test", "crashBystander"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("%q missing from the crash log:\n%s", want, data)
+		}
+	}
+}
+
+// TestDebugCallerLine checks that every Debug function names the exact line
+// that called it.
+func TestDebugCallerLine(t *testing.T) {
+	tests := []struct {
+		name string
+		log  func(l *Logger) int
+	}{
+		{"Debug", func(l *Logger) int { _, _, line, _ := runtime.Caller(0); Debug("T", "m"); return line }},
+		{"Debugf", func(l *Logger) int { _, _, line, _ := runtime.Caller(0); Debugf("T", "%s", "m"); return line }},
+		{"DebugDepth", func(l *Logger) int { _, _, line, _ := runtime.Caller(0); DebugDepth(0, "T", "m"); return line }},
+		{"method", func(l *Logger) int { _, _, line, _ := runtime.Caller(0); l.Debug("T", "m"); return line }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := useDebugLogger(t, true)
+			line := tt.log(l)
+			want := "logger/logger_test.go:" + strconv.Itoa(line) + ")"
+			if got := readLog(t, l); !strings.Contains(got, want) {
+				t.Errorf("want caller %q in %q", want, got)
+			}
+		})
+	}
+}
+
+// TestDebugOffGuardAllocations checks why a hot path puts its debug line
+// behind DebugEnabled(): with debug off the guarded line allocates nothing,
+// while the bare call still boxes its arguments.
+func TestDebugOffGuardAllocations(t *testing.T) {
+	useDebugLogger(t, false)
+	p, user := strings.Repeat("p", 8), strings.Repeat("u", 8)
+	guarded := testing.AllocsPerRun(200, func() {
+		if DebugEnabled() {
+			Debugf("SMB", "Open(%q) for %q", p, user)
+		}
+	})
+	if guarded != 0 {
+		t.Errorf("guarded debug line allocates %v times with debug off, want 0", guarded)
+	}
+	bare := testing.AllocsPerRun(200, func() { Debugf("SMB", "Open(%q) for %q", p, user) })
+	if bare == 0 {
+		t.Log("the compiler no longer boxes the arguments of a bare Debugf call")
 	}
 }

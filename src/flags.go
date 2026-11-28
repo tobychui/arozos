@@ -112,7 +112,7 @@ var enable_beta_scanning_support = flag.Bool("beta_scan", false, "Allow compatib
 var enable_console = flag.Bool("console", false, "Enable the debugging console.")
 var enable_logging = flag.Bool("logging", true, "Enable logging to file for debug purpose")
 var log_format = flag.String("log_format", "text", "Console log output format: text or json")
-var enable_debug = flag.Bool("debug", false, "Print and log DEBUG level messages: a verbose trace of storage pools, drives, path resolution and file operations, for tracking down crashes. Lines name their goroutine, to match a panic trace")
+var enable_debug = flag.Bool("debug", false, "Print and log DEBUG level messages: a verbose trace of storage pools, drives, path resolution and file operations, for tracking down crashes. Lines name their goroutine, to match a panic trace. It slows the server (every line is written to disk before the call returns, one at a time) and records the usernames and file paths of all users in system/logs, which is kept: turn it off once done")
 
 // Flags related to running on Cloud Environment or public domain
 var allow_public_registry = flag.Bool("public_reg", false, "Enable public register interface for account creation")

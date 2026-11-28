@@ -188,7 +188,7 @@ The following startup parameters are supported (v2.016)
   -console
         Enable the debugging console.
   -debug
-        Write DEBUG level records to the console and the system log (storage, drive and file operation traces). Verbose, for tracing crashes
+        Print and log DEBUG level messages: a verbose trace of storage pools, drives, path resolution and file operations, for tracking down crashes. Lines name their goroutine, to match a panic trace. It slows the server (every line is written to disk before the call returns, one at a time) and records the usernames and file paths of all users in system/logs, which is kept: turn it off once done
   -demo_mode
         Run the system in demo mode. All directories and database are read only.
   -dir_list

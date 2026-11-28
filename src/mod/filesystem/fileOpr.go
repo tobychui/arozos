@@ -94,7 +94,7 @@ func Unzip(source, destination string) error {
 
 // Aroz Unzip File with progress update function  (current filename / current file count / total file count / progress in percentage)
 func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHandler func(string, int, int, float64) int) error {
-	defer logger.TracePanic("Filesystem", "unzipping "+strconv.Itoa(len(filelist))+" archive(s) into "+outputfile)
+	defer logger.TracePanicFunc("Filesystem", func() string { return "unzipping " + strconv.Itoa(len(filelist)) + " archive(s) into " + outputfile })
 	logger.Debugf("Filesystem", "Unzip: %q into %q", filelist, outputfile)
 	if progressHandler == nil {
 		logger.Debug("Filesystem", "Unzip: no progress handler given; the first progress update panics calling a nil function")
@@ -243,7 +243,7 @@ instead of only once the scan or the current file is done. An archive that is
 cancelled or fails half way is removed rather than left behind half written.
 */
 func ArozZipFileWithProgressAndCompression(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, compressionLevel int, progressHandler func(string, int, int, float64) int) error {
-	defer logger.TracePanic("Filesystem", "zipping "+strconv.Itoa(len(filelist))+" item(s) into "+outputfile)
+	defer logger.TracePanicFunc("Filesystem", func() string { return "zipping " + strconv.Itoa(len(filelist)) + " item(s) into " + outputfile })
 	if logger.DebugEnabled() {
 		logger.Debugf("Filesystem", "Zip: %d item(s) %q from drives %s into %q on %s, level %d, progress=%v", len(filelist), filelist, DebugHandlerList(sourceFshs), outputfile, outputFsh.Describe(), compressionLevel, progressHandler != nil)
 		if len(sourceFshs) < len(filelist) {
@@ -458,7 +458,7 @@ func FileCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 // FileCopyWithProgress copies a file or folder and reports how many of its bytes
 // are already done, see FileOperationProgressHandler.
 func FileCopyWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, progressHandler FileOperationProgressHandler) error {
-	defer logger.TracePanic("Filesystem", "copying "+src+" to "+dest)
+	defer logger.TracePanicFunc("Filesystem", func() string { return "copying " + src + " to " + dest })
 	logger.Debugf("Filesystem", "FileCopy: %q on %s -> folder %q on %s, mode %q", src, srcFsh.Describe(), dest, destFsh.Describe(), mode)
 	srcFshAbs := srcFsh.FileSystemAbstraction
 	destFshAbs := destFsh.FileSystemAbstraction
@@ -609,7 +609,7 @@ func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 // FileMoveWithProgress moves a file or folder and reports how many of its bytes
 // are already done, see FileOperationProgressHandler.
 func FileMoveWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, fastMove bool, progressHandler FileOperationProgressHandler) error {
-	defer logger.TracePanic("Filesystem", "moving "+src+" to "+dest)
+	defer logger.TracePanicFunc("Filesystem", func() string { return "moving " + src + " to " + dest })
 	logger.Debugf("Filesystem", "FileMove: %q on %s -> folder %q on %s, mode %q, fastMove %v", src, srcFsh.Describe(), dest, destFsh.Describe(), mode, fastMove)
 	srcAbst := srcFsh.FileSystemAbstraction
 	destAbst := destFsh.FileSystemAbstraction
@@ -765,7 +765,7 @@ func CopyDir(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 
 // Replacment of the legacy dirCopy plugin with filepath.Walk function. Allowing real time progress update to front end
 func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, realDest string, progressHandler FileOperationProgressHandler) error {
-	defer logger.TracePanic("Filesystem", "copying folder "+src+" to "+realDest)
+	defer logger.TracePanicFunc("Filesystem", func() string { return "copying folder " + src + " to " + realDest })
 	logger.Debugf("Filesystem", "dirCopy: %q (%s) -> %q (%s), sizing the folder first", src, srcFsh.Describe(), realDest, destFsh.Describe())
 	srcFshAbs := srcFsh.FileSystemAbstraction
 	destFshAbs := destFsh.FileSystemAbstraction

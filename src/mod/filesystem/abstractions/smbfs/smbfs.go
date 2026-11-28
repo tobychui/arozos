@@ -192,7 +192,7 @@ func (a ServerMessageBlockFileSystemAbstraction) Stat(filename string) (os.FileI
 	return a.share.Stat(filename)
 }
 func (a ServerMessageBlockFileSystemAbstraction) Close() error {
-	defer logger.TracePanic("Smbfs", "closing the SMB connection of "+a.UUID+":/")
+	defer logger.TracePanicFunc("Smbfs", func() string { return "closing the SMB connection of " + a.UUID + ":/" })
 	logger.Debugf("Smbfs", "%s:/ closing share %q on %s (share set=%v session set=%v conn set=%v). Copies of this abstraction still in use keep the closed share", a.UUID, a.smbRoot, a.ipaddr, a.share != nil, a.session != nil, a.conn != nil)
 	if a.share == nil || a.session == nil || a.conn == nil {
 		logger.Debugf("Smbfs", "%s:/ was never connected; closing it panics with a nil pointer dereference", a.UUID)

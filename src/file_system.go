@@ -565,7 +565,9 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	} else {
 		os.MkdirAll(uploadFolder, 0700)
 	}
-	defer logger.TracePanic("File System", "low memory upload "+uploadUUID+" of "+filename+" to "+uploadTarget+" by "+userinfo.Username)
+	defer logger.TracePanicFunc("File System", func() string {
+		return "low memory upload " + uploadUUID + " of " + filename + " to " + uploadTarget + " by " + userinfo.Username
+	})
 	logger.Debugf("File System", "LowMemoryUpload %s: %q by %q to %q (%q on %s), huge file %v, chunks in %q", uploadUUID, filename, userinfo.Username, uploadTarget, targetUploadLocation, fsh.Describe(), isHugeFile, uploadFolder)
 
 	//Start websocket connection
@@ -1081,7 +1083,9 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	//Check for storage quota
 	uploadFileSize := handler.Size
-	defer logger.TracePanic("File System", "upload of "+storeFilename+" to "+uploadTarget+" by "+userinfo.Username)
+	defer logger.TracePanicFunc("File System", func() string {
+		return "upload of " + storeFilename + " to " + uploadTarget + " by " + userinfo.Username
+	})
 	logger.Debugf("File System", "Upload: %q (%d bytes) by %q to %q, %q on %s, access %s, quota manager set=%v", storeFilename, uploadFileSize, userinfo.Username, uploadTarget, destFilepath, fsh.Describe(), accmode, userinfo.StorageQuota != nil)
 	if !userinfo.StorageQuota.HaveSpace(uploadFileSize) {
 		utils.SendErrorResponse(w, "User Storage Quota Exceeded")
@@ -2311,7 +2315,9 @@ func parseFileOperationRequest(operation string, vsrcFiles string, vdestFile str
 func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFiles []string, vdestFile string, existsOpr string, onUpdate func(fileOprProgressUpdate)) {
 	//The async endpoint runs this in its own goroutine, where a panic stops
 	//the whole server
-	defer logger.TracePanic("File System", "running file operation "+task.ID+" ("+task.Operation+") of "+userinfo.Username+" to "+vdestFile)
+	defer logger.TracePanicFunc("File System", func() string {
+		return "running file operation " + task.ID + " (" + task.Operation + ") of " + userinfo.Username + " to " + vdestFile
+	})
 	if existsOpr == "" {
 		existsOpr = "keep"
 	}
@@ -2629,7 +2635,9 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 	vsrcFiles, _ := utils.PostPara(r, "src")
 	vdestFile, _ := utils.PostPara(r, "dest")
 	vnfilenames, _ := utils.PostPara(r, "new") //Only use when rename or create new file / folder
-	defer logger.TracePanic("File System", "file operation "+operation+" by "+userinfo.Username+" of "+vsrcFiles+" to "+vdestFile)
+	defer logger.TracePanicFunc("File System", func() string {
+		return "file operation " + operation + " by " + userinfo.Username + " of " + vsrcFiles + " to " + vdestFile
+	})
 	logger.Debugf("File System", "handleOpr: %s by %q src=%s dest=%q new=%s", operation, userinfo.Username, vsrcFiles, vdestFile, vnfilenames)
 
 	//Check if operation valid.
@@ -3562,7 +3570,9 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	defer logger.TracePanic("File System", "listing "+currentDir+" ("+realpath+" on "+fsh.UUID+":/) for "+userinfo.Username)
+	defer logger.TracePanicFunc("File System", func() string {
+		return "listing " + currentDir + " (" + realpath + " on " + fsh.UUID + ":/) for " + userinfo.Username
+	})
 	logger.Debugf("File System", "handleList(%q, %q): %q on %s, sort %q", userinfo.Username, currentDir, realpath, fsh.Describe(), sortMode)
 
 	if !fshAbs.FileExists(realpath) {
@@ -3936,7 +3946,7 @@ back into a cancelled record.
 */
 func runTmpZipTask(oprId string, sourceFshs []*filesystem.FileSystemHandler, realSourcePaths []string, zipDestFsh *filesystem.FileSystemHandler, zipOutput string, destFsh *filesystem.FileSystemHandler, rdest string) {
 	//Runs in its own goroutine, where a panic stops the whole server
-	defer logger.TracePanic("File System", "zipping in the background for operation "+oprId+" into "+zipOutput)
+	defer logger.TracePanicFunc("File System", func() string { return "zipping in the background for operation " + oprId + " into " + zipOutput })
 	logger.Debugf("File System", "TmpZip %s: %q into %q, destination %q on %s", oprId, realSourcePaths, zipOutput, rdest, destFsh.Describe())
 	err := filesystem.ArozZipFileWithProgress(sourceFshs, realSourcePaths, zipDestFsh, zipOutput, false, func(currentFilename string, _ int, _ int, progress float64) int {
 		sig, _ := UpdateOngoingFileOperation(oprId, currentFilename, math.Ceil(progress))

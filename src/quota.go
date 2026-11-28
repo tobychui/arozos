@@ -107,7 +107,7 @@ func system_disk_quota_handleQuotaInfo(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		//Outside the request: a panic here ends the whole process
-		defer logger.TracePanic("Quota", "measuring the storage used by "+userinfo.Username)
+		defer logger.TracePanicFunc("Quota", func() string { return "measuring the storage used by " + userinfo.Username })
 		//Update this user's quota estimation in go routine
 		userinfo.StorageQuota.CalculateQuotaUsage()
 	}()

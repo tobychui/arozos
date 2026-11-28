@@ -93,7 +93,7 @@ func (tm *TaskManager) RegisterNightlyTaskWithOption(option TaskOption, task fun
 		}
 		//The nightly timer runs every task in one goroutine, where a panic
 		//stops the whole server
-		defer logger.TracePanic("Nightly", "running nightly task "+name)
+		defer logger.TracePanicFunc("Nightly", func() string { return "running nightly task " + name })
 		started := time.Now()
 		logger.Debugf("Nightly", "%s started", name)
 		task()

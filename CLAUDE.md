@@ -642,18 +642,25 @@ the call returns and name their goroutine and source line, as
 `(goroutine 42, storage/storage.go:57)`, to match the `goroutine 42 [running]:`
 header of a panic trace. A package's own logging helper calls
 `logger.DebugDepth(1, title, msg)` so the line named is its caller's.
-Arguments are evaluated even while debug is off, so pass `fsh.Describe()`
-rather than `fsh.DebugString()` and put heavier work behind
-`logger.DebugEnabled()`. Never log passwords or secrets.
-`defer logger.TracePanic(title, during)` at the top of a goroutine or handler
-logs a panic with its stack (debug only) and panics again with the same value,
-so behaviour does not change; use it wherever a panic would end the whole
-process. Debug mode also wraps every HTTP request the same way
-(`logger.TracePanicHandler`) and has the Go runtime copy its crash report to
-`system/logs/system/system_crash.log` (`EnableCrashLog`). Storage code (the
-drive abstractions, `mod/filesystem`, `mod/storage` and its file servers, pool
-loading, the drive heartbeat and file operations) is traced this way already;
-keep new storage code traced the same way.
+Arguments are evaluated even while debug is off (a built message, every value
+boxed for `Debugf`, one heap allocation each), so a line on a path that runs
+per file or per request goes inside `if logger.DebugEnabled() { ... }`; pass
+`fsh.Describe()` rather than `fsh.DebugString()`. Never log passwords or
+secrets, and remember `-debug` records every user's names and paths.
+`defer logger.TracePanic(title, "constant text")` at the top of a goroutine or
+handler logs a panic with its stack (debug only) and panics again with the
+same value, so behaviour does not change; use it wherever a panic would end
+the whole process. A description built from variables goes through
+`defer logger.TracePanicFunc(title, func() string { return ... })`, which is
+only called for a panic being logged, so it costs nothing otherwise and a nil
+field it reads cannot panic at the `defer`. Debug mode also wraps every HTTP
+request the same way (`logger.TracePanicHandler`) and has the Go runtime copy
+its crash report, with the stack of every goroutine, to
+`system/logs/system/system_crash.log` (`EnableCrashLog`; over 5 MiB it is
+moved to `.1` at startup). Storage code (the drive abstractions,
+`mod/filesystem`, `mod/storage` and its file servers, pool loading, the drive
+heartbeat and file operations) is traced this way already; keep new storage
+code traced the same way.
 
 *Enforced as an ERROR* (blocks CI) on added `log.Print*` / `log.Fatal*` /
 `log.Panic*` calls.

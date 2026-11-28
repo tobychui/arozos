@@ -114,7 +114,6 @@ func (fs *root) getWritableFsh(pathname string) (*filesystem.FileSystemHandler, 
 }
 
 func (fs *root) Fileread(r *sftp.Request) (io.ReaderAt, error) {
-	fs.debugf("Fileread %q", r.Filepath)
 	flags := r.Pflags()
 	if !flags.Read {
 		// sanity check
@@ -122,14 +121,16 @@ func (fs *root) Fileread(r *sftp.Request) (io.ReaderAt, error) {
 	}
 
 	//Read only, or a user without write access could not read at all
-	defer logger.TracePanic("Sftpserver", "reading "+r.Filepath+" for "+fs.username)
+	defer logger.TracePanicFunc("Sftpserver", func() string { return "reading " + r.Filepath + " for " + fs.username })
 	fsh, _, rpath, err := fs.getFshAndSubpathFromSFTPPathname(r.Filepath)
 	if err != nil {
 		return nil, err
 	}
 
 	f, err := fsh.FileSystemAbstraction.OpenFile(rpath, os.O_RDONLY, 0775)
-	logger.Debugf("Sftpserver", "Fileread(%q, %q): %q on %s, error: %v", fs.username, r.Filepath, rpath, fsh.Describe(), err)
+	if logger.DebugEnabled() {
+		logger.Debugf("Sftpserver", "Fileread(%q, %q): %q on %s, error: %v", fs.username, r.Filepath, rpath, fsh.Describe(), err)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -138,21 +139,24 @@ func (fs *root) Fileread(r *sftp.Request) (io.ReaderAt, error) {
 }
 
 func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
-	fs.debugf("Filewrite %q (flags %+v)", r.Filepath, r.Pflags())
 	if arozfs.ToSlash(filepath.Dir(r.Filepath)) == "/" {
 		//Uploading to virtual root folder. Return error
 		return nil, errors.New("ArozOS SFTP root is read only")
 	}
 
-	defer logger.TracePanic("Sftpserver", "writing "+r.Filepath+" for "+fs.username)
+	defer logger.TracePanicFunc("Sftpserver", func() string { return "writing " + r.Filepath + " for " + fs.username })
 	fsh, rpath, err := fs.getWritableFsh(r.Filepath)
 	if err != nil {
-		logger.Debugf("Sftpserver", "Filewrite(%q, %q): refused: %v", fs.username, r.Filepath, err)
+		if logger.DebugEnabled() {
+			logger.Debugf("Sftpserver", "Filewrite(%q, %q): refused: %v", fs.username, r.Filepath, err)
+		}
 		return nil, err
 	}
 
 	f, err := fsh.FileSystemAbstraction.OpenFile(rpath, os.O_WRONLY|openFlags(r.Pflags()), 0775)
-	logger.Debugf("Sftpserver", "Filewrite(%q, %q): %q on %s, error: %v", fs.username, r.Filepath, rpath, fsh.Describe(), err)
+	if logger.DebugEnabled() {
+		logger.Debugf("Sftpserver", "Filewrite(%q, %q): %q on %s, error: %v", fs.username, r.Filepath, rpath, fsh.Describe(), err)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -161,19 +165,22 @@ func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 }
 
 func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
-	fs.debugf("OpenFile %q (flags %+v)", r.Filepath, r.Pflags())
 	if arozfs.ToSlash(filepath.Dir(r.Filepath)) == "/" {
 		return nil, errors.New("ArozOS SFTP root is read only")
 	}
-	defer logger.TracePanic("Sftpserver", "opening "+r.Filepath+" for "+fs.username)
+	defer logger.TracePanicFunc("Sftpserver", func() string { return "opening " + r.Filepath + " for " + fs.username })
 	fsh, rpath, err := fs.getWritableFsh(r.Filepath)
 	if err != nil {
-		logger.Debugf("Sftpserver", "OpenFile(%q, %q): refused: %v", fs.username, r.Filepath, err)
+		if logger.DebugEnabled() {
+			logger.Debugf("Sftpserver", "OpenFile(%q, %q): refused: %v", fs.username, r.Filepath, err)
+		}
 		return nil, err
 	}
 
 	f, err := fsh.FileSystemAbstraction.OpenFile(rpath, os.O_RDWR|openFlags(r.Pflags()), 0775)
-	logger.Debugf("Sftpserver", "OpenFile(%q, %q): %q on %s, error: %v", fs.username, r.Filepath, rpath, fsh.Describe(), err)
+	if logger.DebugEnabled() {
+		logger.Debugf("Sftpserver", "OpenFile(%q, %q): %q on %s, error: %v", fs.username, r.Filepath, rpath, fsh.Describe(), err)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -202,8 +209,10 @@ func openFlags(p sftp.FileOpenFlags) int {
 }
 
 func (fs *root) Filecmd(r *sftp.Request) error {
-	defer logger.TracePanic("Sftpserver", r.Method+" "+r.Filepath+" for "+fs.username)
-	logger.Debugf("Sftpserver", "Filecmd(%q): %s %q target %q", fs.username, r.Method, r.Filepath, r.Target)
+	defer logger.TracePanicFunc("Sftpserver", func() string { return r.Method + " " + r.Filepath + " for " + fs.username })
+	if logger.DebugEnabled() {
+		logger.Debugf("Sftpserver", "Filecmd(%q): %s %q target %q", fs.username, r.Method, r.Filepath, r.Target)
+	}
 	switch r.Method {
 	case "Setstat":
 
@@ -341,8 +350,10 @@ func (f listerat) ListAt(ls []os.FileInfo, offset int64) (int, error) {
 }
 
 func (fs *root) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
-	defer logger.TracePanic("Sftpserver", r.Method+" "+r.Filepath+" for "+fs.username)
-	logger.Debugf("Sftpserver", "Filelist(%q): %s %q", fs.username, r.Method, r.Filepath)
+	defer logger.TracePanicFunc("Sftpserver", func() string { return r.Method + " " + r.Filepath + " for " + fs.username })
+	if logger.DebugEnabled() {
+		logger.Debugf("Sftpserver", "Filelist(%q): %s %q", fs.username, r.Method, r.Filepath)
+	}
 	switch r.Method {
 	case "List":
 		files, err := fs.readdir(r.Filepath)
@@ -429,7 +440,9 @@ func (fs *root) Realpath(p string) string {
 func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.FileSystemHandler, string, string, error) {
 	pathname = strings.TrimSpace(pathname)
 	if pathname == "" {
-		logger.Debugf("Sftpserver", "getFshAndSubpathFromSFTPPathname(%q): empty path; pathname[0:1] below panics with slice bounds out of range", fs.username)
+		if logger.DebugEnabled() {
+			logger.Debugf("Sftpserver", "getFshAndSubpathFromSFTPPathname(%q): empty path; pathname[0:1] below panics with slice bounds out of range", fs.username)
+		}
 	}
 	if pathname[0:1] != "/" {
 		pathname = "/" + pathname
@@ -447,14 +460,18 @@ func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.F
 	fsh := fs.getFshFromID(vrootID)
 	if fsh == nil {
 		//Target fsh not found
-		logger.Debugf("Sftpserver", "getFshAndSubpathFromSFTPPathname(%q, %q): drive %q not open to the user", fs.username, pathname, vrootID)
+		if logger.DebugEnabled() {
+			logger.Debugf("Sftpserver", "getFshAndSubpathFromSFTPPathname(%q, %q): drive %q not open to the user", fs.username, pathname, vrootID)
+		}
 		return nil, "", "", os.ErrExist
 	}
 
 	//Combined virtual path
 	vpath := vrootID + ":/" + subpath
 	if !fs.access.CanRead(vpath) {
-		fs.debugf("%q: no read access to %q", pathname, vpath)
+		if logger.DebugEnabled() {
+			fs.debugf("%q: no read access to %q", pathname, vpath)
+		}
 		return nil, "", "", os.ErrPermission
 	}
 
@@ -462,11 +479,15 @@ func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.F
 	fshAbs := fsh.FileSystemAbstraction
 	rpath, err := fshAbs.VirtualPathToRealPath(vpath, fs.username)
 	if err != nil {
-		fs.debugf("%q: %q did not translate: %v", pathname, vpath, err)
+		if logger.DebugEnabled() {
+			fs.debugf("%q: %q did not translate: %v", pathname, vpath, err)
+		}
 		return nil, "", "", err
 	}
 
-	fs.debugf("%q -> %s:/ (%s) real path %q", pathname, fsh.UUID, fsh.Filesystem, rpath)
+	if logger.DebugEnabled() {
+		fs.debugf("%q -> %s:/ (%s) real path %q", pathname, fsh.UUID, fsh.Filesystem, rpath)
+	}
 	return fsh, subpath, rpath, nil
 }
 

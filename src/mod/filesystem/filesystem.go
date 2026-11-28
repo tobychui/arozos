@@ -146,7 +146,9 @@ func NewFileSystemHandlersFromJSON(jsonContent []byte, runtimePersistenceConfig 
 
 // Create a new file system handler with the given config
 func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig RuntimePersistenceConfig) (*FileSystemHandler, error) {
-	defer logger.TracePanic("Filesystem", "creating the drive handler of "+option.Uuid+":/ ("+option.Filesystem+")")
+	defer logger.TracePanicFunc("Filesystem", func() string {
+		return "creating the drive handler of " + option.Uuid + ":/ (" + option.Filesystem + ")"
+	})
 	fstype := strings.ToLower(option.Filesystem)
 	logger.Debugf("Filesystem", "NewFileSystemHandler: %s (buffer folder %q)", option.DebugString(), RuntimePersistenceConfig.LocalBufferPath)
 	if inSlice([]string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs"}, fstype) || fstype == "" {
@@ -445,7 +447,7 @@ func (fsh *FileSystemHandler) IsLocalDrive() bool {
 
 // Buffer a file to local tmp folder and return the tmp location for further processing
 func (fsh *FileSystemHandler) BufferRemoteToLocal(rpath string) (string, error) {
-	defer logger.TracePanic("Filesystem", "buffering "+rpath+" to the local disk")
+	defer logger.TracePanicFunc("Filesystem", func() string { return "buffering " + rpath + " to the local disk" })
 	logger.Debugf("Filesystem", "BufferRemoteToLocal: %q from %s", rpath, fsh.Describe())
 	//Check if the remote file exists
 	fsa := fsh.FileSystemAbstraction
@@ -554,7 +556,7 @@ func (fsh *FileSystemHandler) GetDirctorySizeFromVpath(vpath string, username st
 
 // Reload the target file system abstraction
 func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
-	defer logger.TracePanic("Filesystem", "reloading the abstraction of "+fsh.UUID+":/")
+	defer logger.TracePanicFunc("Filesystem", func() string { return "reloading the abstraction of " + fsh.UUID + ":/" })
 	logger.PrintAndLog("Filesystem", "[File System] Reloading File System Abstraction for "+fsh.Name, nil)
 	logger.Debugf("Filesystem", "ReloadFileSystelAbstraction: closing %s. Until the reload ends it stays closed, and calls already holding it use the old abstraction", fsh.Describe())
 	//Load the start option for this fsh
@@ -588,7 +590,7 @@ func (fsh *FileSystemHandler) RequierUserIsolation() bool {
 
 // Close an openeded File System
 func (fsh *FileSystemHandler) Close() {
-	defer logger.TracePanic("Filesystem", "closing drive handler "+fsh.DebugString())
+	defer logger.TracePanicFunc("Filesystem", func() string { return "closing drive handler " + fsh.DebugString() })
 	logger.Debugf("Filesystem", "Close: %s", fsh.Describe())
 	if fsh.FileSystemAbstraction == nil {
 		logger.Debugf("Filesystem", "Close: %s:/ has no abstraction, closing it panics with a nil pointer dereference", fsh.UUID)

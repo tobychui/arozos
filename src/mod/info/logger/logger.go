@@ -224,7 +224,10 @@ func DebugEnabled() bool {
 }
 
 // Debug prints and logs a DEBUG level message through the system logger.
-// It does nothing unless debug is enabled.
+// It does nothing unless debug is enabled. Its arguments are still evaluated
+// when debug is off (a built message, the values boxed for Debugf), so a
+// line on a path that runs per file or per request goes behind
+// DebugEnabled().
 func Debug(title string, message string) {
 	if !debugEnabled.Load() {
 		return
@@ -266,11 +269,14 @@ again with the same value, so the program behaves as it would without it
 (net/http still recovers a panicking handler, a panicking goroutine still
 stops the program). Defer it directly, as
 
-	defer logger.TracePanic("Storage", "loading the storage pool of "+group)
+	defer logger.TracePanic("Storage", "running the drive heartbeat")
 
 since recover only works in the deferred function itself. during says what
 the function was doing, and is written next to the panic. When debug is off
 it does not recover anything.
+
+during is evaluated at the defer statement, debug or not, so give it a
+constant. A description built from variables goes through TracePanicFunc.
 */
 func TracePanic(title string, during string) {
 	if !debugEnabled.Load() {
@@ -280,11 +286,53 @@ func TracePanic(title string, during string) {
 	if r == nil {
 		return
 	}
+	logPanic(title, during, r)
+	panic(r)
+}
+
+/*
+TracePanicFunc is TracePanic for a description built from variables:
+
+	defer logger.TracePanicFunc("SMB", func() string { return "opening " + p + " on " + s.name() })
+
+describe is only called when a panic is being logged, so a call that does
+not panic, or runs with debug off, builds no string, and a nil field it
+reads cannot panic at the defer statement. A describe that panics itself
+is reported in its place instead of hiding the panic being traced. Defer it
+directly, like TracePanic.
+*/
+func TracePanicFunc(title string, describe func() string) {
+	if !debugEnabled.Load() {
+		return
+	}
+	r := recover()
+	if r == nil {
+		return
+	}
+	logPanic(title, describeSafely(describe), r)
+	panic(r)
+}
+
+// describeSafely calls a TracePanicFunc description, which runs while a
+// panic is being handled and so must not panic again
+func describeSafely(describe func() string) (during string) {
+	defer func() {
+		if r := recover(); r != nil {
+			during = fmt.Sprintf("<description failed: %v>", r)
+		}
+	}()
+	if describe == nil {
+		return "<no description>"
+	}
+	return describe()
+}
+
+// logPanic writes a recovered panic and the stack of its goroutine
+func logPanic(title string, during string, r any) {
 	//The stack names the line that panicked; the caller of a deferred
 	//function at this point is the runtime, so none is given
 	message := fmt.Sprintf("PANIC while %s: %v\n%s", during, r, debug.Stack())
 	defaultLogger.writeDebug(title, message, "", goroutineID())
-	panic(r)
 }
 
 /*
@@ -314,19 +362,36 @@ func TracePanicHandler(title string, h http.Handler) http.Handler {
 	})
 }
 
+// crashLogMaxBytes is the size past which the crash log is moved aside at
+// startup, keeping one older file
+const crashLogMaxBytes = 5 << 20
+
 /*
-EnableCrashLog makes the Go runtime also write its crash report (the panic
-value and the stack of every goroutine) to <prefix>_crash.log in the log
-folder when the process dies. That covers what TracePanic cannot: a panic in
-a goroutine nobody wrapped, and fatal errors such as "concurrent map writes"
-that cannot be recovered at all. The report still goes to stderr as well. It
-returns the path of the crash log.
+EnableCrashLog makes the Go runtime also write its crash report to
+<prefix>_crash.log in the log folder when the process dies. That covers what
+TracePanic cannot: a panic in a goroutine nobody wrapped, and fatal errors
+such as "concurrent map writes" that cannot be recovered at all. The report
+still goes to stderr as well. It returns the path of the crash log.
+
+The runtime only prints the crashing goroutine by default (GOTRACEBACK), so
+this also asks for the stack of every goroutine: what the others were doing
+is often what explains the crash. A GOTRACEBACK set higher in the
+environment stays in force.
+
+Each start adds one marker line, and each crash one report, so the file only
+grows by crashes; still, a crash log over crashLogMaxBytes is moved to
+<prefix>_crash.log.1 (replacing an older one) before it is opened.
 */
 func (l *Logger) EnableCrashLog() (string, error) {
 	if l == nil || l.LogFolder == "" {
 		return "", fmt.Errorf("logger has no log folder")
 	}
 	crashLogPath := filepath.Join(l.LogFolder, l.Prefix+"_crash.log")
+	if info, err := os.Stat(crashLogPath); err == nil && info.Size() > crashLogMaxBytes {
+		if err := os.Rename(crashLogPath, crashLogPath+".1"); err != nil {
+			return "", err
+		}
+	}
 	f, err := os.OpenFile(crashLogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return "", err
@@ -336,6 +401,7 @@ func (l *Logger) EnableCrashLog() (string, error) {
 	if err := debug.SetCrashOutput(f, debug.CrashOptions{}); err != nil {
 		return "", err
 	}
+	debug.SetTraceback("all")
 	return crashLogPath, nil
 }
 

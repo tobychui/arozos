@@ -216,6 +216,12 @@ func (s *share) debugf(format string, args ...interface{}) {
 	if !logger.DebugEnabled() {
 		return
 	}
+	logger.DebugDepth(1, "SMB", "[SMB] "+s.describe()+" "+fmt.Sprintf(format, args...))
+}
+
+// describe names the user and drive of this share for debug lines and panic
+// traces. It reads no field of a nil drive or view, so it cannot panic.
+func (s *share) describe() string {
 	drive := "<nil drive>"
 	if s.fsh != nil {
 		drive = s.fsh.UUID + ":/"
@@ -229,7 +235,7 @@ func (s *share) debugf(format string, args ...interface{}) {
 	if s.v != nil {
 		username = s.v.username
 	}
-	logger.DebugDepth(1, "SMB", fmt.Sprintf("[SMB] %s on %s (share %q) ", username, drive, s.sub)+fmt.Sprintf(format, args...))
+	return fmt.Sprintf("%s on %s (share %q)", username, drive, s.sub)
 }
 
 func newShare(fsh *filesystem.FileSystemHandler, v *view) *share {
@@ -293,11 +299,15 @@ func (s *share) real(p string) (string, error) {
 	p = sharePath(p)
 	rpath, err := s.fsh.FileSystemAbstraction.VirtualPathToRealPath(s.vpath(p), s.v.username)
 	if err != nil {
-		s.debugf("%q (%q) did not translate: %v", p, s.vpath(p), err)
+		if logger.DebugEnabled() {
+			s.debugf("%q (%q) did not translate: %v", p, s.vpath(p), err)
+		}
 		return "", err
 	}
 	if err := s.confine(rpath); err != nil {
-		s.debugf("%q -> %q refused, it leads off the drive: %v", p, rpath, err)
+		if logger.DebugEnabled() {
+			s.debugf("%q -> %q refused, it leads off the drive: %v", p, rpath, err)
+		}
 		return "", err
 	}
 	return rpath, nil
@@ -377,7 +387,9 @@ func infoOf(name string, fi os.FileInfo) smbsrv.FileInfo {
 }
 
 func (s *share) Stat(p string) (smbsrv.FileInfo, error) {
-	s.debugf("Stat %q", p)
+	if logger.DebugEnabled() {
+		s.debugf("Stat %q", p)
+	}
 	rpath, err := s.real(p)
 	if err != nil {
 		return smbsrv.FileInfo{}, err
@@ -394,15 +406,18 @@ func (s *share) Stat(p string) (smbsrv.FileInfo, error) {
 }
 
 func (s *share) ReadDir(p string) ([]smbsrv.FileInfo, error) {
-	defer logger.TracePanic("SMB", "listing "+p+" on "+s.fsh.UUID+":/ for "+s.v.username)
-	s.debugf("ReadDir %q", p)
+	defer logger.TracePanicFunc("SMB", func() string { return "listing " + p + " for " + s.describe() })
 	rpath, err := s.real(p)
 	if err != nil {
-		logger.Debugf("SMB", "ReadDir(%q) on %s for %q: path refused: %v", p, s.fsh.Describe(), s.v.username, err)
+		if logger.DebugEnabled() {
+			s.debugf("ReadDir %q: path refused: %v", p, err)
+		}
 		return nil, err
 	}
 	entries, err := s.fsh.FileSystemAbstraction.ReadDir(rpath)
-	logger.Debugf("SMB", "ReadDir(%q) on %s for %q: %d entries, error: %v", rpath, s.fsh.Describe(), s.v.username, len(entries), err)
+	if logger.DebugEnabled() {
+		s.debugf("ReadDir %q (%q): %d entries, error: %v", p, rpath, len(entries), err)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -454,9 +469,11 @@ func (s *share) stage() stageConfig {
 }
 
 func (s *share) Open(p string, flag int) (smbsrv.File, error) {
-	defer logger.TracePanic("SMB", "opening "+p+" on "+s.fsh.UUID+":/ for "+s.v.username)
+	defer logger.TracePanicFunc("SMB", func() string { return "opening " + p + " for " + s.describe() })
 	rpath, err := s.real(p)
-	logger.Debugf("SMB", "Open(%q, flag %#x) on %s for %q: %q, buffered: %v, error: %v", p, flag, s.fsh.Describe(), s.v.username, rpath, s.fsh.RequireBuffer, err)
+	if logger.DebugEnabled() {
+		s.debugf("Open %q (%q) flag %#x, error: %v", p, rpath, flag, err)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -476,20 +493,23 @@ func (s *share) Open(p string, flag int) (smbsrv.File, error) {
 }
 
 func (s *share) Mkdir(p string) error {
-	s.debugf("Mkdir %q", p)
 	rpath, err := s.real(p)
 	if err != nil {
 		return err
 	}
 	err = s.fsh.FileSystemAbstraction.Mkdir(rpath, 0775)
-	logger.Debugf("SMB", "Mkdir(%q) on %s for %q, error: %v", rpath, s.fsh.Describe(), s.v.username, err)
+	if logger.DebugEnabled() {
+		s.debugf("Mkdir %q (%q), error: %v", p, rpath, err)
+	}
 	return err
 }
 
 func (s *share) Remove(p string) error {
-	defer logger.TracePanic("SMB", "removing "+p+" on "+s.fsh.UUID+":/ for "+s.v.username)
+	defer logger.TracePanicFunc("SMB", func() string { return "removing " + p + " for " + s.describe() })
 	rpath, err := s.real(p)
-	logger.Debugf("SMB", "Remove(%q) on %s for %q: %q, quota set: %v, error: %v", p, s.fsh.Describe(), s.v.username, rpath, s.v.quota != nil, err)
+	if logger.DebugEnabled() {
+		s.debugf("Remove %q (%q), error: %v", p, rpath, err)
+	}
 	if err != nil {
 		return err
 	}
@@ -534,8 +554,7 @@ func (s *share) Remove(p string) error {
 }
 
 func (s *share) Rename(oldPath, newPath string) error {
-	defer logger.TracePanic("SMB", "renaming "+oldPath+" to "+newPath+" on "+s.fsh.UUID+":/ for "+s.v.username)
-	s.debugf("Rename %q -> %q", oldPath, newPath)
+	defer logger.TracePanicFunc("SMB", func() string { return "renaming " + oldPath + " to " + newPath + " for " + s.describe() })
 	source, err := s.real(oldPath)
 	if err != nil {
 		return err
@@ -544,7 +563,9 @@ func (s *share) Rename(oldPath, newPath string) error {
 	if err != nil {
 		return err
 	}
-	logger.Debugf("SMB", "Rename(%q -> %q) on %s for %q", source, target, s.fsh.Describe(), s.v.username)
+	if logger.DebugEnabled() {
+		s.debugf("Rename %q -> %q (%q -> %q)", oldPath, newPath, source, target)
+	}
 	//A rename can replace a file, whose space comes back
 	replaced := int64(0)
 	if s.tracksQuota() && !strings.EqualFold(oldPath, newPath) {
@@ -565,7 +586,9 @@ func (s *share) Rename(oldPath, newPath string) error {
 }
 
 func (s *share) SetModTime(p string, t time.Time) error {
-	s.debugf("SetModTime %q %v", p, t)
+	if logger.DebugEnabled() {
+		s.debugf("SetModTime %q %v", p, t)
+	}
 	rpath, err := s.real(p)
 	if err != nil {
 		return err

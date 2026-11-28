@@ -179,7 +179,7 @@ func localFilesystemType() string {
 */
 
 func mountDrive(poolOwner string, option fs.FileSystemOption) error {
-	defer logger.TracePanic("Storage", "mounting "+option.Uuid+":/ in pool "+poolOwner)
+	defer logger.TracePanicFunc("Storage", func() string { return "mounting " + option.Uuid + ":/ in pool " + poolOwner })
 	logger.Debugf("Storage", "mountDrive(%s): %s", poolOwner, option.DebugString())
 	pool, err := GetStoragePoolByOwner(poolOwner)
 	if err != nil {
@@ -203,7 +203,7 @@ func mountDrive(poolOwner string, option fs.FileSystemOption) error {
 }
 
 func unmountDrive(poolOwner string, uuid string) {
-	defer logger.TracePanic("Storage", "unmounting "+uuid+":/ from pool "+poolOwner)
+	defer logger.TracePanicFunc("Storage", func() string { return "unmounting " + uuid + ":/ from pool " + poolOwner })
 	pool, err := GetStoragePoolByOwner(poolOwner)
 	if err != nil {
 		logger.Debugf("Storage", "unmountDrive(%s, %s): pool not found: %v", poolOwner, uuid, err)
@@ -241,7 +241,7 @@ func sendMountResult(w http.ResponseWriter, mountErr error) {
 
 // Handle editing of a given File System Handler
 func HandleFSHEdit(w http.ResponseWriter, r *http.Request) {
-	defer logger.TracePanic("Storage", "handling "+r.URL.Path)
+	defer logger.TracePanicFunc("Storage", func() string { return "handling " + r.URL.Path })
 	opr, _ := utils.PostPara(r, "opr")
 	group, err := utils.PostPara(r, "group")
 	if err != nil {
@@ -517,7 +517,7 @@ func reloadBasePool() {
 
 // Handle reload of storage pool
 func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
-	defer logger.TracePanic("Storage", "handling "+r.URL.Path)
+	defer logger.TracePanicFunc("Storage", func() string { return "handling " + r.URL.Path })
 	pool, _ := utils.PostPara(r, "pool")
 	logger.Debugf("Storage", "HandleStoragePoolReload: pool=%q", pool)
 
@@ -590,7 +590,7 @@ func restartAllEnabledServers() {
 
 // reloadGroupPool closes and reopens the pool of a permission group
 func reloadGroupPool(group string) {
-	defer logger.TracePanic("Storage", "reloading the storage pool of group "+group)
+	defer logger.TracePanicFunc("Storage", func() string { return "reloading the storage pool of group " + group })
 	systemWideLogger.PrintAndLog("Storage", "Reloading Storage Pool for: "+group, nil)
 	pg := permissionHandler.GetPermissionGroupByName(group)
 	if pg == nil {
@@ -616,7 +616,7 @@ func reloadGroupPool(group string) {
 }
 
 func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
-	defer logger.TracePanic("Storage", "handling "+r.URL.Path)
+	defer logger.TracePanicFunc("Storage", func() string { return "handling " + r.URL.Path })
 	groupname, err := utils.PostPara(r, "group")
 	if err != nil {
 		utils.SendErrorResponse(w, "group not defined")
@@ -731,7 +731,9 @@ func testNetworkDrive(option fs.FileSystemOption) error {
 	logger.Debugf("Storage", "testNetworkDrive: %s", option.DebugString())
 	go func() {
 		//A panic here stops the whole server, not just this request
-		defer logger.TracePanic("Storage", "testing the connection to "+option.Filesystem+" drive "+option.Uuid+":/")
+		defer logger.TracePanicFunc("Storage", func() string {
+			return "testing the connection to " + option.Filesystem + " drive " + option.Uuid + ":/"
+		})
 		handler, err := fs.NewFileSystemHandler(option, fs.RuntimePersistenceConfig{
 			LocalBufferPath: *tmp_directory,
 		})
