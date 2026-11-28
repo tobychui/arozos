@@ -214,6 +214,36 @@
         }
         @keyframes seekSpin { to { transform: rotate(360deg); } }
 
+        /* "Click to play" hint, shown when a requested start has not happened —
+           most often because the browser blocked autoplay. It sits just below
+           the buffering box, and clicking it is the user gesture the browser is
+           waiting for. Same stacking rule as the spinner: no z-index, it stays
+           right after it in the DOM. */
+        #play-hint {
+            display: none;
+            position: absolute; left: 50%; top: calc(50% + 64px);
+            transform: translateX(-50%);
+            align-items: center; gap: 8px;
+            max-width: calc(100% - 32px);
+            padding: 8px 16px 8px 10px;
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 999px;
+            background: rgba(0,0,0,0.72);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            color: #fff; font-size: 13px;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            cursor: pointer;
+            animation: playHintIn 0.25s ease-out;
+        }
+        #play-hint.active { display: flex; }
+        #play-hint:hover { background: rgba(0,0,0,0.88); border-color: rgba(255,255,255,0.5); }
+        #play-hint img { width: 18px; height: 18px; flex-shrink: 0; }
+        @keyframes playHintIn {
+            from { opacity: 0; transform: translate(-50%, 6px); }
+            to   { opacity: 1; transform: translate(-50%, 0); }
+        }
+
         /* ── Subtitle display ──────────────────────────────────────────────── */
         #subtitle-display {
             display: none;
@@ -545,6 +575,10 @@
             <span locale="player/buffering">Buffering…</span>
         </div>
     </div>
+    <button type="button" id="play-hint">
+        <img src="img/icons/play_white.svg" alt="">
+        <span locale="player/clickToPlay">Video not starting? Click here to play</span>
+    </button>
 
     <!-- Styled ASS/SSA subtitles are drawn here, sized to the video's
          displayed rectangle. The plain #subtitle-display below is used
@@ -820,12 +854,18 @@ function showToast(msg) {
 // unhandled it only shows up as an unhandled rejection in the console, so the
 // player just sits there with no explanation. Surface it instead.
 function playVideo(v) {
+    armPlayHint(v);
     var p = v.play();
     if (p && typeof p.catch === 'function') {
         p.catch(function (err) {
             if (err && err.name === 'AbortError') {
                 // Fired whenever a load or a new src interrupts a pending
                 // play() — routine during seek-by-reload, not a failure.
+                return;
+            }
+            if (err && err.name === 'NotAllowedError') {
+                // Autoplay blocked: the browser waits for a click, so offer one
+                showPlayHint();
                 return;
             }
             if (err && err.name === 'NotSupportedError') {
@@ -838,6 +878,40 @@ function playVideo(v) {
     }
     return p;
 }
+
+// ── "Click to play" hint ──────────────────────────────────────────────────────
+// A browser that blocks autoplay refuses play() and waits for a click; without
+// a cue the player just sits there looking as if it were still buffering. The
+// hint is that cue. It appears at once when play() is refused, or when a start
+// requested six seconds ago still has not happened, and clicking it is the
+// user gesture the browser needs. The delay is written out in armPlayHint
+// rather than kept in a variable: playVideo can run before this part of the
+// script has, and would then see the variable still undefined.
+var playHintTimer = null;
+
+function armPlayHint(v) {
+    clearTimeout(playHintTimer);
+    playHintTimer = setTimeout(function () {
+        playHintTimer = null;
+        // paused: play() was refused; readyState below HAVE_FUTURE_DATA: it
+        // was accepted but nothing has played yet
+        if (v.paused || v.readyState < 3) { showPlayHint(); }
+    }, 6000);
+}
+
+function showPlayHint() { $('#play-hint').addClass('active'); }
+
+function hidePlayHint() {
+    clearTimeout(playHintTimer);
+    playHintTimer = null;
+    $('#play-hint').removeClass('active');
+}
+
+$('#play-hint').on('click', function (e) {
+    e.stopPropagation();
+    hidePlayHint();
+    playVideo(document.getElementById('main-video'));
+});
 
 // ── File loading ──────────────────────────────────────────────────────────────
 var files = ao_module_loadInputFiles();
@@ -1396,11 +1470,16 @@ function initVideoControls() {
 
     $(vid).on('playing', function () {
         hideSeekFreeze();
+        hidePlayHint();
         streamRecoveryAttempts = 0;   // the stream is healthy again
     });
+    // A pause the user asked for is not a start that failed. Only the pending
+    // check is dropped: a hint already shown for a blocked autoplay stays up.
+    $(vid).on('pause', function () { clearTimeout(playHintTimer); playHintTimer = null; });
     $(vid).on('loadeddata', function () { if (vid.paused) { hideSeekFreeze(); } });
     $(vid).on('error', function () {
         hideSeekFreeze();
+        hidePlayHint();
         recoverTranscodeStream();
     });
     $(vid).on(STREAM_LOST_EVENT, function (e) {
